@@ -1,4 +1,5 @@
 
+// ... imports (keep existing)
 import React, { useState, useEffect } from 'react';
 import { StudySession, Subject, Exam, Task } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
@@ -163,12 +164,12 @@ export const PlanPage: React.FC<PlanPageProps> = ({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-12 gap-0 overflow-y-auto custom-scrollbar"
+                className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-12 gap-0 overflow-y-auto custom-scrollbar pb-20 lg:pb-0"
             >
                 {/* Left Column: Calendar Area */}
-                <div className="lg:col-span-8 flex flex-col p-6 pt-0 border-r border-white/5">
+                <div className="lg:col-span-8 flex flex-col p-6 pt-0 lg:border-r border-white/5">
                     {/* Calendar Container */}
-                    <div className="bg-transparent rounded-3xl pt-2 pb-6 relative overflow-hidden flex-1">
+                    <div className="bg-transparent rounded-3xl pt-2 pb-6 relative overflow-hidden flex-none">
                         <HeatmapCalendar 
                             sessions={sessions} 
                             currentDate={calendarMonth} 
@@ -196,7 +197,7 @@ export const PlanPage: React.FC<PlanPageProps> = ({
                 </div>
 
                 {/* Right Column: Goals Side Panel */}
-                <div className="lg:col-span-4 h-full bg-slate-900/20 backdrop-blur-sm border-l border-white/5 p-6">
+                <div className="lg:col-span-4 h-auto lg:h-full bg-slate-900/20 backdrop-blur-sm border-t lg:border-t-0 lg:border-l border-white/5 p-6 min-h-[400px]">
                     <GoalChecklist 
                         dailyTotalMs={dailyTotalMs} 
                         tasks={todaysTasks}
@@ -214,7 +215,7 @@ export const PlanPage: React.FC<PlanPageProps> = ({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex-1 min-h-0 overflow-hidden px-4 md:px-6 pb-6"
+                className="flex-1 min-h-0 overflow-hidden px-4 md:px-6 pb-20 lg:pb-6"
             >
                 <KanbanBoard 
                     tasks={tasks} // Pass ALL tasks to Kanban for project view
@@ -232,7 +233,7 @@ export const PlanPage: React.FC<PlanPageProps> = ({
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.98 }}
-                className="flex-1 space-y-8 overflow-y-auto custom-scrollbar p-6 pt-2"
+                className="flex-1 space-y-8 overflow-y-auto custom-scrollbar p-6 pt-2 pb-20 lg:pb-6"
             >
                 {/* Stats Row */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

@@ -199,7 +199,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   return (
-    <div className="h-full overflow-y-auto custom-scrollbar flex flex-col pb-safe">
+    <div className="h-full overflow-y-auto custom-scrollbar flex flex-col pb-20 lg:pb-0">
         <motion.div 
             variants={containerVariants}
             initial="hidden"
@@ -219,7 +219,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric'})}
                             </span>
                         </div>
-                        <h1 className="text-4xl lg:text-5xl font-bold text-white tracking-tight leading-tight">
+                        <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-tight">
                             Good {timeOfDay}, <span className={`text-transparent bg-clip-text bg-gradient-to-r from-${accent}-400 to-purple-400`}>{userName}</span>
                         </h1>
                     </div>
@@ -236,13 +236,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             </motion.div>
 
-            {/* 2. Main Dashboard Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
+            {/* 2. Main Dashboard Grid - Responsive Columns */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
                 
-                {/* Hero Card / XP Rank Card */}
+                {/* Hero Card / XP Rank Card - Spans 2 cols usually, but 1 col on mobile if needed or full width */}
                 <motion.div 
                     variants={itemVariants}
-                    className="col-span-2 bg-gradient-to-br from-slate-900 to-slate-950 border border-white/10 rounded-[2rem] p-6 lg:p-8 relative overflow-hidden group shadow-2xl flex flex-col justify-between min-h-[240px]"
+                    className="col-span-1 sm:col-span-2 bg-gradient-to-br from-slate-900 to-slate-950 border border-white/10 rounded-[2rem] p-6 lg:p-8 relative overflow-hidden group shadow-2xl flex flex-col justify-between min-h-[240px]"
                 >
                     <div className={`absolute top-0 right-0 p-40 bg-${accent}-500/10 rounded-full blur-[100px] -mr-20 -mt-20 transition-opacity opacity-50 group-hover:opacity-80 duration-1000`} />
                     <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10"></div>
@@ -366,7 +366,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 {/* Weekly Trend */}
                 <motion.div 
                     variants={itemVariants}
-                    className="col-span-1 lg:col-span-2 bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-[2rem] p-6 flex flex-col"
+                    className="col-span-1 sm:col-span-2 bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-[2rem] p-6 flex flex-col"
                 >
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-2">
@@ -374,9 +374,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Weekly Trend</span>
                         </div>
                     </div>
-                    <div className="flex-1 flex items-end gap-3 w-full h-[120px]">
+                    <div className="flex-1 flex items-end gap-2 sm:gap-3 w-full h-[120px] overflow-x-auto no-scrollbar pb-2">
                         {weeklyTrend.map((d, i) => (
-                            <div key={i} className="flex-1 flex flex-col items-center gap-3 group relative h-full justify-end">
+                            <div key={i} className="flex-1 flex flex-col items-center gap-3 group relative h-full justify-end min-w-[30px]">
                                 <div className="w-full relative flex-1 flex items-end bg-slate-800/30 rounded-t-lg overflow-hidden">
                                     <motion.div 
                                         initial={{ height: 0 }}
@@ -385,12 +385,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         className={`w-full rounded-t-lg transition-all duration-300 relative group-hover:opacity-90 ${d.isToday ? `bg-${accent}-500 shadow-[0_0_15px_rgba(var(--color-${accent}-500),0.3)]` : 'bg-slate-700'}`}
                                         style={{ minHeight: '4px' }}
                                     />
-                                    {/* Hover Tooltip */}
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-900 border border-white/10 text-[10px] text-white px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-20 shadow-xl transition-opacity font-mono">
-                                        {d.hours.toFixed(1)}h
-                                    </div>
                                 </div>
-                                <span className={`text-[9px] font-bold uppercase ${d.isToday ? 'text-white' : 'text-slate-600'}`}>{d.day}</span>
+                                <span className={`text-[9px] font-bold uppercase ${d.isToday ? 'text-white' : 'text-slate-600'}`}>{d.day[0]}</span>
                             </div>
                         ))}
                     </div>

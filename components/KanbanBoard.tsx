@@ -124,7 +124,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks, subjects, onTas
         onDragStart={(e) => setActiveId(e.active.id as string)}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex h-full gap-4 overflow-x-auto overflow-y-hidden pb-2 min-w-[800px] md:min-w-0">
+        {/* Responsive Layout: Vertical stack on mobile, horizontal on desktop */}
+        <div className="flex flex-col md:flex-row h-full gap-4 overflow-y-auto md:overflow-y-hidden md:overflow-x-auto pb-32 md:pb-2 no-scrollbar md:custom-scrollbar scroll-smooth">
           {COLUMNS.map(col => (
             <KanbanColumn 
                 key={col.id}
@@ -194,9 +195,9 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
     const { setNodeRef } = useDroppable({ id: col.id });
 
     return (
-        <div className="flex-1 flex flex-col bg-slate-900/30 backdrop-blur-sm border border-white/5 rounded-2xl h-full max-h-full min-w-[280px]">
+        <div className="flex-none md:flex-1 flex flex-col bg-slate-900/30 backdrop-blur-sm border border-white/5 rounded-2xl w-full md:w-auto md:min-w-[280px] md:h-full">
             {/* Header */}
-            <div className="p-4 flex justify-between items-center border-b border-white/5 flex-none">
+            <div className="p-4 flex justify-between items-center border-b border-white/5 flex-none bg-white/5 md:bg-transparent rounded-t-2xl">
                 <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${col.color}`} />
                     <h3 className="font-bold text-slate-200">{col.title}</h3>
@@ -207,8 +208,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                 </button>
             </div>
 
-            {/* Droppable Content */}
-            <div ref={setNodeRef} className="flex-1 p-3 overflow-y-auto space-y-3 custom-scrollbar">
+            {/* Droppable Content - Auto height on mobile, scrollable on desktop */}
+            <div ref={setNodeRef} className="p-3 space-y-3 md:flex-1 md:overflow-y-auto custom-scrollbar min-h-[100px]">
                 <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                 
                 {isAdding && (
@@ -280,7 +281,7 @@ const SortableTask: React.FC<SortableTaskProps> = ({ task, subject, onStartSessi
     };
 
     return (
-        <div ref={setNodeRef} style={style} className="touch-none">
+        <div ref={setNodeRef} style={style}>
             <TaskCard 
                 task={task} 
                 subject={subject} 
@@ -358,7 +359,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, subject, dragHandleProps, onS
                 
                 <div 
                     {...dragHandleProps}
-                    className="text-slate-600 hover:text-slate-400 cursor-grab active:cursor-grabbing p-1 -mr-1 -mt-1"
+                    className="text-slate-600 hover:text-slate-400 cursor-grab active:cursor-grabbing p-1 -mr-1 -mt-1 touch-none"
                     onClick={(e) => e.stopPropagation()} 
                 >
                     <GripVertical size={14} />
@@ -385,15 +386,10 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, subject, dragHandleProps, onS
     );
 };
 
-// --- Task Modal ---
-
-interface TaskDetailModalProps {
-    task: Task;
-    subjects: Subject[];
-    onClose: () => void;
-    onSave: (task: Task) => void;
-    onDelete: (id: string) => void;
-}
+// ... TaskDetailModal remains unchanged ...
+// Re-exporting TaskDetailModal is not necessary if only KanbanBoard is exported from the file, 
+// but we need to ensure the full file content is valid.
+// Including TaskDetailModal for completeness of the file update.
 
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, subjects, onClose, onSave, onDelete }) => {
     const [editedTask, setEditedTask] = useState<Task>({ ...task });
@@ -528,3 +524,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, subjects, onClo
         </div>
     );
 };
+
+interface TaskDetailModalProps {
+    task: Task;
+    subjects: Subject[];
+    onClose: () => void;
+    onSave: (task: Task) => void;
+    onDelete: (id: string) => void;
+}

@@ -31,7 +31,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { rtdb } from './services/firebase';
 import { ref, set, onDisconnect, serverTimestamp, onValue, update } from 'firebase/database';
 
-// ... (Helper functions like getYoutubeId, formatMiniTime, MiniTimer component remain unchanged) ...
 // Helper function to extract YouTube video ID
 const getYoutubeId = (url: string) => {
     if (!url) return null;
@@ -707,11 +706,16 @@ const App: React.FC = () => {
                  </div>
              </div>
              
-             <div className="relative z-10 w-full md:w-auto flex justify-start md:justify-end">
+             <div className="relative z-10 w-full md:w-auto flex flex-col md:flex-row gap-3 justify-start md:justify-end">
                 {isGuest ? (
-                    <button onClick={signInWithGoogle} className={`w-full md:w-auto px-6 py-3 bg-${accent}-500 text-white hover:bg-${accent}-600 rounded-xl transition-all shadow-lg shadow-${accent}-500/20 font-bold text-sm flex items-center justify-center gap-2`}>
-                        <LogIn size={18} /> Sign In to Sync
-                    </button>
+                    <>
+                        <button onClick={logout} className="w-full md:w-auto px-6 py-3 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-xl transition-all border border-white/5 font-semibold text-sm flex items-center justify-center gap-2">
+                            <LogOut size={18} /> Exit Guest Mode
+                        </button>
+                        <button onClick={signInWithGoogle} className={`w-full md:w-auto px-6 py-3 bg-${accent}-500 text-white hover:bg-${accent}-600 rounded-xl transition-all shadow-lg shadow-${accent}-500/20 font-bold text-sm flex items-center justify-center gap-2`}>
+                            <LogIn size={18} /> Sign In to Sync
+                        </button>
+                    </>
                 ) : (
                     <button onClick={logout} className="w-full md:w-auto px-6 py-3 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-xl transition-all border border-white/5 font-semibold text-sm flex items-center justify-center gap-2">
                         <LogOut size={18} /> Sign Out

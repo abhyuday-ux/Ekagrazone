@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { StudySession, Subject, isHexColor } from '../types';
-import { BarChart2, TrendingUp, Clock, Activity, Zap, Calendar, ArrowRight, Layout, List, PieChart, Plus, AlertTriangle } from 'lucide-react';
+import { BarChart2, TrendingUp, Clock, Activity, Zap, Calendar, ArrowRight, Layout, List, PieChart, Plus, AlertTriangle, Layers, Flame } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SubjectDonut } from './SubjectDonut';
@@ -124,6 +124,14 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
       return sessions.filter(s => s.startTime >= startTime && s.startTime < endTime);
   }, [sessions, range, start, end]);
 
+  const formatDurationSimple = (ms: number) => {
+      if (ms === 0) return '0m';
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      if (h === 0) return `${m}m`;
+      return `${h}h ${m}m`;
+  };
+
   // --- Metrics ---
 
   const totalDuration = filteredSessions.reduce((acc, s) => acc + s.durationMs, 0);
@@ -169,9 +177,13 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
       return data;
   }, [sessions, range, start]);
 
-  const maxTrendValue = Math.max(...trendData.map(d => d.value), 1);
+  const maxTrendValue = Math.max(...trendData.map(d => d.value), dailyAverage * 1.2, 1);
 
   // Heatmap Data (Day x Time of Day)
+  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const timeLabels = ['Night', 'Early', 'Morn', 'Noon', 'Eve', 'Late'];
+  const timeRanges = ['00-04', '04-08', '08-12', '12-16', '16-20', '20-24'];
+
   const heatmapData = useMemo(() => {
       const grid = Array(7).fill(0).map(() => Array(6).fill(0)); // 7 days x 6 blocks
       
@@ -187,11 +199,38 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
       });
       
       const maxVal = Math.max(...grid.flat(), 1);
-      return grid.map(row => row.map(val => val / maxVal));
+      
+      return grid.map(row => row.map(val => ({
+          durationMs: val,
+          intensity: val / maxVal
+      })));
   }, [filteredSessions]);
 
-  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const timeLabels = ['Night', 'Early', 'Morn', 'Noon', 'Eve', 'Late'];
+  // Derived Insights for Heatmap
+  const { peakTimeLabel, bestDayLabel } = useMemo(() => {
+      // Best Time
+      const colTotals = Array(6).fill(0);
+      filteredSessions.forEach(s => {
+          const h = new Date(s.startTime).getHours();
+          colTotals[Math.floor(h/4)] += s.durationMs;
+      });
+      const maxCol = Math.max(...colTotals);
+      const colIdx = colTotals.indexOf(maxCol);
+      
+      // Best Day
+      const rowTotals = Array(7).fill(0);
+      filteredSessions.forEach(s => {
+          const d = new Date(s.startTime).getDay();
+          rowTotals[d === 0 ? 6 : d - 1] += s.durationMs;
+      });
+      const maxRow = Math.max(...rowTotals);
+      const rowIdx = rowTotals.indexOf(maxRow);
+
+      return {
+          peakTimeLabel: maxCol > 0 ? timeLabels[colIdx] : 'N/A',
+          bestDayLabel: maxRow > 0 ? dayLabels[rowIdx] : 'N/A'
+      };
+  }, [filteredSessions]);
 
   const sessionQuality = useMemo(() => {
       let short = 0; // < 25m
@@ -254,14 +293,6 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                     ))}
                 </div>
             )}
-            
-            {/* Manual Add Button */}
-            <button 
-                onClick={openAddSession}
-                className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-slate-300 transition-colors"
-            >
-                <Plus size={14} /> Log Session
-            </button>
         </div>
 
         <AnimatePresence mode="wait">
@@ -314,7 +345,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
 
                 {/* 2. Charts Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Trend Chart */}
+                    {/* Improved Trend Chart */}
                     <div className="lg:col-span-2 bg-slate-900/40 border border-white/5 rounded-3xl p-6 flex flex-col">
                         <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center gap-2">
@@ -324,19 +355,43 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                             <span className="text-xs text-slate-500 font-mono">Last {range === 'week' ? '7 Days' : '30 Days'}</span>
                         </div>
                         
-                        <div className="flex-1 flex items-end gap-2 h-48 w-full">
+                        <div className="flex-1 flex items-end gap-2 h-48 w-full relative">
+                            {/* Average Line */}
+                            {dailyAverage > 0 && (
+                                <div 
+                                    className="absolute left-0 right-0 border-t border-dashed border-slate-500/30 pointer-events-none z-0"
+                                    style={{ bottom: `${(dailyAverage / maxTrendValue) * 100}%` }}
+                                >
+                                    <span className="absolute right-0 bottom-1 text-[9px] text-slate-500 font-mono bg-slate-900/80 px-1 rounded">Avg: {dailyAverage.toFixed(1)}h</span>
+                                </div>
+                            )}
+
                             {trendData.map((d, i) => (
-                                <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">
-                                    <div 
-                                        className={`w-full rounded-t-sm transition-all duration-500 group-hover:brightness-110 relative ${d.value > dailyAverage ? `bg-${accent}-500` : 'bg-slate-700'}`}
-                                        style={{ height: `${(d.value / maxTrendValue) * 100}%`, minHeight: '4px' }}
-                                    >
+                                <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative z-10">
+                                    <div className="w-full relative flex items-end justify-center h-full">
+                                        <motion.div 
+                                            initial={{ height: 0 }}
+                                            animate={{ height: `${(d.value / maxTrendValue) * 100}%` }}
+                                            transition={{ duration: 0.8, delay: i * 0.05, ease: "easeOut" }}
+                                            className={`
+                                                w-full max-w-[40px] rounded-t-lg transition-all duration-500 relative
+                                                ${d.value > dailyAverage 
+                                                    ? `bg-gradient-to-t from-${accent}-600 to-${accent}-400 shadow-[0_0_15px_rgba(var(--color-${accent}-500),0.2)]` 
+                                                    : 'bg-slate-700/50 hover:bg-slate-600'}
+                                            `}
+                                            style={{ minHeight: '4px' }}
+                                        >
+                                            {/* Glow effect on hover */}
+                                            <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-t-lg" />
+                                        </motion.div>
+                                        
                                         {/* Tooltip */}
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-800 border border-white/10 text-xs text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-20 shadow-xl transition-opacity">
-                                            <span className="font-bold">{d.value.toFixed(1)}h</span> on {d.fullDate}
+                                        <div className="absolute bottom-full mb-2 bg-slate-800 border border-white/10 text-xs text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-20 shadow-xl transition-all translate-y-2 group-hover:translate-y-0">
+                                            <span className="font-bold font-mono">{d.value.toFixed(1)}h</span>
+                                            <span className="text-slate-400 block text-[10px]">{d.fullDate}</span>
                                         </div>
                                     </div>
-                                    <span className="text-[10px] text-slate-500 font-mono hidden sm:block">{d.label}</span>
+                                    <span className="text-[10px] text-slate-500 font-mono hidden sm:block group-hover:text-slate-300 transition-colors">{d.label}</span>
                                 </div>
                             ))}
                         </div>
@@ -353,35 +408,70 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
 
                 {/* 3. Advanced Insights Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-4">
-                    {/* Productivity Heatmap */}
+                    {/* Improved Productivity Heatmap */}
                     <div className="bg-slate-900/40 border border-white/5 rounded-3xl p-6">
-                        <div className="flex items-center gap-2 mb-6">
-                            <Layout size={18} className="text-slate-400" />
-                            <h3 className="font-bold text-slate-200">Focus Heatmap</h3>
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-2">
+                                <Layout size={18} className="text-slate-400" />
+                                <h3 className="font-bold text-slate-200">Focus Heatmap</h3>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                                    <Flame size={14} className={`text-${accent}-400`} />
+                                    <span>Peak: <span className="text-slate-200 font-bold">{peakTimeLabel}</span></span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                                    <Calendar size={14} className="text-emerald-400" />
+                                    <span>Best Day: <span className="text-slate-200 font-bold">{bestDayLabel}</span></span>
+                                </div>
+                            </div>
                         </div>
                         
-                        <div className="flex flex-col gap-1">
-                            <div className="flex pl-8 mb-2">
+                        <div className="flex flex-col gap-2">
+                            <div className="flex pl-10 mb-2">
                                 {timeLabels.map((label, i) => (
-                                    <div key={i} className="flex-1 text-center text-[10px] text-slate-500 font-bold uppercase tracking-wider">{label}</div>
+                                    <div key={i} className="flex-1 text-center">
+                                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">{label}</span>
+                                        <span className="text-[8px] text-slate-600 block opacity-70">{timeRanges[i]}h</span>
+                                    </div>
                                 ))}
                             </div>
                             {heatmapData.map((row, dayIdx) => (
                                 <div key={dayIdx} className="flex items-center gap-3">
-                                    <span className="w-6 text-[10px] font-bold text-slate-500 uppercase">{dayLabels[dayIdx]}</span>
-                                    <div className="flex-1 flex gap-1 h-8">
-                                        {row.map((intensity, timeIdx) => (
+                                    <span className="w-7 text-[9px] font-bold text-slate-500 uppercase text-right">{dayLabels[dayIdx]}</span>
+                                    <div className="flex-1 flex gap-1.5 h-10">
+                                        {row.map((cell, timeIdx) => (
                                             <div 
                                                 key={timeIdx}
-                                                className={`flex-1 rounded-sm transition-all hover:scale-105`}
-                                                style={{ 
-                                                    backgroundColor: intensity > 0 
-                                                        ? `rgba(var(--color-${accent}-500), ${0.1 + intensity * 0.9})` 
-                                                        : 'rgba(255,255,255,0.02)',
-                                                    border: intensity > 0 ? 'none' : '1px solid rgba(255,255,255,0.02)'
-                                                }}
-                                                title={`${dayLabels[dayIdx]} ${timeLabels[timeIdx]}: ${(intensity*100).toFixed(0)}% activity`}
-                                            />
+                                                className="flex-1 relative group/cell"
+                                            >
+                                                <motion.div 
+                                                    whileHover={{ scale: 1.05, y: -1 }}
+                                                    className={`
+                                                        w-full h-full rounded-lg transition-all duration-300
+                                                        ${cell.durationMs === 0 ? 'bg-slate-800/30 border border-white/[0.02]' : 'border border-transparent'}
+                                                    `}
+                                                    style={{ 
+                                                        backgroundColor: cell.durationMs > 0 
+                                                            ? `rgba(var(--color-${accent}-500), ${0.1 + cell.intensity * 0.9})` 
+                                                            : undefined,
+                                                        boxShadow: cell.intensity > 0.6 ? `0 0 15px rgba(var(--color-${accent}-500), ${cell.intensity * 0.3})` : 'none'
+                                                    }}
+                                                />
+                                                {/* Enhanced Tooltip */}
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/cell:block z-30 min-w-[110px]">
+                                                    <div className="bg-slate-900/95 border border-white/10 p-2.5 rounded-xl shadow-xl text-center backdrop-blur-md">
+                                                        <div className="text-[9px] text-slate-400 uppercase font-bold tracking-wide mb-1">
+                                                            {dayLabels[dayIdx]} • {timeLabels[timeIdx]}
+                                                        </div>
+                                                        <div className={`text-sm font-bold text-${accent}-400 font-mono`}>
+                                                            {cell.durationMs > 0 ? formatDurationSimple(cell.durationMs) : 'No Activity'}
+                                                        </div>
+                                                    </div>
+                                                    {/* Triangle Arrow */}
+                                                    <div className="w-2.5 h-2.5 bg-slate-900 border-r border-b border-white/10 rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-1.5 z-20"></div>
+                                                </div>
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
@@ -403,7 +493,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                                     <span className="text-slate-400">Quick Sessions (&lt;25m)</span>
                                     <span className="text-white font-mono">{sessionQuality.short.toFixed(0)}%</span>
                                 </div>
-                                <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                                <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden">
                                     <div className="h-full bg-slate-500" style={{ width: `${sessionQuality.short}%` }} />
                                 </div>
                             </div>
@@ -413,7 +503,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                                     <span className="text-slate-400">Pomodoro (25-50m)</span>
                                     <span className="text-white font-mono">{sessionQuality.medium.toFixed(0)}%</span>
                                 </div>
-                                <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                                <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden">
                                     <div className="h-full bg-blue-500" style={{ width: `${sessionQuality.medium}%` }} />
                                 </div>
                             </div>
@@ -423,7 +513,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                                     <span className="text-slate-400">Deep Work (&gt;50m)</span>
                                     <span className="text-white font-mono">{sessionQuality.long.toFixed(0)}%</span>
                                 </div>
-                                <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                                <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden shadow-inner">
                                     <div className={`h-full bg-${accent}-500 shadow-[0_0_10px_currentColor]`} style={{ width: `${sessionQuality.long}%` }} />
                                 </div>
                             </div>

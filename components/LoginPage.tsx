@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Zap, BarChart2, Timer, Workflow, CheckCircle2, Shield, ArrowRight, Layout, Calendar, CheckSquare } from 'lucide-react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { Zap, BarChart2, Timer, Workflow, CheckCircle2, Shield, ArrowRight, Layout, Calendar, CheckSquare, Sparkles } from 'lucide-react';
+import { motion, useScroll, useTransform, Variants } from 'framer-motion';
 
 const SHOWCASE_ITEMS = [
   {
@@ -18,7 +18,7 @@ const SHOWCASE_ITEMS = [
   {
     title: "Zen Mode",
     description: "Achieve flow state with immersive, full-screen backgrounds. Minimalist visuals help you stay locked in for hours.",
-    image: "https://i.ibb.co/svzGgFqZ/image.png"
+    image: "https://i.ibb.co/ppNphtb/image.png"
   },
   {
     title: "Habit Forge",
@@ -76,6 +76,11 @@ export const LoginPage: React.FC = () => {
     }
   };
 
+  // Feature Card Animation Variants
+  const cardHoverVariants: Variants = {
+      hover: { y: -5, transition: { type: "spring", stiffness: 300 } }
+  };
+
   return (
     <div className="min-h-screen bg-[#050511] text-slate-200 font-sans selection:bg-cyan-500/30 flex flex-col relative overflow-x-hidden">
       
@@ -104,8 +109,8 @@ export const LoginPage: React.FC = () => {
             <span className="text-lg font-bold tracking-wide text-white">EKAGRAZONE</span>
           </div>
           <div className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-400">
-              <span className="flex items-center gap-1.5"><Shield size={14} className="text-emerald-400"/> Local-First & Private</span>
-              <span>v1.0</span>
+              <span className="font-hand text-xl text-cyan-200/80 -rotate-2 mr-2">Totally free & local</span>
+              <span className="flex items-center gap-1.5"><Shield size={14} className="text-emerald-400"/> Private by Design</span>
           </div>
       </motion.nav>
 
@@ -130,13 +135,23 @@ export const LoginPage: React.FC = () => {
              </motion.div>
 
              {/* Headline */}
-             <motion.h1 variants={itemVariants} className="text-5xl sm:text-6xl lg:text-7xl font-bold text-white tracking-tight leading-[1.1]">
-                Master your <br/>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400">flow state.</span>
-             </motion.h1>
+             <div className="relative">
+                 <motion.h1 variants={itemVariants} className="text-5xl sm:text-6xl lg:text-7xl font-bold text-white tracking-tight leading-[1.1]">
+                    Master your <br/>
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400">flow state.</span>
+                 </motion.h1>
+                 <motion.span 
+                    variants={itemVariants} 
+                    className="absolute -right-4 -top-8 hidden lg:block font-hand text-3xl text-yellow-300 rotate-6"
+                 >
+                    <Sparkles className="inline-block mr-1" size={24} />
+                    Unlock your potential
+                 </motion.span>
+             </div>
 
              <motion.p variants={itemVariants} className="text-lg text-slate-400 leading-relaxed max-w-lg">
                 Stop juggling apps. Ekagrazone combines a pro-grade timer, habit tracker, and analytics engine into one beautiful, local-first workspace.
+                <span className="block mt-2 font-hand text-xl text-cyan-200/70">Designed for deep work enthusiasts.</span>
              </motion.p>
 
              {/* Action Buttons */}
@@ -165,7 +180,11 @@ export const LoginPage: React.FC = () => {
              {/* Features Grid (Bento Style with "Screenshots") */}
              <motion.div variants={containerVariants} className="grid grid-cols-2 gap-4 pt-8">
                  {/* Feature 1: Timer */}
-                 <motion.div variants={itemVariants} className="bg-slate-900/40 border border-white/5 p-4 rounded-2xl flex flex-col gap-3 backdrop-blur-sm hover:bg-white/5 transition-colors overflow-hidden group hover:-translate-y-1 duration-300">
+                 <motion.div 
+                    variants={itemVariants} 
+                    whileHover="hover"
+                    className="bg-slate-900/40 border border-white/5 p-4 rounded-2xl flex flex-col gap-3 backdrop-blur-sm hover:bg-white/5 transition-colors overflow-hidden group cursor-default"
+                 >
                      <div className="flex items-center gap-3">
                         <div className="p-2 bg-cyan-500/20 rounded-lg text-cyan-400"><Timer size={18} /></div>
                         <h3 className="font-bold text-slate-200 text-sm">Focus Timer</h3>
@@ -173,35 +192,56 @@ export const LoginPage: React.FC = () => {
                      {/* Mini UI Mockup */}
                      <div className="w-full h-24 bg-slate-950/50 rounded-lg border border-white/5 relative flex items-center justify-center overflow-hidden">
                         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10"></div>
-                        <div className="w-16 h-16 rounded-full border-2 border-cyan-500/30 flex items-center justify-center relative">
+                        <motion.div 
+                            className="w-16 h-16 rounded-full border-2 border-cyan-500/30 flex items-center justify-center relative"
+                            variants={{ hover: { rotate: 360 } }}
+                            transition={{ duration: 8, ease: "linear", repeat: Infinity }}
+                        >
                             <motion.div 
                                 animate={{ scale: [1, 1.1, 1], opacity: [0.5, 0.8, 0.5] }}
                                 transition={{ duration: 2, repeat: Infinity }}
                                 className="w-12 h-12 rounded-full bg-cyan-500/10" 
                             />
-                            <span className="absolute text-[10px] font-mono font-bold text-white">25:00</span>
-                        </div>
+                        </motion.div>
+                        <motion.span 
+                            variants={{ hover: { scale: 1.1 } }}
+                            className="absolute text-[10px] font-mono font-bold text-white"
+                        >
+                            25:00
+                        </motion.span>
                      </div>
                  </motion.div>
 
                  {/* Feature 2: Analytics */}
-                 <motion.div variants={itemVariants} className="bg-slate-900/40 border border-white/5 p-4 rounded-2xl flex flex-col gap-3 backdrop-blur-sm hover:bg-white/5 transition-colors overflow-hidden group hover:-translate-y-1 duration-300">
+                 <motion.div 
+                    variants={itemVariants} 
+                    whileHover="hover"
+                    className="bg-slate-900/40 border border-white/5 p-4 rounded-2xl flex flex-col gap-3 backdrop-blur-sm hover:bg-white/5 transition-colors overflow-hidden group cursor-default"
+                 >
                      <div className="flex items-center gap-3">
                         <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400"><BarChart2 size={18} /></div>
                         <h3 className="font-bold text-slate-200 text-sm">Deep Analytics</h3>
                      </div>
                      {/* Mini UI Mockup */}
                      <div className="w-full h-24 bg-slate-950/50 rounded-lg border border-white/5 relative flex items-end justify-between px-3 pb-3 gap-1 overflow-hidden">
-                        <motion.div initial={{ height: '10%' }} animate={{ height: '50%' }} transition={{ delay: 0.5 }} className="w-1/5 bg-emerald-500/20 rounded-t-sm"></motion.div>
-                        <motion.div initial={{ height: '10%' }} animate={{ height: '75%' }} transition={{ delay: 0.6 }} className="w-1/5 bg-emerald-500/40 rounded-t-sm"></motion.div>
-                        <motion.div initial={{ height: '10%' }} animate={{ height: '60%' }} transition={{ delay: 0.7 }} className="w-1/5 bg-emerald-500/30 rounded-t-sm"></motion.div>
-                        <motion.div initial={{ height: '10%' }} animate={{ height: '100%' }} transition={{ delay: 0.8 }} className="w-1/5 bg-emerald-500 rounded-t-sm shadow-[0_0_10px_rgba(16,185,129,0.3)]"></motion.div>
-                        <motion.div initial={{ height: '10%' }} animate={{ height: '50%' }} transition={{ delay: 0.9 }} className="w-1/5 bg-emerald-500/20 rounded-t-sm"></motion.div>
+                        {[0.5, 0.75, 0.6, 1, 0.5].map((h, i) => (
+                            <motion.div 
+                                key={i}
+                                variants={{ hover: { height: `${h * 100}%` } }}
+                                initial={{ height: '10%' }}
+                                animate={{ height: `${h * 80}%` }} // Default resting height
+                                className={`w-1/5 rounded-t-sm ${i===3 ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-emerald-500/30'}`}
+                            />
+                        ))}
                      </div>
                  </motion.div>
 
                  {/* Feature 3: Habit Forge */}
-                 <motion.div variants={itemVariants} className="bg-slate-900/40 border border-white/5 p-4 rounded-2xl flex flex-col gap-3 backdrop-blur-sm hover:bg-white/5 transition-colors overflow-hidden group hover:-translate-y-1 duration-300">
+                 <motion.div 
+                    variants={itemVariants} 
+                    whileHover="hover"
+                    className="bg-slate-900/40 border border-white/5 p-4 rounded-2xl flex flex-col gap-3 backdrop-blur-sm hover:bg-white/5 transition-colors overflow-hidden group cursor-default"
+                 >
                      <div className="flex items-center gap-3">
                         <div className="p-2 bg-amber-500/20 rounded-lg text-amber-400"><Workflow size={18} /></div>
                         <h3 className="font-bold text-slate-200 text-sm">Habit Forge</h3>
@@ -209,22 +249,26 @@ export const LoginPage: React.FC = () => {
                      {/* Mini UI Mockup */}
                      <div className="w-full h-24 bg-slate-950/50 rounded-lg border border-white/5 relative flex flex-col justify-center px-3 gap-2 overflow-hidden">
                         <div className="flex items-center gap-2">
-                            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 1 }} className="w-4 h-4 rounded bg-amber-500 flex items-center justify-center text-[8px] text-black font-bold">✓</motion.div>
-                            <div className="h-2 w-16 bg-slate-800 rounded-full"></div>
+                            <motion.div variants={{ hover: { scale: [1, 1.2, 1] } }} className="w-4 h-4 rounded bg-amber-500 flex items-center justify-center text-[8px] text-black font-bold">✓</motion.div>
+                            <motion.div variants={{ hover: { width: '80%' } }} className="h-2 w-16 bg-slate-800 rounded-full transition-all" />
                         </div>
                         <div className="flex items-center gap-2 opacity-50">
                             <div className="w-4 h-4 rounded border border-slate-700"></div>
                             <div className="h-2 w-12 bg-slate-800 rounded-full"></div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 1.2 }} className="w-4 h-4 rounded bg-amber-500 flex items-center justify-center text-[8px] text-black font-bold">✓</motion.div>
-                            <div className="h-2 w-20 bg-slate-800 rounded-full"></div>
+                            <motion.div variants={{ hover: { scale: [1, 1.2, 1] } }} transition={{ delay: 0.1 }} className="w-4 h-4 rounded bg-amber-500 flex items-center justify-center text-[8px] text-black font-bold">✓</motion.div>
+                            <motion.div variants={{ hover: { width: '90%' } }} className="h-2 w-20 bg-slate-800 rounded-full transition-all" />
                         </div>
                      </div>
                  </motion.div>
 
                  {/* Feature 4: Task Planner */}
-                 <motion.div variants={itemVariants} className="bg-slate-900/40 border border-white/5 p-4 rounded-2xl flex flex-col gap-3 backdrop-blur-sm hover:bg-white/5 transition-colors overflow-hidden group hover:-translate-y-1 duration-300">
+                 <motion.div 
+                    variants={itemVariants} 
+                    whileHover="hover"
+                    className="bg-slate-900/40 border border-white/5 p-4 rounded-2xl flex flex-col gap-3 backdrop-blur-sm hover:bg-white/5 transition-colors overflow-hidden group cursor-default"
+                 >
                      <div className="flex items-center gap-3">
                         <div className="p-2 bg-pink-500/20 rounded-lg text-pink-400"><Calendar size={18} /></div>
                         <h3 className="font-bold text-slate-200 text-sm">Task Planner</h3>
@@ -233,12 +277,12 @@ export const LoginPage: React.FC = () => {
                      <div className="w-full h-24 bg-slate-950/50 rounded-lg border border-white/5 relative flex gap-1 p-2 overflow-hidden">
                         <div className="flex-1 bg-slate-800/50 rounded flex flex-col gap-1 p-1">
                             <div className="h-1.5 w-8 bg-slate-700 rounded"></div>
-                            <div className="h-6 w-full bg-slate-700/50 rounded border border-white/5"></div>
-                            <div className="h-6 w-full bg-slate-700/50 rounded border border-white/5"></div>
+                            <motion.div variants={{ hover: { x: 5 } }} className="h-6 w-full bg-slate-700/50 rounded border border-white/5" />
+                            <motion.div variants={{ hover: { x: 5 } }} transition={{ delay: 0.1 }} className="h-6 w-full bg-slate-700/50 rounded border border-white/5" />
                         </div>
                         <div className="flex-1 bg-slate-800/50 rounded flex flex-col gap-1 p-1">
                             <div className="h-1.5 w-8 bg-slate-700 rounded"></div>
-                            <div className="h-6 w-full bg-pink-500/20 rounded border border-pink-500/30"></div>
+                            <motion.div variants={{ hover: { scale: 1.05 } }} className="h-6 w-full bg-pink-500/20 rounded border border-pink-500/30" />
                         </div>
                      </div>
                  </motion.div>
@@ -290,6 +334,12 @@ export const LoginPage: React.FC = () => {
                     >
                         {item.description}
                     </motion.p>
+                    {/* Cursive Annotation */}
+                    {index % 2 === 0 && (
+                        <div className="font-hand text-2xl text-cyan-200/50 rotate-1 mt-4">
+                            ~ Elevate your workflow
+                        </div>
+                    )}
                 </div>
 
                 {/* Image Side */}
@@ -314,8 +364,11 @@ export const LoginPage: React.FC = () => {
       </div>
       
       {/* Simple Footer */}
-      <div className="w-full text-center py-12 text-[10px] text-slate-600 font-mono relative z-10 border-t border-white/5 mt-12 bg-[#050511]">
-          <p>DESIGNED & BUILT BY ABHYUDAY</p>
+      <div className="w-full text-center py-12 relative z-10 border-t border-white/5 mt-12 bg-[#050511]">
+          <div className="flex flex-col items-center gap-2">
+              <p className="text-[10px] text-slate-600 font-mono">DESIGNED & BUILT BY ABHYUDAY</p>
+              <p className="font-hand text-lg text-slate-700">Stay Focused.</p>
+          </div>
       </div>
     </div>
   );
