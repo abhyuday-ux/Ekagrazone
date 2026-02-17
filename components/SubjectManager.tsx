@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Subject, SUBJECT_COLORS, isHexColor } from '../types';
 import { Plus, X, Edit2, Archive, Trash2, Check, RotateCcw, Palette } from 'lucide-react';
@@ -31,6 +32,12 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({ subjects, onUpda
     setIsCreating(true);
   };
 
+  // Helper to ensure all subjects are persisted (fixes disappearing defaults bug)
+  const persistAllSubjects = async (updatedList: Subject[]) => {
+      const promises = updatedList.map(s => dbService.saveSubject(s));
+      await Promise.all(promises);
+  };
+
   const handleSave = async () => {
     if (!name.trim()) return;
 
@@ -47,20 +54,42 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({ subjects, onUpda
        if (existing) newSubject.isArchived = existing.isArchived;
     }
 
-    await dbService.saveSubject(newSubject);
+    // Determine the full new list of subjects
+    let updatedList: Subject[];
+    if (isCreating) {
+        updatedList = [...subjects, newSubject];
+    } else {
+        updatedList = subjects.map(s => s.id === newSubject.id ? newSubject : s);
+    }
+
+    // Save ALL items to ensure transient defaults are written to DB
+    await persistAllSubjects(updatedList);
+    
     onUpdate();
     resetForm();
   };
 
   const handleArchiveToggle = async (subject: Subject) => {
-    const updated = { ...subject, isArchived: !subject.isArchived };
-    await dbService.saveSubject(updated);
+    const updatedSubject = { ...subject, isArchived: !subject.isArchived };
+    
+    // Update local list structure
+    const updatedList = subjects.map(s => s.id === subject.id ? updatedSubject : s);
+    
+    // Save ALL items to ensure transient defaults are written to DB
+    await persistAllSubjects(updatedList);
+    
     onUpdate();
   };
   
   const handleDelete = async (id: string) => {
       if(window.confirm("Are you sure? This will hide stats associated with this subject (but not delete session data).")) {
+          // 1. Ensure other subjects are saved first (in case we are in default mode)
+          const others = subjects.filter(s => s.id !== id);
+          await persistAllSubjects(others);
+          
+          // 2. Delete the specific one
           await dbService.deleteSubject(id);
+          
           onUpdate();
       }
   };

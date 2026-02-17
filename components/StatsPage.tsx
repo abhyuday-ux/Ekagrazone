@@ -64,7 +64,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
 
   const { start, end } = getDateRange();
 
-  const filteredSessions = useMemo(() => {
+  const filteredSessions = useMemo((): StudySession[] => {
       if (range === 'all') return sessions;
       const startTime = start.getTime();
       const endTime = end.getTime() + 86400000; // End of today
@@ -137,10 +137,10 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
 
   // --- Hourly Activity (New Colorful Chart) ---
   const hourlyActivity = useMemo(() => {
-      const hours = Array(24).fill(0);
+      const hours: number[] = new Array(24).fill(0);
       filteredSessions.forEach(s => {
           const h = new Date(s.startTime).getHours();
-          hours[h] += s.durationMs;
+          hours[h] = (hours[h] || 0) + s.durationMs;
       });
       const max = Math.max(...hours, 1);
       return hours.map((ms, i) => ({
