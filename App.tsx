@@ -26,17 +26,12 @@ import { useAuth } from './contexts/AuthContext';
 import { dbService } from './services/db';
 import { useSound } from './contexts/SoundContext';
 import { StudySession, Subject, DEFAULT_SUBJECTS, Task, Exam, isHexColor, TimerDurations, DEFAULT_DURATIONS, UserProfile } from './types';
-import { Zap, Wifi, WifiOff, RefreshCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Settings, Timer, BarChart3, CalendarDays, Target, Trash2, AlertCircle, PanelLeftClose, PanelLeftOpen, CheckSquare, Palette, Image as ImageIcon, ToggleLeft, ToggleRight, Maximize2, X, BookOpen, Repeat, Home, AlertTriangle, Download, Upload, Database, Layout, Rocket, Globe, RotateCcw, LogOut, HardDrive, LogIn, GraduationCap, Volume2, VolumeX, Play, Pause, Hourglass, Users, Bell, Loader2 } from 'lucide-react';
+import { Zap, Wifi, WifiOff, RefreshCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Settings, Timer, BarChart3, CalendarDays, Target, Trash2, AlertCircle, PanelLeftClose, PanelLeftOpen, CheckSquare, Palette, Image as ImageIcon, ToggleLeft, ToggleRight, Maximize2, X, BookOpen, Repeat, Home, AlertTriangle, Download, Upload, Database, Layout, Rocket, Globe, RotateCcw, LogOut, HardDrive, LogIn, GraduationCap, Volume2, VolumeX, Play, Pause, Hourglass, Users, Bell, Loader2, ShieldCheck, Lock } from 'lucide-react';
 import { useTheme, ACCENT_COLORS } from './contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { rtdb } from './services/firebase';
+import { rtdb, db } from './services/firebase';
 import { ref, set, onDisconnect, serverTimestamp, onValue, update } from 'firebase/database';
-
-// --- PRIVATE BETA WHITELIST ---
-// Ensure all emails here are lowercase to match logic
-const AUTHORIZED_TESTERS = [
-    'your-email@gmail.com' 
-];
+import { doc, getDoc } from 'firebase/firestore';
 
 // Helper function to extract YouTube video ID
 const getYoutubeId = (url: string) => {
@@ -153,6 +148,10 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [usernameNeeded, setUsernameNeeded] = useState(false);
   
+  // Whitelist & Auth State
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+
   // UI State
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -195,9 +194,41 @@ const App: React.FC = () => {
       return allSessions.filter(s => s.dateString === today).reduce((acc, curr) => acc + curr.durationMs, 0);
   }, [allSessions]);
 
-  // Init
+  // --- WHITELIST VERIFICATION EFFECT ---
   useEffect(() => {
-    if (!currentUser && !isGuest) return;
+      if (!currentUser) {
+          setIsAuthorized(false);
+          setIsVerifying(false);
+          return;
+      }
+
+      const verifyUser = async () => {
+          setIsVerifying(true);
+          try {
+              const email = currentUser.email?.toLowerCase() || '';
+              // Verify against Firestore collection
+              const docRef = doc(db, 'authorized_users', email);
+              const docSnap = await getDoc(docRef);
+              const exists = docSnap.exists();
+              
+              console.log('VIP Status:', exists);
+              setIsAuthorized(exists);
+          } catch (error) {
+              console.error("Verification error:", error);
+              setIsAuthorized(false); // Default to deny on error for security
+          } finally {
+              setIsVerifying(false);
+          }
+      };
+
+      verifyUser();
+  }, [currentUser]);
+
+  // Init Data Effect
+  useEffect(() => {
+    // Only init data if we are authorized OR a guest
+    const canAccess = (currentUser && isAuthorized) || isGuest;
+    if (!canAccess) return;
 
     const initData = async () => {
       try {
@@ -278,11 +309,11 @@ const App: React.FC = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [currentUser, isGuest]);
+  }, [currentUser, isAuthorized, isGuest]); // Depend on authorization state
 
   // Unread Notification Listener
   useEffect(() => {
-      if (!currentUser) return;
+      if (!currentUser || !isAuthorized) return;
       const notifRef = ref(rtdb, `users/${currentUser.uid}/notifications`);
       return onValue(notifRef, (snapshot) => {
           const data = snapshot.val();
@@ -293,7 +324,7 @@ const App: React.FC = () => {
               setUnreadCount(0);
           }
       });
-  }, [currentUser]);
+  }, [currentUser, isAuthorized]);
 
   const refreshSubjects = async () => {
       const storedSubjects = await dbService.getSubjects();
@@ -447,7 +478,7 @@ const App: React.FC = () => {
 
   // --- LIVE STATUS SYNC (RTDB) ---
   useEffect(() => {
-      if (!currentUser) return;
+      if (!currentUser || !isAuthorized) return;
 
       const publicStatusRef = ref(rtdb, `users/${currentUser.uid}/publicStatus`);
       const connectedRef = ref(rtdb, '.info/connected');
@@ -495,7 +526,7 @@ const App: React.FC = () => {
           clearInterval(interval);
           unsubscribe();
       };
-  }, [currentUser, status, dailyTotalMs, currentSubjectId, subjects]); 
+  }, [currentUser, status, dailyTotalMs, currentSubjectId, subjects, isAuthorized]); 
   // removed elapsedMs from dep array to avoid spam, interval handles updates if needed, 
   // but crucially status change triggers immediate update with correct start time.
 
@@ -561,21 +592,43 @@ const App: React.FC = () => {
       );
   }
 
-  // 2. Auth & Whitelist Check
-  if (currentUser) {
-      // Case-insensitive whitelist check
-      const email = currentUser.email?.toLowerCase() || '';
-      const isAuthorized = AUTHORIZED_TESTERS.some(tester => tester.toLowerCase() === email);
+  // 2. Not Logged In & Not Guest -> Login Page
+  if (!currentUser && !isGuest) {
+      return <LoginPage />;
+  }
 
+  // 3. Logged In User Checks
+  if (currentUser) {
+      if (isVerifying) {
+          return (
+              <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center relative overflow-hidden">
+                  <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay pointer-events-none"></div>
+                  <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-indigo-900/10 blur-[120px] rounded-full mix-blend-screen pointer-events-none" />
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }} 
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="relative z-10 flex flex-col items-center"
+                  >
+                      <div className="relative mb-8">
+                          <div className={`absolute inset-0 bg-${accent}-500 blur-2xl opacity-20 rounded-full animate-pulse`} />
+                          <div className="w-20 h-20 bg-slate-900 border border-white/10 rounded-2xl flex items-center justify-center shadow-2xl relative">
+                              <ShieldCheck size={40} className={`text-${accent}-400 animate-pulse`} />
+                              <div className="absolute -bottom-2 -right-2 bg-slate-950 p-1.5 rounded-full border border-white/10">
+                                  <Lock size={14} className="text-slate-400" />
+                              </div>
+                          </div>
+                      </div>
+                      <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Authenticating</h2>
+                      <div className="flex items-center gap-2 text-slate-400 text-sm font-mono">
+                          <Loader2 size={14} className="animate-spin" /> Verifying Access...
+                      </div>
+                  </motion.div>
+              </div>
+          );
+      }
       if (!isAuthorized) {
           return <MaintenanceMode />;
       }
-  }
-
-  // 3. Guest / Login Check
-  // If not logged in AND not a guest, force login
-  if (!currentUser && !isGuest) {
-      return <LoginPage />;
   }
 
   // 4. Force Username Setup if needed (Post-Auth / Post-Guest)
