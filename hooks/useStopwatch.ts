@@ -67,11 +67,14 @@ export const useStopwatch = (
 
   const start = useCallback(() => {
     const now = Date.now();
+    const perfNow = performance.now(); // Uptime Tick for Anti-Cheat
+
     const newState: ActiveTimerState = {
       status: 'running',
       mode,
       subjectId: currentSubjectId,
       startTime: now,
+      startPerfTime: perfNow,
       accumulatedTime: elapsedMs,
     };
     saveActiveState(newState);
@@ -88,6 +91,7 @@ export const useStopwatch = (
       mode,
       subjectId: currentSubjectId,
       startTime: null,
+      startPerfTime: null, // Clear uptime tracking during pause
       accumulatedTime: currentTotal,
     };
     saveActiveState(newState);
@@ -95,14 +99,50 @@ export const useStopwatch = (
     setStatus('paused');
   }, [currentSubjectId, mode]);
 
+  const reset = useCallback(() => {
+    clearActiveState();
+    setStatus('idle');
+    setElapsedMs(0);
+  }, []);
+
   const stop = useCallback(async () => {
-    const finalTime = calculateElapsed(loadActiveState());
+    const savedState = loadActiveState();
+    if (!savedState) {
+        reset();
+        return;
+    }
+
+    // 1. Calculate actual duration (Timestamp Logic)
+    // We do NOT trust 'elapsedMs' state, we recalculate from timestamps
+    const currentSegment = savedState.startTime ? Date.now() - savedState.startTime : 0;
+    const finalTime = savedState.accumulatedTime + currentSegment;
+
+    // 2. Anti-Cheat: Uptime Check (Clock Manipulation)
+    // Only verify if we have an active running segment
+    if (savedState.status === 'running' && savedState.startTime && savedState.startPerfTime) {
+        const wallDiff = Date.now() - savedState.startTime;
+        const perfDiff = performance.now() - savedState.startPerfTime;
+        
+        // If performance.now() is negative (page reload reset), we can't verify accurately.
+        // But if it's positive, we check divergence.
+        if (perfDiff > 0) {
+            // Allow 2000ms variance + 1% drift for execution delays
+            const threshold = 2000 + (wallDiff * 0.01);
+            
+            if (Math.abs(wallDiff - perfDiff) > threshold) {
+                alert('Invalid session: Clock manipulation detected. XP denied.');
+                reset(); // Critical: Reset UI immediately to prevent retries
+                return;
+            }
+        }
+    }
     
+    // 3. Save Session
     if (finalTime > 1000) { // Only save if > 1 second
       const session = {
         id: crypto.randomUUID(),
         subjectId: currentSubjectId,
-        startTime: Date.now() - finalTime, // Approximation of start
+        startTime: Date.now() - finalTime, 
         endTime: Date.now(),
         durationMs: finalTime,
         dateString: new Date().toISOString().split('T')[0],
@@ -112,7 +152,6 @@ export const useStopwatch = (
       const { levelUp, newLevel } = await dbService.saveSession(session);
       
       if (levelUp) {
-          // Dispatch a custom event for the UI to handle celebration
           const event = new CustomEvent('ekagra_levelup', { 
               detail: { level: newLevel } 
           });
@@ -122,14 +161,10 @@ export const useStopwatch = (
       onSessionComplete();
     }
 
+    // 4. State Cleanup (Fix Reset Glitch)
+    // Force reset immediately after processing
     reset();
-  }, [currentSubjectId, onSessionComplete]);
-
-  const reset = useCallback(() => {
-    clearActiveState();
-    setStatus('idle');
-    setElapsedMs(0);
-  }, []);
+  }, [currentSubjectId, onSessionComplete, reset]);
 
   const setSubjectId = useCallback((id: string) => {
     if (status === 'idle') {

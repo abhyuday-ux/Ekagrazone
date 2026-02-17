@@ -43,6 +43,7 @@ export interface ActiveTimerState {
   mode: TimerMode;
   subjectId: string;
   startTime: number | null; // The timestamp when the CURRENT running segment started
+  startPerfTime?: number | null; // Anti-cheat: performance.now() when segment started
   accumulatedTime: number; // Time accrued before the current segment
 }
 
