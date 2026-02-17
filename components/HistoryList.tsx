@@ -1,14 +1,13 @@
 
 import React, { useMemo } from 'react';
 import { StudySession, Subject, isHexColor } from '../types';
-import { Clock, BarChart2, Award, Hourglass, Edit2, Trash2 } from 'lucide-react';
+import { Clock, BarChart2, Award, Hourglass, Trash2 } from 'lucide-react';
 
 interface HistoryListProps {
   sessions: StudySession[];
   subjects: Subject[];
   lifetimeTotalMs?: number;
   averageSessionMs?: number;
-  onEditSession?: (session: StudySession) => void;
   onDeleteSession?: (id: string) => void;
 }
 
@@ -17,7 +16,6 @@ export const HistoryList: React.FC<HistoryListProps> = ({
     subjects,
     lifetimeTotalMs = 0,
     averageSessionMs = 0,
-    onEditSession,
     onDeleteSession
 }) => {
   const sortedSessions = useMemo(() => {
@@ -104,19 +102,6 @@ export const HistoryList: React.FC<HistoryListProps> = ({
                 </span>
                 {/* Actions */}
                 <div className="flex gap-1">
-                    {onEditSession && (
-                        <button 
-                            type="button"
-                            onClick={(e) => { 
-                                e.stopPropagation(); 
-                                onEditSession(session); 
-                            }} 
-                            className="p-2 text-slate-600 hover:text-white hover:bg-white/10 rounded transition-colors" 
-                            title="Edit"
-                        >
-                            <Edit2 size={16} />
-                        </button>
-                    )}
                     {onDeleteSession && (
                         <button 
                             type="button"

@@ -1,13 +1,12 @@
 
 import React, { useState, useMemo } from 'react';
 import { StudySession, Subject, isHexColor } from '../types';
-import { BarChart2, TrendingUp, Clock, Activity, Zap, Calendar, ArrowRight, Layout, List, PieChart, Plus, AlertTriangle, Layers, Flame } from 'lucide-react';
+import { BarChart2, TrendingUp, Clock, Activity, Zap, Calendar, ArrowRight, Layout, List, PieChart, AlertTriangle, Layers, Flame, Target } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SubjectDonut } from './SubjectDonut';
 import { DailyTimeline } from './DailyTimeline';
 import { HistoryList } from './HistoryList';
-import { SessionManager } from './SessionManager';
 import { dbService } from '../services/db';
 
 interface StatsPageProps {
@@ -27,31 +26,11 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
   // Daily View State
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // Session Manager State
-  const [isSessionManagerOpen, setIsSessionManagerOpen] = useState(false);
-  const [editingSession, setEditingSession] = useState<StudySession | null>(null);
-
   // List Deletion Modal State
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
 
   // --- Handlers ---
 
-  const handleSaveSession = async (session: StudySession) => {
-      await dbService.saveSession(session);
-      setIsSessionManagerOpen(false);
-      setEditingSession(null);
-      if (onDataUpdate) onDataUpdate();
-  };
-
-  // Called by SessionManager (which handles its own confirmation view)
-  const handleDeleteFromManager = async (id: string) => {
-      await dbService.deleteSession(id);
-      setIsSessionManagerOpen(false);
-      setEditingSession(null);
-      if (onDataUpdate) onDataUpdate();
-  };
-
-  // Called by HistoryList (requires confirmation modal)
   const requestDeleteFromList = (id: string) => {
       setDeleteConfirmationId(id);
   };
@@ -60,40 +39,8 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
       if (deleteConfirmationId) {
           await dbService.deleteSession(deleteConfirmationId);
           setDeleteConfirmationId(null);
-          // If we deleted the session currently being edited (rare edge case), close manager
-          if (editingSession?.id === deleteConfirmationId) {
-              setIsSessionManagerOpen(false);
-              setEditingSession(null);
-          }
           if (onDataUpdate) onDataUpdate();
       }
-  };
-
-  const openAddSession = () => {
-      setEditingSession(null); // Passing null makes SessionManager use defaults
-      setIsSessionManagerOpen(true);
-  };
-
-  const openEditSession = (session: StudySession) => {
-      setEditingSession(session);
-      setIsSessionManagerOpen(true);
-  };
-
-  const handleTimelineEmptyClick = (hour: number, minute: number) => {
-      const startTimestamp = new Date(selectedDate).setHours(hour, minute, 0, 0);
-      const endTimestamp = startTimestamp + 60 * 60 * 1000; // Default 1 hour duration
-
-      const templateSession: StudySession = {
-          id: '', 
-          subjectId: subjects[0]?.id || 'misc',
-          startTime: startTimestamp,
-          endTime: endTimestamp,
-          durationMs: endTimestamp - startTimestamp,
-          dateString: selectedDate
-      };
-      
-      setEditingSession(templateSession);
-      setIsSessionManagerOpen(true);
   };
 
   // --- Helpers ---
@@ -152,11 +99,19 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
   const topSubjectId = Object.keys(subjectTotals).sort((a,b) => subjectTotals[b] - subjectTotals[a])[0];
   const topSubject = subjects.find(s => s.id === topSubjectId);
 
-  // Trend Data (Bar Chart)
+  // --- Trend Data (Bar Chart) ---
   const trendData = useMemo(() => {
       const data = [];
       const chartRange = range === 'all' ? 'month' : range;
-      const chartStart = chartRange === 'week' ? start : new Date(new Date().setDate(new Date().getDate() - 29));
+      
+      let chartStart: Date;
+      if (chartRange === 'week') {
+          chartStart = new Date(start);
+      } else {
+          chartStart = new Date();
+          chartStart.setDate(chartStart.getDate() - 29);
+      }
+
       const daysCount = chartRange === 'week' ? 7 : 30;
 
       for (let i = 0; i < daysCount; i++) {
@@ -170,6 +125,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
           data.push({
               date: dStr,
               label: d.getDate().toString(),
+              weekDay: d.toLocaleDateString(undefined, { weekday: 'narrow' }),
               fullDate: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric'}),
               value: val
           });
@@ -177,60 +133,38 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
       return data;
   }, [sessions, range, start]);
 
-  const maxTrendValue = Math.max(...trendData.map(d => d.value), dailyAverage * 1.2, 1);
+  const maxTrendValue = Math.max(...trendData.map(d => d.value), dailyAverage * 1.5, 1);
 
-  // Heatmap Data (Day x Time of Day)
-  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const timeLabels = ['Night', 'Early', 'Morn', 'Noon', 'Eve', 'Late'];
-  const timeRanges = ['00-04', '04-08', '08-12', '12-16', '16-20', '20-24'];
-
-  const heatmapData = useMemo(() => {
-      const grid = Array(7).fill(0).map(() => Array(6).fill(0)); // 7 days x 6 blocks
-      
-      filteredSessions.forEach(s => {
-          const d = new Date(s.startTime);
-          const day = d.getDay(); 
-          const row = day === 0 ? 6 : day - 1; 
-          
-          const hour = d.getHours();
-          const col = Math.floor(hour / 4);
-          
-          grid[row][col] += s.durationMs;
-      });
-      
-      const maxVal = Math.max(...grid.flat(), 1);
-      
-      return grid.map(row => row.map(val => ({
-          durationMs: val,
-          intensity: val / maxVal
-      })));
-  }, [filteredSessions]);
-
-  // Derived Insights for Heatmap
-  const { peakTimeLabel, bestDayLabel } = useMemo(() => {
-      // Best Time
-      const colTotals = Array(6).fill(0);
+  // --- Hourly Activity (New Colorful Chart) ---
+  const hourlyActivity = useMemo(() => {
+      const hours = Array(24).fill(0);
       filteredSessions.forEach(s => {
           const h = new Date(s.startTime).getHours();
-          colTotals[Math.floor(h/4)] += s.durationMs;
+          hours[h] += s.durationMs;
       });
-      const maxCol = Math.max(...colTotals);
-      const colIdx = colTotals.indexOf(maxCol);
-      
-      // Best Day
-      const rowTotals = Array(7).fill(0);
-      filteredSessions.forEach(s => {
-          const d = new Date(s.startTime).getDay();
-          rowTotals[d === 0 ? 6 : d - 1] += s.durationMs;
-      });
-      const maxRow = Math.max(...rowTotals);
-      const rowIdx = rowTotals.indexOf(maxRow);
-
-      return {
-          peakTimeLabel: maxCol > 0 ? timeLabels[colIdx] : 'N/A',
-          bestDayLabel: maxRow > 0 ? dayLabels[rowIdx] : 'N/A'
-      };
+      const max = Math.max(...hours, 1);
+      return hours.map((ms, i) => ({
+          hour: i,
+          ms,
+          percent: (ms / max) * 100,
+          label: i === 0 ? '12am' : i === 12 ? '12pm' : i > 12 ? `${i-12}pm` : `${i}am`
+      }));
   }, [filteredSessions]);
+
+  // --- Topic Mastery (Ranking) ---
+  const subjectRanking = useMemo(() => {
+      return Object.entries(subjectTotals)
+          .map(([id, ms]) => ({
+              id,
+              ms,
+              percent: (ms / totalDuration) * 100
+          }))
+          .sort((a, b) => b.ms - a.ms)
+          .map(item => {
+              const sub = subjects.find(s => s.id === item.id);
+              return { ...item, name: sub?.name || 'Unknown', color: sub?.color || '#64748b' };
+          });
+  }, [subjectTotals, totalDuration, subjects]);
 
   const sessionQuality = useMemo(() => {
       let short = 0; // < 25m
@@ -304,7 +238,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                 exit={{ opacity: 0, y: -20 }}
                 className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar"
             >
-                {/* 1. Key Metrics */}
+                {/* 1. Key Metrics Cards */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-slate-900/40 border border-white/5 p-5 rounded-2xl relative overflow-hidden group">
                         <div className={`absolute top-0 right-0 p-8 bg-${accent}-500/10 rounded-full blur-xl -mr-4 -mt-4 transition-opacity group-hover:opacity-100 opacity-50`} />
@@ -343,26 +277,27 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                     </div>
                 </div>
 
-                {/* 2. Charts Row */}
+                {/* 2. Enhanced Study Trend */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Improved Trend Chart */}
                     <div className="lg:col-span-2 bg-slate-900/40 border border-white/5 rounded-3xl p-6 flex flex-col">
                         <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center gap-2">
-                                <BarChart2 size={18} className="text-slate-400" />
+                                <div className={`p-2 bg-${accent}-500/20 rounded-lg text-${accent}-400`}>
+                                    <BarChart2 size={18} />
+                                </div>
                                 <h3 className="font-bold text-slate-200">Study Trend</h3>
                             </div>
                             <span className="text-xs text-slate-500 font-mono">Last {range === 'week' ? '7 Days' : '30 Days'}</span>
                         </div>
                         
                         <div className="flex-1 flex items-end gap-2 h-48 w-full relative">
-                            {/* Average Line */}
+                            {/* Target Average Line */}
                             {dailyAverage > 0 && (
                                 <div 
-                                    className="absolute left-0 right-0 border-t border-dashed border-slate-500/30 pointer-events-none z-0"
+                                    className="absolute left-0 right-0 border-t border-dashed border-white/20 pointer-events-none z-0"
                                     style={{ bottom: `${(dailyAverage / maxTrendValue) * 100}%` }}
                                 >
-                                    <span className="absolute right-0 bottom-1 text-[9px] text-slate-500 font-mono bg-slate-900/80 px-1 rounded">Avg: {dailyAverage.toFixed(1)}h</span>
+                                    <span className="absolute right-0 bottom-1 text-[9px] text-slate-400 font-mono bg-slate-900/80 px-1.5 rounded border border-white/10">Average</span>
                                 </div>
                             )}
 
@@ -374,30 +309,31 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                                             animate={{ height: `${(d.value / maxTrendValue) * 100}%` }}
                                             transition={{ duration: 0.8, delay: i * 0.05, ease: "easeOut" }}
                                             className={`
-                                                w-full max-w-[40px] rounded-t-lg transition-all duration-500 relative
+                                                w-full max-w-[40px] rounded-t-lg transition-all duration-300 relative group-hover:scale-105
                                                 ${d.value > dailyAverage 
-                                                    ? `bg-gradient-to-t from-${accent}-600 to-${accent}-400 shadow-[0_0_15px_rgba(var(--color-${accent}-500),0.2)]` 
-                                                    : 'bg-slate-700/50 hover:bg-slate-600'}
+                                                    ? `bg-gradient-to-t from-${accent}-600 to-${accent}-400 shadow-[0_0_15px_rgba(var(--color-${accent}-500),0.3)]` 
+                                                    : 'bg-gradient-to-t from-slate-700 to-slate-600 opacity-60 hover:opacity-100'}
                                             `}
                                             style={{ minHeight: '4px' }}
-                                        >
-                                            {/* Glow effect on hover */}
-                                            <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-t-lg" />
-                                        </motion.div>
+                                        />
                                         
-                                        {/* Tooltip */}
-                                        <div className="absolute bottom-full mb-2 bg-slate-800 border border-white/10 text-xs text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-20 shadow-xl transition-all translate-y-2 group-hover:translate-y-0">
-                                            <span className="font-bold font-mono">{d.value.toFixed(1)}h</span>
-                                            <span className="text-slate-400 block text-[10px]">{d.fullDate}</span>
+                                        {/* Dynamic Tooltip */}
+                                        <div className="absolute bottom-full mb-3 hidden group-hover:block z-20">
+                                            <div className="bg-slate-800 border border-white/10 text-white px-3 py-1.5 rounded-xl shadow-xl flex flex-col items-center whitespace-nowrap transform -translate-x-0">
+                                                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wide">{d.fullDate}</span>
+                                                <span className={`text-sm font-bold font-mono text-${accent}-400`}>{d.value.toFixed(1)}h</span>
+                                                {/* Arrow */}
+                                                <div className="w-2 h-2 bg-slate-800 border-r border-b border-white/10 absolute -bottom-1 rotate-45"></div>
+                                            </div>
                                         </div>
                                     </div>
-                                    <span className="text-[10px] text-slate-500 font-mono hidden sm:block group-hover:text-slate-300 transition-colors">{d.label}</span>
+                                    <span className="text-[10px] text-slate-500 font-bold uppercase">{d.weekDay?.[0]}</span>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    {/* Distribution */}
+                    {/* Subject Donut / Distribution */}
                     <div className="bg-slate-900/40 border border-white/5 rounded-3xl p-6 flex flex-col items-center justify-center">
                         <h3 className="font-bold text-slate-200 mb-4 w-full text-left flex items-center gap-2">
                             <PieChart size={18} className="text-slate-400" /> Distribution
@@ -406,116 +342,121 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                     </div>
                 </div>
 
-                {/* 3. Advanced Insights Row */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-4">
-                    {/* Improved Productivity Heatmap */}
-                    <div className="bg-slate-900/40 border border-white/5 rounded-3xl p-6">
+                {/* 3. New Colorful Insights Row */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    
+                    {/* Hourly Focus Rhythm */}
+                    <div className="bg-slate-900/40 border border-white/5 rounded-3xl p-6 flex flex-col">
                         <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center gap-2">
-                                <Layout size={18} className="text-slate-400" />
-                                <h3 className="font-bold text-slate-200">Focus Heatmap</h3>
-                            </div>
-                            <div className="flex gap-4">
-                                <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                                    <Flame size={14} className={`text-${accent}-400`} />
-                                    <span>Peak: <span className="text-slate-200 font-bold">{peakTimeLabel}</span></span>
-                                </div>
-                                <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                                    <Calendar size={14} className="text-emerald-400" />
-                                    <span>Best Day: <span className="text-slate-200 font-bold">{bestDayLabel}</span></span>
-                                </div>
+                                <div className="p-2 bg-amber-500/20 rounded-lg text-amber-400"><Clock size={18} /></div>
+                                <h3 className="font-bold text-slate-200">Hourly Focus Rhythm</h3>
                             </div>
                         </div>
-                        
-                        <div className="flex flex-col gap-2">
-                            <div className="flex pl-10 mb-2">
-                                {timeLabels.map((label, i) => (
-                                    <div key={i} className="flex-1 text-center">
-                                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">{label}</span>
-                                        <span className="text-[8px] text-slate-600 block opacity-70">{timeRanges[i]}h</span>
-                                    </div>
-                                ))}
-                            </div>
-                            {heatmapData.map((row, dayIdx) => (
-                                <div key={dayIdx} className="flex items-center gap-3">
-                                    <span className="w-7 text-[9px] font-bold text-slate-500 uppercase text-right">{dayLabels[dayIdx]}</span>
-                                    <div className="flex-1 flex gap-1.5 h-10">
-                                        {row.map((cell, timeIdx) => (
-                                            <div 
-                                                key={timeIdx}
-                                                className="flex-1 relative group/cell"
-                                            >
-                                                <motion.div 
-                                                    whileHover={{ scale: 1.05, y: -1 }}
-                                                    className={`
-                                                        w-full h-full rounded-lg transition-all duration-300
-                                                        ${cell.durationMs === 0 ? 'bg-slate-800/30 border border-white/[0.02]' : 'border border-transparent'}
-                                                    `}
-                                                    style={{ 
-                                                        backgroundColor: cell.durationMs > 0 
-                                                            ? `rgba(var(--color-${accent}-500), ${0.1 + cell.intensity * 0.9})` 
-                                                            : undefined,
-                                                        boxShadow: cell.intensity > 0.6 ? `0 0 15px rgba(var(--color-${accent}-500), ${cell.intensity * 0.3})` : 'none'
-                                                    }}
-                                                />
-                                                {/* Enhanced Tooltip */}
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/cell:block z-30 min-w-[110px]">
-                                                    <div className="bg-slate-900/95 border border-white/10 p-2.5 rounded-xl shadow-xl text-center backdrop-blur-md">
-                                                        <div className="text-[9px] text-slate-400 uppercase font-bold tracking-wide mb-1">
-                                                            {dayLabels[dayIdx]} • {timeLabels[timeIdx]}
-                                                        </div>
-                                                        <div className={`text-sm font-bold text-${accent}-400 font-mono`}>
-                                                            {cell.durationMs > 0 ? formatDurationSimple(cell.durationMs) : 'No Activity'}
-                                                        </div>
-                                                    </div>
-                                                    {/* Triangle Arrow */}
-                                                    <div className="w-2.5 h-2.5 bg-slate-900 border-r border-b border-white/10 rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-1.5 z-20"></div>
-                                                </div>
-                                            </div>
-                                        ))}
+                        <div className="flex-1 flex items-end gap-[2px] h-40 w-full relative">
+                            {hourlyActivity.map((h, i) => (
+                                <div key={i} className="flex-1 h-full flex flex-col justify-end group relative">
+                                    <motion.div 
+                                        initial={{ height: 0 }}
+                                        animate={{ height: `${Math.max(5, h.percent)}%` }}
+                                        transition={{ duration: 0.6, delay: 0.2 + (i * 0.02) }}
+                                        className={`w-full rounded-t-sm transition-all duration-300 ${h.percent > 0 ? `bg-gradient-to-t from-${accent}-600/50 to-${accent}-400` : 'bg-slate-800/30'}`}
+                                    />
+                                    {/* Hover info */}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-20">
+                                        <div className="bg-slate-900 border border-white/10 px-2 py-1 rounded text-[10px] whitespace-nowrap text-white font-mono">
+                                            {h.label}: {formatDurationSimple(h.ms)}
+                                        </div>
                                     </div>
                                 </div>
                             ))}
                         </div>
+                        <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold mt-2 px-1">
+                            <span>12 AM</span>
+                            <span>6 AM</span>
+                            <span>12 PM</span>
+                            <span>6 PM</span>
+                            <span>12 AM</span>
+                        </div>
                     </div>
 
-                    {/* Session Quality Breakdown */}
-                    <div className="bg-slate-900/40 border border-white/5 rounded-3xl p-6 flex flex-col">
-                        <div className="flex items-center gap-2 mb-6">
-                            <Zap size={18} className="text-slate-400" />
-                            <h3 className="font-bold text-slate-200">Session Quality</h3>
+                    {/* Topic Mastery (Ranking) */}
+                    <div className="bg-slate-900/40 border border-white/5 rounded-3xl p-6 flex flex-col overflow-hidden">
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-2">
+                                <div className="p-2 bg-fuchsia-500/20 rounded-lg text-fuchsia-400"><Target size={18} /></div>
+                                <h3 className="font-bold text-slate-200">Topic Mastery</h3>
+                            </div>
                         </div>
-                        
-                        <div className="space-y-6 flex-1 justify-center flex flex-col">
-                            {/* Short */}
-                            <div>
-                                <div className="flex justify-between text-xs mb-2">
-                                    <span className="text-slate-400">Quick Sessions (&lt;25m)</span>
-                                    <span className="text-white font-mono">{sessionQuality.short.toFixed(0)}%</span>
-                                </div>
-                                <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden">
-                                    <div className="h-full bg-slate-500" style={{ width: `${sessionQuality.short}%` }} />
-                                </div>
+                        <div className="flex-1 flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-2 max-h-[180px]">
+                            {subjectRanking.map((sub, i) => {
+                                const isHex = isHexColor(sub.color);
+                                return (
+                                    <motion.div 
+                                        key={sub.id} 
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: 0.3 + (i * 0.1) }}
+                                        className="w-full group"
+                                    >
+                                        <div className="flex justify-between items-center text-xs mb-1.5">
+                                            <span className="font-bold text-slate-300">{sub.name}</span>
+                                            <span className="font-mono text-slate-500">{formatDurationSimple(sub.ms)}</span>
+                                        </div>
+                                        <div className="h-2.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                                            <motion.div 
+                                                initial={{ width: 0 }}
+                                                animate={{ width: `${sub.percent}%` }}
+                                                transition={{ duration: 1, ease: "easeOut" }}
+                                                className={`h-full rounded-full ${!isHex ? sub.color.replace('text-','bg-') : ''}`}
+                                                style={isHex ? { backgroundColor: sub.color } : {}}
+                                            />
+                                        </div>
+                                    </motion.div>
+                                );
+                            })}
+                            {subjectRanking.length === 0 && <div className="text-slate-500 text-xs text-center py-8">No session data available.</div>}
+                        </div>
+                    </div>
+
+                </div>
+
+                {/* 4. Session Quality (Existing but polished) */}
+                <div className="bg-slate-900/40 border border-white/5 rounded-3xl p-6">
+                    <div className="flex items-center gap-2 mb-6">
+                        <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400"><Zap size={18} /></div>
+                        <h3 className="font-bold text-slate-200">Deep Work Ratio</h3>
+                    </div>
+                    
+                    <div className="space-y-6">
+                        {/* Long */}
+                        <div>
+                            <div className="flex justify-between text-xs mb-2">
+                                <span className="text-slate-300 font-bold">Deep Work (&gt;50m)</span>
+                                <span className="text-emerald-400 font-mono font-bold">{sessionQuality.long.toFixed(0)}%</span>
                             </div>
-                            {/* Medium */}
-                            <div>
-                                <div className="flex justify-between text-xs mb-2">
-                                    <span className="text-slate-400">Pomodoro (25-50m)</span>
-                                    <span className="text-white font-mono">{sessionQuality.medium.toFixed(0)}%</span>
-                                </div>
-                                <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden">
-                                    <div className="h-full bg-blue-500" style={{ width: `${sessionQuality.medium}%` }} />
-                                </div>
+                            <div className="w-full h-4 bg-slate-800 rounded-full overflow-hidden shadow-inner">
+                                <motion.div initial={{ width: 0 }} animate={{ width: `${sessionQuality.long}%` }} transition={{ duration: 1 }} className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.4)]" />
                             </div>
-                            {/* Long */}
-                            <div>
-                                <div className="flex justify-between text-xs mb-2">
-                                    <span className="text-slate-400">Deep Work (&gt;50m)</span>
-                                    <span className="text-white font-mono">{sessionQuality.long.toFixed(0)}%</span>
-                                </div>
-                                <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden shadow-inner">
-                                    <div className={`h-full bg-${accent}-500 shadow-[0_0_10px_currentColor]`} style={{ width: `${sessionQuality.long}%` }} />
-                                </div>
+                        </div>
+                        {/* Medium */}
+                        <div>
+                            <div className="flex justify-between text-xs mb-2">
+                                <span className="text-slate-400">Core Focus (25-50m)</span>
+                                <span className="text-blue-400 font-mono">{sessionQuality.medium.toFixed(0)}%</span>
+                            </div>
+                            <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden">
+                                <motion.div initial={{ width: 0 }} animate={{ width: `${sessionQuality.medium}%` }} transition={{ duration: 1 }} className="h-full bg-blue-500/60" />
+                            </div>
+                        </div>
+                        {/* Short */}
+                        <div>
+                            <div className="flex justify-between text-xs mb-2">
+                                <span className="text-slate-500">Quick Sessions (&lt;25m)</span>
+                                <span className="text-slate-400 font-mono">{sessionQuality.short.toFixed(0)}%</span>
+                            </div>
+                            <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                                <motion.div initial={{ width: 0 }} animate={{ width: `${sessionQuality.short}%` }} transition={{ duration: 1 }} className="h-full bg-slate-600/50" />
                             </div>
                         </div>
                     </div>
@@ -545,36 +486,20 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                             sessions={selectedDateSessions} 
                             subjects={subjects} 
                             className="h-full"
-                            onSessionClick={openEditSession}
-                            onEmptyClick={handleTimelineEmptyClick}
                         />
                     </div>
                     <div className="flex items-center justify-between mb-2">
                         <h2 className="text-slate-400 text-xs font-bold uppercase tracking-widest px-1">Session Records</h2>
-                        <button onClick={openAddSession} className={`text-xs text-${accent}-400 hover:text-white flex items-center gap-1 transition-colors`}>
-                            <Plus size={12}/> Manual Add
-                        </button>
                     </div>
                     <HistoryList 
                         sessions={selectedDateSessions} 
                         subjects={subjects} 
-                        onEditSession={openEditSession} 
                         onDeleteSession={requestDeleteFromList}
                     />
                 </div>
             </motion.div>
         )}
         </AnimatePresence>
-
-        {isSessionManagerOpen && (
-            <SessionManager 
-                session={editingSession}
-                subjects={subjects}
-                onSave={handleSaveSession}
-                onDelete={handleDeleteFromManager}
-                onClose={() => setIsSessionManagerOpen(false)}
-            />
-        )}
 
         {/* Confirmation Modal for List Deletion */}
         {deleteConfirmationId && (

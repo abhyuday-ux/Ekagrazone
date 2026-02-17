@@ -6,16 +6,12 @@ interface DailyTimelineProps {
   sessions: StudySession[];
   subjects: Subject[];
   className?: string;
-  onSessionClick?: (session: StudySession) => void;
-  onEmptyClick?: (hour: number, minute: number) => void;
 }
 
 export const DailyTimeline: React.FC<DailyTimelineProps> = ({ 
     sessions, 
     subjects, 
     className = "h-[600px]",
-    onSessionClick,
-    onEmptyClick
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -31,27 +27,6 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({
   const sortedSessions = [...sessions].sort((a, b) => a.startTime - b.startTime);
 
   const hours = Array.from({ length: 25 }, (_, i) => i); // 0 to 24
-
-  const handleBackgroundClick = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!onEmptyClick || !containerRef.current) return;
-      
-      // Prevent triggering when clicking on a session block
-      if ((e.target as HTMLElement).closest('.session-block')) return;
-
-      const rect = containerRef.current.getBoundingClientRect();
-      const clickY = e.clientY - rect.top;
-      const percentage = clickY / rect.height;
-      
-      const totalMinutes = 24 * 60;
-      const clickedMinutes = Math.max(0, Math.min(totalMinutes, percentage * totalMinutes));
-      
-      // Round to nearest 15 minutes
-      const roundedMinutes = Math.round(clickedMinutes / 15) * 15;
-      const hour = Math.floor(roundedMinutes / 60);
-      const minute = roundedMinutes % 60;
-
-      onEmptyClick(hour, minute);
-  };
 
   // Check if the displayed day matches current system day
   const isToday = sessions.length > 0 
@@ -78,8 +53,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({
         {/* Timeline Track */}
         <div 
             ref={containerRef}
-            onClick={handleBackgroundClick}
-            className="relative flex-1 h-full border-l border-white/5 bg-white/[0.01] rounded-r-xl overflow-hidden cursor-crosshair group/track"
+            className="relative flex-1 h-full border-l border-white/5 bg-white/[0.01] rounded-r-xl overflow-hidden group/track"
         >
             {/* Horizontal Grid Lines */}
             {hours.map((h) => (
@@ -121,12 +95,8 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({
                 return (
                     <div
                         key={session.id}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onSessionClick && onSessionClick(session);
-                        }}
                         className={`
-                            session-block absolute left-1 right-1 rounded-[4px] border transition-all cursor-pointer shadow-sm overflow-hidden
+                            session-block absolute left-1 right-1 rounded-[4px] border transition-all shadow-sm overflow-hidden
                             hover:z-20 hover:shadow-lg hover:brightness-110 hover:scale-[1.01]
                             ${!isHex ? subjectColor : ''}
                         `}
