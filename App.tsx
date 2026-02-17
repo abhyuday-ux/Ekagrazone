@@ -26,7 +26,7 @@ import { useAuth } from './contexts/AuthContext';
 import { dbService } from './services/db';
 import { useSound } from './contexts/SoundContext';
 import { StudySession, Subject, DEFAULT_SUBJECTS, Task, Exam, isHexColor, TimerDurations, DEFAULT_DURATIONS, UserProfile } from './types';
-import { Zap, Wifi, WifiOff, RefreshCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Settings, Timer, BarChart3, CalendarDays, Target, Trash2, AlertCircle, PanelLeftClose, PanelLeftOpen, CheckSquare, Palette, Image as ImageIcon, ToggleLeft, ToggleRight, Maximize2, X, BookOpen, Repeat, Home, AlertTriangle, Download, Upload, Database, Layout, Rocket, Globe, RotateCcw, LogOut, HardDrive, LogIn, GraduationCap, Volume2, VolumeX, Play, Pause, Hourglass, Users, Bell } from 'lucide-react';
+import { Zap, Wifi, WifiOff, RefreshCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Settings, Timer, BarChart3, CalendarDays, Target, Trash2, AlertCircle, PanelLeftClose, PanelLeftOpen, CheckSquare, Palette, Image as ImageIcon, ToggleLeft, ToggleRight, Maximize2, X, BookOpen, Repeat, Home, AlertTriangle, Download, Upload, Database, Layout, Rocket, Globe, RotateCcw, LogOut, HardDrive, LogIn, GraduationCap, Volume2, VolumeX, Play, Pause, Hourglass, Users, Bell, Loader2 } from 'lucide-react';
 import { useTheme, ACCENT_COLORS } from './contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { rtdb } from './services/firebase';
@@ -545,28 +545,31 @@ const App: React.FC = () => {
       if (shouldEnter) setIsZenActive(true);
   };
 
-  if (loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Loading...</div>;
-  if (!currentUser && !isGuest) return <LoginPage />;
+  // --- RENDERING LOGIC UPDATES ---
 
-  // --- WHITELIST CHECK ---
-  const isAuthorized = currentUser ? AUTHORIZED_TESTERS.includes(currentUser.email || '') : false;
-  
-  // Strict Maintenance Mode: Block guest users and unauthorized authenticated users
-  if (!isAuthorized && !isGuest) {
-      // Allow Guest Mode bypass? The prompt implies private beta "gatekeeper" on Google Login.
-      // If the user chooses Guest Mode, they have no email, so isAuthorized is false.
-      // If we want STRICT Private Beta, we should block guests too.
-      // Assuming strict Private Beta based on "Maintenance Mode" request.
-      // BUT if we block guests, they can't see the app at all.
-      // Let's assume the whitelist ONLY applies to Google Logins as per prompt "In my App.js, after the user logs in with Google".
-      // AND "If the user is NOT authorized... show MaintenanceMode".
-      // However, usually Private Beta blocks everyone not on the list.
-      // I will block everyone who isn't explicitly authorized via email.
-      return <MaintenanceMode />;
+  // 1. Loading State
+  if (loading) {
+      return (
+          <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
+              <div className="flex flex-col items-center gap-4">
+                  <div className={`w-12 h-12 border-4 border-${accent}-500/30 border-t-${accent}-500 rounded-full animate-spin`} />
+                  <p className="text-slate-400 text-sm font-mono animate-pulse">Initializing Zone...</p>
+              </div>
+          </div>
+      );
   }
-  // Also block guests for Strict Private Beta
-  if (isGuest) {
-      return <MaintenanceMode />;
+
+  // 2. Not Logged In & Not Guest -> Login Page
+  if (!currentUser && !isGuest) {
+      return <LoginPage />;
+  }
+
+  // 3. Maintenance Mode Check (Only for Logged In Users)
+  if (currentUser) {
+      const isAuthorized = AUTHORIZED_TESTERS.includes(currentUser.email || '');
+      if (!isAuthorized) {
+          return <MaintenanceMode />;
+      }
   }
 
   // Force Username Setup if needed
