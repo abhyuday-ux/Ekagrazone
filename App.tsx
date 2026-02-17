@@ -33,6 +33,7 @@ import { rtdb } from './services/firebase';
 import { ref, set, onDisconnect, serverTimestamp, onValue, update } from 'firebase/database';
 
 // --- PRIVATE BETA WHITELIST ---
+// Ensure all emails here are lowercase to match logic
 const AUTHORIZED_TESTERS = [
     'your-email@gmail.com' 
 ];
@@ -545,9 +546,10 @@ const App: React.FC = () => {
       if (shouldEnter) setIsZenActive(true);
   };
 
-  // --- RENDERING LOGIC UPDATES ---
+  // --- STRICT RENDERING LOGIC ---
 
-  // 1. Loading State
+  // 1. Loading State - Absolute Top Priority
+  // Stops the app from 'guessing' or flashing wrong screens
   if (loading) {
       return (
           <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
@@ -559,20 +561,24 @@ const App: React.FC = () => {
       );
   }
 
-  // 2. Not Logged In & Not Guest -> Login Page
-  if (!currentUser && !isGuest) {
-      return <LoginPage />;
-  }
-
-  // 3. Maintenance Mode Check (Only for Logged In Users)
+  // 2. Auth & Whitelist Check
   if (currentUser) {
-      const isAuthorized = AUTHORIZED_TESTERS.includes(currentUser.email || '');
+      // Case-insensitive whitelist check
+      const email = currentUser.email?.toLowerCase() || '';
+      const isAuthorized = AUTHORIZED_TESTERS.some(tester => tester.toLowerCase() === email);
+
       if (!isAuthorized) {
           return <MaintenanceMode />;
       }
   }
 
-  // Force Username Setup if needed
+  // 3. Guest / Login Check
+  // If not logged in AND not a guest, force login
+  if (!currentUser && !isGuest) {
+      return <LoginPage />;
+  }
+
+  // 4. Force Username Setup if needed (Post-Auth / Post-Guest)
   if (usernameNeeded && !isGuest) {
       return <UsernameSetup onComplete={() => setUsernameNeeded(false)} />;
   }
