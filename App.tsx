@@ -15,6 +15,7 @@ import { Dashboard } from './components/Dashboard';
 import { StatsPage } from './components/StatsPage'; 
 import { PlanPage } from './components/PlanPage'; 
 import { LoginPage } from './components/LoginPage'; 
+import { MaintenanceMode } from './components/MaintenanceMode';
 import { ExamList } from './components/ExamList';
 import { SocialPanel } from './components/SocialPanel';
 import { UsernameSetup } from './components/UsernameSetup';
@@ -30,6 +31,11 @@ import { useTheme, ACCENT_COLORS } from './contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { rtdb } from './services/firebase';
 import { ref, set, onDisconnect, serverTimestamp, onValue, update } from 'firebase/database';
+
+// --- PRIVATE BETA WHITELIST ---
+const AUTHORIZED_TESTERS = [
+    'your-email@gmail.com' 
+];
 
 // Helper function to extract YouTube video ID
 const getYoutubeId = (url: string) => {
@@ -541,6 +547,27 @@ const App: React.FC = () => {
 
   if (loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Loading...</div>;
   if (!currentUser && !isGuest) return <LoginPage />;
+
+  // --- WHITELIST CHECK ---
+  const isAuthorized = currentUser ? AUTHORIZED_TESTERS.includes(currentUser.email || '') : false;
+  
+  // Strict Maintenance Mode: Block guest users and unauthorized authenticated users
+  if (!isAuthorized && !isGuest) {
+      // Allow Guest Mode bypass? The prompt implies private beta "gatekeeper" on Google Login.
+      // If the user chooses Guest Mode, they have no email, so isAuthorized is false.
+      // If we want STRICT Private Beta, we should block guests too.
+      // Assuming strict Private Beta based on "Maintenance Mode" request.
+      // BUT if we block guests, they can't see the app at all.
+      // Let's assume the whitelist ONLY applies to Google Logins as per prompt "In my App.js, after the user logs in with Google".
+      // AND "If the user is NOT authorized... show MaintenanceMode".
+      // However, usually Private Beta blocks everyone not on the list.
+      // I will block everyone who isn't explicitly authorized via email.
+      return <MaintenanceMode />;
+  }
+  // Also block guests for Strict Private Beta
+  if (isGuest) {
+      return <MaintenanceMode />;
+  }
 
   // Force Username Setup if needed
   if (usernameNeeded && !isGuest) {
