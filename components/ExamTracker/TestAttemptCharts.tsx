@@ -100,7 +100,17 @@ export const TestAttemptCharts: React.FC<TestAttemptChartsProps> = ({ tests, sub
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="2 2" stroke="#ffffff10" vertical={false} />
-                            <XAxis dataKey="attemptNumber" stroke="#475569" fontSize={9} tickLine={false} axisLine={false} dy={10} />
+                            <XAxis 
+                                dataKey="timestamp" 
+                                type="number" 
+                                domain={['dataMin', 'dataMax']}
+                                tickFormatter={(ts) => new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                stroke="#475569" 
+                                fontSize={9} 
+                                tickLine={false} 
+                                axisLine={false} 
+                                dy={10} 
+                            />
                             <YAxis stroke="#475569" fontSize={9} tickLine={false} axisLine={false} dx={-10} />
                             <Tooltip content={<CustomTooltip />} />
                             <Area type="monotone" dataKey="scored" name="Total Score" stroke={`var(--color-${accent}-500)`} strokeWidth={2} fillOpacity={1} fill={`url(#colorScored-${accent})`} dot={{ r: 4, fill: '#0f172a', strokeWidth: 2, stroke: `var(--color-${accent}-500)` }} activeDot={{ r: 6, strokeWidth: 0, fill: '#fff' }} />
@@ -118,7 +128,17 @@ export const TestAttemptCharts: React.FC<TestAttemptChartsProps> = ({ tests, sub
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={subjectData} margin={{ top: 5, right: 20, left: -10, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="2 2" stroke="#ffffff10" vertical={false} />
-                            <XAxis dataKey="attemptNumber" stroke="#475569" fontSize={9} tickLine={false} axisLine={false} dy={10} />
+                            <XAxis 
+                                dataKey="timestamp" 
+                                type="number" 
+                                domain={['dataMin', 'dataMax']}
+                                tickFormatter={(ts) => new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                stroke="#475569" 
+                                fontSize={9} 
+                                tickLine={false} 
+                                axisLine={false} 
+                                dy={10} 
+                            />
                             <YAxis stroke="#475569" fontSize={9} tickLine={false} axisLine={false} dx={-10} />
                             <Tooltip content={<CustomTooltip />} />
                             <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" iconSize={6} formatter={(value) => <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">{value}</span>} />

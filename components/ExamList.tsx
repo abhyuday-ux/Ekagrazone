@@ -90,7 +90,7 @@ export const ExamList: React.FC<ExamListProps> = ({ exams, subjects, onDelete, v
                                     {examSubjects.map(sub => (
                                          <span key={sub.id} className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/5 border border-white/5`}>
                                             <div className={`w-1.5 h-1.5 rounded-full ${isHexColor(sub.color) ? '' : sub.color}`} style={isHexColor(sub.color) ? { backgroundColor: sub.color } : {}} />
-                                            <span className={(typeof sub.color === 'string' && !isHexColor(sub.color)) ? sub.color.replace('bg-', 'text-') : ''} style={isHexColor(sub.color) ? { color: sub.color } : {}}>{sub.name}</span>
+                                            <span className={!isHexColor(sub.color) ? sub.color.replace('bg-', 'text-') : ''} style={isHexColor(sub.color) ? { color: sub.color } : {}}>{sub.name}</span>
                                         </span>
                                     ))}
                                 </div>

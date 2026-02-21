@@ -216,7 +216,7 @@ export const SUBJECT_COLORS = [
   '#f43f5e', // rose
 ];
 
-export const isHexColor = (color: string | null | undefined): color is string => typeof color === 'string' && color.startsWith('#');
+export const isHexColor = (color: string) => color.startsWith('#');
 
 /**
  * Returns a YYYY-MM-DD string for the local timezone.
