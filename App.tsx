@@ -22,9 +22,12 @@ import { UsernameSetup } from './components/UsernameSetup';
 import { LevelUpModal } from './components/LevelUpModal';
 import { FriendObserver } from './components/FriendObserver';
 import { NotificationCenter } from './components/NotificationCenter';
+import { ChallengeSettings } from './components/ChallengeSettings';
+import { ExamTracker } from './components/ExamTracker/ExamTracker';
 import { useAuth } from './contexts/AuthContext'; 
 import { dbService } from './services/db';
 import { useSound } from './contexts/SoundContext';
+import { usePerformance } from './contexts/PerformanceContext';
 import { StudySession, Subject, DEFAULT_SUBJECTS, Task, Exam, isHexColor, TimerDurations, DEFAULT_DURATIONS, UserProfile } from './types';
 import { Zap, Wifi, WifiOff, RefreshCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Settings, Timer, BarChart3, CalendarDays, Target, Trash2, AlertCircle, PanelLeftClose, PanelLeftOpen, CheckSquare, Palette, Image as ImageIcon, ToggleLeft, ToggleRight, Maximize2, X, BookOpen, Repeat, Home, AlertTriangle, Download, Upload, Database, Layout, Rocket, Globe, RotateCcw, LogOut, HardDrive, LogIn, GraduationCap, Volume2, VolumeX, Play, Pause, Hourglass, Users, Bell, Loader2, ShieldCheck, Lock } from 'lucide-react';
 import { useTheme, ACCENT_COLORS } from './contexts/ThemeContext';
@@ -74,7 +77,7 @@ interface MiniTimerProps {
     onActivate: () => void;
 }
 
-const MiniTimer: React.FC<MiniTimerProps> = ({
+const MiniTimer: React.FC<MiniTimerProps> = React.memo(({
     status, activeTab, isZenActive, isSpaceMode, targetDuration, elapsedMs, isTimerMode, accent, currentSubject, onToggle, onActivate
 }) => {
     const isVisible = !(status === 'idle' || activeTab === 'timer' || isZenActive || isSpaceMode);
@@ -133,11 +136,12 @@ const MiniTimer: React.FC<MiniTimerProps> = ({
             )}
         </AnimatePresence>
     );
-};
+});
 
 const App: React.FC = () => {
   const { currentUser, isGuest, loading, logout, signInWithGoogle } = useAuth(); 
   const { isPlaying, currentSound, togglePlay } = useSound();
+  const { graphicsQuality, setGraphicsQuality, isHighQuality } = usePerformance();
 
   const [subjects, setSubjects] = useState<Subject[]>(DEFAULT_SUBJECTS);
   const [allSessions, setAllSessions] = useState<StudySession[]>([]);
@@ -357,45 +361,45 @@ const App: React.FC = () => {
     loadSessions();
   }, []);
 
-  const handleUpdateDurations = (newDurations: TimerDurations) => {
+  const handleUpdateDurations = useCallback((newDurations: TimerDurations) => {
       setTimerDurations(newDurations);
       localStorage.setItem('ekagrazone_timer_durations', JSON.stringify(newDurations));
       dbService.syncSettingsToCloud().catch(console.error);
-  };
+  }, []);
 
-  const handleTargetHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTargetHoursChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
       const val = parseFloat(e.target.value);
       setTargetHours(val);
       localStorage.setItem('ekagrazone_targetHours', val.toString());
       dbService.syncSettingsToCloud().catch(console.error);
-  };
+  }, []);
 
-  const handleZenToggle = () => {
+  const handleZenToggle = useCallback(() => {
       const newState = !enableZenMode;
       setEnableZenMode(newState);
       localStorage.setItem('ekagrazone_enableZenMode', String(newState));
       dbService.syncSettingsToCloud().catch(console.error);
-  };
+  }, [enableZenMode]);
 
-  const handleWallpaperChange = (url: string) => {
+  const handleWallpaperChange = useCallback((url: string) => {
       setWallpaper(url);
       localStorage.setItem('ekagrazone_wallpaper', url);
       dbService.syncSettingsToCloud().catch(console.error);
-  };
+  }, []);
 
-  const handleShowWallpaperToggle = () => {
+  const handleShowWallpaperToggle = useCallback(() => {
       const newVal = !showWallpaperOnHome;
       setShowWallpaperOnHome(newVal);
       localStorage.setItem('ekagrazone_wallpaper_home', String(newVal));
       dbService.syncSettingsToCloud().catch(console.error);
-  };
+  }, [showWallpaperOnHome]);
 
-  const handleAccentChange = (newAccent: string) => {
+  const handleAccentChange = useCallback((newAccent: string) => {
       setAccent(newAccent as any);
       setTimeout(() => dbService.syncSettingsToCloud().catch(console.error), 100);
-  };
+  }, [setAccent]);
 
-  const handleSync = async () => {
+  const handleSync = useCallback(async () => {
     if (!isOnline || isGuest) return;
     setIsSyncing(true);
     await dbService.pullFromFirestore();
@@ -404,7 +408,7 @@ const App: React.FC = () => {
     await loadExams();
     await refreshSubjects();
     setTimeout(() => { setIsSyncing(false); }, 800);
-  };
+  }, [isOnline, isGuest]);
 
   const handleExport = async () => {
     const dbData = await dbService.createBackup();
@@ -563,13 +567,13 @@ const App: React.FC = () => {
       return tasks.filter(t => t.dateString === today);
   }, [tasks]);
 
-  const handleStartRequest = () => {
+  const handleStartRequest = useCallback(() => {
       if (enableZenMode && wallpaper && status === 'idle' && !isZenActive) {
           setShowZenPrompt(true);
       } else {
           start();
       }
-  };
+  }, [enableZenMode, wallpaper, status, isZenActive, start]);
 
   const handleZenResponse = (shouldEnter: boolean) => {
       setShowZenPrompt(false);
@@ -814,6 +818,7 @@ const App: React.FC = () => {
         </div>
 
         {/* ... Rest of Settings (unchanged) ... */}
+        <ChallengeSettings />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Column 1: Appearance */}
             <div className="space-y-8 h-full">
@@ -835,6 +840,29 @@ const App: React.FC = () => {
                                 />
                             ))}
                         </div>
+                    </div>
+
+                    <div>
+                        <div className="flex items-center justify-between mb-3">
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Performance</p>
+                            <div className="flex bg-slate-800 p-1 rounded-lg border border-white/5">
+                                <button 
+                                    onClick={() => setGraphicsQuality('Low')}
+                                    className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${graphicsQuality === 'Low' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                                >
+                                    Low
+                                </button>
+                                <button 
+                                    onClick={() => setGraphicsQuality('High')}
+                                    className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${graphicsQuality === 'High' ? `bg-${accent}-500/20 text-${accent}-400 shadow-sm` : 'text-slate-500 hover:text-slate-300'}`}
+                                >
+                                    High
+                                </button>
+                            </div>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mb-4">
+                            Low quality disables animations, blur effects, and complex backgrounds to save battery.
+                        </p>
                     </div>
 
                     <div>
@@ -866,6 +894,23 @@ const App: React.FC = () => {
                     </div>
                     
                     <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                            <div className="flex items-center gap-4">
+                                <div className={`p-2 bg-${accent}-500/10 rounded-xl text-${accent}-400`}><Zap size={20} /></div>
+                                <div>
+                                    <span className="font-semibold text-slate-200 block">Graphics Quality</span>
+                                    <span className="text-xs text-slate-500">Low Spec Mode (No Glow/Anim)</span>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setGraphicsQuality(graphicsQuality === 'High' ? 'Low' : 'High')} 
+                                className={`transition-colors flex items-center gap-2 ${graphicsQuality === 'High' ? `text-${accent}-400` : 'text-slate-600 hover:text-slate-400'}`}
+                            >
+                                <span className="text-xs font-bold uppercase">{graphicsQuality}</span>
+                                {graphicsQuality === 'High' ? <ToggleRight size={36} /> : <ToggleLeft size={36} />}
+                            </button>
+                        </div>
+
                         <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
                             <div className="flex items-center gap-4">
                                 <div className={`p-2 bg-${accent}-500/10 rounded-xl text-${accent}-400`}><ImageIcon size={20} /></div>
@@ -949,6 +994,7 @@ const App: React.FC = () => {
       { id: 'dashboard', label: 'Home', icon: Home },
       { id: 'timer', label: 'Focus', icon: Timer },
       { id: 'timeline', label: 'Stats', icon: BarChart3 },
+      { id: 'exams', label: 'Exams', icon: GraduationCap },
       { id: 'habits', label: 'Habits', icon: Repeat },
       { id: 'journal', label: 'Journal', icon: BookOpen },
       { id: 'calendar', label: 'Plan', icon: CalendarDays },
@@ -1050,19 +1096,21 @@ const App: React.FC = () => {
 
       {/* Background Ambience */}
       {!isZenActive && !isSpaceMode && (
-          <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-              {showWallpaperOnHome && wallpaper ? (
-                  <>
-                    <img src={wallpaper} alt="Background" className="absolute inset-0 w-full h-full object-cover opacity-30" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a] via-[#0f172a]/90 to-[#0f172a]/70 backdrop-blur-[2px]" />
-                  </>
-              ) : (
-                  <>
-                    <div className={`absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-${accent}-600/10 blur-[120px] rounded-full mix-blend-screen animate-[pulse_8s_ease-in-out_infinite]`} />
-                    <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-blue-600/10 blur-[100px] rounded-full mix-blend-screen animate-[pulse_10s_ease-in-out_infinite_reverse]" />
-                    <div className="absolute top-[40%] left-[30%] w-[30vw] h-[30vw] bg-purple-600/5 blur-[80px] rounded-full mix-blend-screen animate-[pulse_12s_ease-in-out_infinite]" />
-                  </>
-              )}
+          <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden" style={!isHighQuality ? { backgroundColor: '#000000' } : {}}>
+              {isHighQuality ? (
+                  showWallpaperOnHome && wallpaper ? (
+                      <>
+                        <img src={wallpaper} alt="Background" className="absolute inset-0 w-full h-full object-cover opacity-30" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a] via-[#0f172a]/90 to-[#0f172a]/70 backdrop-blur-[2px]" />
+                      </>
+                  ) : (
+                      <>
+                        <div className={`absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-${accent}-600/10 blur-[120px] rounded-full mix-blend-screen animate-[pulse_8s_ease-in-out_infinite]`} />
+                        <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-blue-600/10 blur-[100px] rounded-full mix-blend-screen animate-[pulse_10s_ease-in-out_infinite_reverse]" />
+                        <div className="absolute top-[40%] left-[30%] w-[30vw] h-[30vw] bg-purple-600/5 blur-[80px] rounded-full mix-blend-screen animate-[pulse_12s_ease-in-out_infinite]" />
+                      </>
+                  )
+              ) : null}
           </div>
       )}
 
@@ -1192,6 +1240,7 @@ const App: React.FC = () => {
                         targetHours={targetHours} 
                         userName={displayName}
                         onNavigate={setActiveTab}
+                        tasks={tasks}
                     />
                    )}
 
@@ -1234,6 +1283,12 @@ const App: React.FC = () => {
                    {activeTab === 'timeline' && (
                      <div className="flex-1 flex flex-col px-4 overflow-y-auto pb-4">
                         <StatsPage sessions={allSessions} subjects={subjects} onDataUpdate={loadSessions} />
+                     </div>
+                   )}
+
+                   {activeTab === 'exams' && (
+                     <div className="flex-1 flex flex-col px-4 overflow-y-auto pb-4">
+                        <ExamTracker subjects={subjects} exams={exams} onUpdate={loadExams} />
                      </div>
                    )}
 
@@ -1304,6 +1359,7 @@ const App: React.FC = () => {
                         {activeTab === 'dashboard' && 'Dashboard'}
                         {activeTab === 'timer' && 'Focus Zone'}
                         {activeTab === 'timeline' && 'Analytics'}
+                        {activeTab === 'exams' && 'Exam Tracker'}
                         {activeTab === 'journal' && 'Daily Journal'}
                         {activeTab === 'habits' && 'Habit Forge'}
                         {activeTab === 'social' && 'Social Hub'}
@@ -1360,6 +1416,7 @@ const App: React.FC = () => {
                                         targetHours={targetHours} 
                                         userName={displayName}
                                         onNavigate={setActiveTab}
+                                        tasks={tasks}
                                     />
                                 </div>
                             )}
@@ -1444,6 +1501,12 @@ const App: React.FC = () => {
                             {activeTab === 'timeline' && (
                                 <div className="h-full w-full overflow-hidden">
                                     <StatsPage sessions={allSessions} subjects={subjects} onDataUpdate={loadSessions} />
+                                </div>
+                            )}
+
+                            {activeTab === 'exams' && (
+                                <div className="h-full w-full overflow-y-auto custom-scrollbar rounded-[2rem]">
+                                    <ExamTracker subjects={subjects} exams={exams} onUpdate={loadExams} />
                                 </div>
                             )}
 

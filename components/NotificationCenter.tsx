@@ -32,12 +32,21 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
             type: 'system',
             title: 'Welcome to Phase 2!',
             message: 'Ekagrazone Phase 2 is live. Check out the new global leaderboard and live presence features.',
-            timestamp: Date.now(), // Always fresh for demo
+            timestamp: Date.now() - 100000, // Slightly older to appear after v3
             read: true // System messages read by default for visual noise reduction in this demo
         };
 
+        const systemNotifV3: Notification = {
+            id: 'sys-v3-launch',
+            type: 'system',
+            title: 'Ekagrazone v3.0 is Live!',
+            message: 'Introducing two powerful new features: an advanced Mock Test tracker and a comprehensive daily Report Card to supercharge your study analytics.',
+            timestamp: Date.now(), // Always fresh
+            read: false
+        };
+
         if (!currentUser) {
-            setNotifications([systemNotif]);
+            setNotifications([systemNotifV3, systemNotif]);
             return;
         }
 
@@ -46,7 +55,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
         
         const unsubscribe = onValue(notifRef, (snapshot) => {
             const data = snapshot.val();
-            const loaded: Notification[] = [systemNotif];
+            const loaded: Notification[] = [systemNotifV3, systemNotif];
             
             if (data) {
                 Object.keys(data).forEach(key => {

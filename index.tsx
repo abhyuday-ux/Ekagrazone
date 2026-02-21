@@ -5,19 +5,9 @@ import App from './App';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { SoundProvider } from './contexts/SoundContext';
+import { PerformanceProvider } from './contexts/PerformanceContext';
 
-// Register Service Worker for PWA capabilities
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(registration => {
-        console.log('SW registered: ', registration);
-      })
-      .catch(registrationError => {
-        console.log('SW registration failed: ', registrationError);
-      });
-  });
-}
+
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -29,9 +19,11 @@ root.render(
   <React.StrictMode>
     <AuthProvider>
       <ThemeProvider>
-        <SoundProvider>
-          <App />
-        </SoundProvider>
+        <PerformanceProvider>
+          <SoundProvider>
+            <App />
+          </SoundProvider>
+        </PerformanceProvider>
       </ThemeProvider>
     </AuthProvider>
   </React.StrictMode>

@@ -15,12 +15,12 @@ interface StatsPageProps {
   onDataUpdate?: () => void;
 }
 
-type TimeRange = 'week' | 'month' | 'all';
+type TimeRange = 'today' | 'week' | 'month' | 'all';
 type ViewMode = 'overview' | 'daily';
 
 export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onDataUpdate }) => {
   const { accent } = useTheme();
-  const [range, setRange] = useState<TimeRange>('week');
+  const [range, setRange] = useState<TimeRange>('today');
   const [viewMode, setViewMode] = useState<ViewMode>('overview');
   
   // Daily View State
@@ -49,6 +49,9 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       
+      if (range === 'today') {
+          return { start: today, end: today };
+      }
       if (range === 'week') {
           const start = new Date(today);
           start.setDate(today.getDate() - 6);
@@ -84,7 +87,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
   const totalDuration = filteredSessions.reduce((acc, s) => acc + s.durationMs, 0);
   const totalHours = totalDuration / 3600000;
   
-  const daysInRange = range === 'week' ? 7 : range === 'month' ? 30 : new Set(filteredSessions.map(s => s.dateString)).size || 1;
+  const daysInRange = range === 'today' ? 1 : range === 'week' ? 7 : range === 'month' ? 30 : new Set(filteredSessions.map(s => s.dateString)).size || 1;
   const dailyAverage = totalHours / (daysInRange || 1);
 
   // Subject Breakdown
@@ -102,7 +105,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
   // --- Trend Data (Bar Chart) ---
   const trendData = useMemo(() => {
       const data = [];
-      const chartRange = range === 'all' ? 'month' : range;
+      const chartRange = range === 'all' || range === 'today' ? 'month' : range;
       
       let chartStart: Date;
       if (chartRange === 'week') {
@@ -156,8 +159,8 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
       return Object.entries(subjectTotals)
           .map(([id, ms]) => ({
               id,
-              ms,
-              percent: (ms / totalDuration) * 100
+              ms: ms as number,
+              percent: ((ms as number) / totalDuration) * 100
           }))
           .sort((a, b) => b.ms - a.ms)
           .map(item => {
@@ -216,7 +219,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
 
             {viewMode === 'overview' && (
                 <div className="flex gap-2">
-                    {(['week', 'month', 'all'] as TimeRange[]).map((r) => (
+                    {(['today', 'week', 'month', 'all'] as TimeRange[]).map((r) => (
                         <button
                             key={r}
                             onClick={() => setRange(r)}

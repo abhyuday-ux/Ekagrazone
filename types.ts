@@ -65,10 +65,32 @@ export interface Task {
 
 export interface Exam {
   id: string;
-  subjectId: string;
+  subjectIds: string[]; // Changed from subjectId to subjectIds
   title: string;
   date: string; // ISO Date YYYY-MM-DD
   topics: string;
+  createdAt: number;
+}
+
+export interface MockTest {
+  id: string;
+  setupId?: string; // Links an attempt to its original setup
+  title: string;
+  examType: string; // e.g. 'JEE', 'BITSAT'
+  date: string; // Scheduled/Setup Date (YYYY-MM-DD)
+  subjectIds: string[];
+  subjectMaxMarks: Record<string, number>;
+  totalMaxMarks: number;
+  
+  // Attempt Data (Step 2)
+  attemptDate?: string; // Date of Attempt (YYYY-MM-DD)
+  attemptTime?: string; // Time of Attempt (HH:mm)
+  attemptTimestamp?: number; // Combined timestamp for graphing
+  subjectScores?: Record<string, number>; // Raw marks scored per subject
+  totalScore?: number;
+  percentage?: number;
+  
+  createdAt: number;
 }
 
 export interface ChatMessage {
@@ -76,6 +98,14 @@ export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
   timestamp: number;
+}
+
+export interface DailyNote {
+  id: string; // dateString
+  dateString: string;
+  content: string;
+  updatedAt: number;
+  dayStartTime?: number;
 }
 
 export interface JournalEntry {
@@ -133,6 +163,8 @@ export interface UserProfile {
   xp?: number; // Total Experience Points
   level?: number; // Current Level
   lastActive: number;
+  challengeTitle?: string;
+  challengeStartDate?: string; // ISO Date YYYY-MM-DD
 }
 
 export type FriendStatus = 'pending_sent' | 'pending_received' | 'accepted';
@@ -184,7 +216,7 @@ export const SUBJECT_COLORS = [
   '#f43f5e', // rose
 ];
 
-export const isHexColor = (color: string) => color.startsWith('#');
+export const isHexColor = (color: string | null | undefined): color is string => typeof color === 'string' && color.startsWith('#');
 
 /**
  * Returns a YYYY-MM-DD string for the local timezone.

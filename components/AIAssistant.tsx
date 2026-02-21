@@ -316,7 +316,11 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ subjects, currentSubje
     
     try {
       const subjectList = subjects.map(s => s.name).join(', ');
-      const examList = exams.map(e => `${e.title} (${subjects.find(s => s.id === e.subjectId)?.name}) on ${e.date}. Topics: ${e.topics}`).join('\n');
+      const examList = exams.map(e => {
+          const subId = e.subjectIds?.[0] || (e as any).subjectId;
+          const subName = subjects.find(s => s.id === subId)?.name || 'Unknown Subject';
+          return `${e.title} (${subName}) on ${e.date}. Topics: ${e.topics}`;
+      }).join('\n');
       const activeSubjectName = subjects.find(s => s.id === currentSubjectId)?.name || "General";
       
       const allPersonas = [...DEFAULT_PERSONALITIES, ...customPersonalities];
@@ -375,9 +379,10 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ subjects, currentSubje
       const exam: Exam = {
           id: crypto.randomUUID(),
           title: newExamTitle,
-          subjectId: newExamSubject,
+          subjectIds: [newExamSubject],
           date: newExamDate,
-          topics: newExamTopics
+          topics: newExamTopics,
+          createdAt: Date.now()
       };
 
       await dbService.saveExam(exam);
@@ -561,7 +566,8 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ subjects, currentSubje
                         </div>
                     ) : (
                         exams.map(exam => {
-                            const subject = getSubject(exam.subjectId);
+                            const subId = exam.subjectIds?.[0] || (exam as any).subjectId;
+                            const subject = subjects.find(s => s.id === subId);
                             const daysLeft = Math.ceil((new Date(exam.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
                             const isClose = daysLeft <= 3 && daysLeft >= 0;
 

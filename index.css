@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global Low Spec Mode Overrides */
+body.low-spec * {
+  animation: none !important;
+  transition: none !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Ensure visibility of elements that relied on shadows/glows */
+body.low-spec .glow-text {
+  color: #fff !important;
+}
+
+body.low-spec .glass-panel {
+  background: #1e293b !important; /* Solid slate-800 */
+  border: 1px solid #334155 !important;
+}
+
+/* Disable specific heavy effects */
+body.low-spec .animate-pulse,
+body.low-spec .animate-spin,
+body.low-spec .animate-bounce,
+body.low-spec .animate-ping {
+  animation: none !important;
+}
+
+/* Force solid backgrounds where gradients were used */
+body.low-spec .bg-gradient-to-r,
+body.low-spec .bg-gradient-to-br,
+body.low-spec .bg-gradient-to-b {
+  background-image: none !important;
+  background-color: #0f172a !important; /* Fallback color */
+}

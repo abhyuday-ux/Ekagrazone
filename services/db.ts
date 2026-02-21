@@ -1,12 +1,12 @@
 
-import { StudySession, Subject, DEFAULT_SUBJECTS, DailyGoal, Task, Exam, ChatMessage, JournalEntry, CustomSound, UserProfile, Friend, FriendStatus } from '../types';
+import { StudySession, Subject, DEFAULT_SUBJECTS, DailyGoal, Task, Exam, ChatMessage, JournalEntry, DailyNote, CustomSound, UserProfile, Friend, FriendStatus, MockTest } from '../types';
 import { db, rtdb } from './firebase';
 import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, writeBatch, onSnapshot, Unsubscribe, query, where, updateDoc, increment, limit, orderBy } from 'firebase/firestore';
 import { ref, update as rtdbUpdate, set as rtdbSet, serverTimestamp, remove as rtdbRemove } from 'firebase/database';
 import { XP_PER_MINUTE, getLevelFromXP, getRankInfo } from '../utils/xp';
 
 const DB_NAME = 'EkagrazoneDB';
-const DB_VERSION = 8; 
+const DB_VERSION = 10; 
 const STORE_SESSIONS = 'sessions';
 const STORE_SUBJECTS = 'subjects';
 const STORE_GOALS = 'goals';
@@ -14,7 +14,9 @@ const STORE_TASKS = 'tasks';
 const STORE_EXAMS = 'exams';
 const STORE_CHATS = 'chats';
 const STORE_JOURNAL = 'journal';
+const STORE_DAILY_NOTES = 'daily_notes';
 const STORE_CUSTOM_SOUNDS = 'custom_sounds';
+const STORE_MOCK_TESTS = 'mock_tests';
 
 const LOCAL_STORAGE_KEYS = [
   'ekagrazone_targetHours',
@@ -34,6 +36,7 @@ class LocalDB {
   private db: IDBDatabase | null = null;
   private userId: string | null = null;
   private unsubscribers: Unsubscribe[] = [];
+  private syncTimeout: any = null;
 
   setUserId(uid: string | null) {
     this.userId = uid;
@@ -72,7 +75,9 @@ class LocalDB {
         createStore(STORE_EXAMS);
         createStore(STORE_CHATS);
         createStore(STORE_JOURNAL, 'id', 'dateString');
+        createStore(STORE_DAILY_NOTES, 'id', 'dateString');
         createStore(STORE_CUSTOM_SOUNDS);
+        createStore(STORE_MOCK_TESTS, 'id', 'date');
       };
     });
   }
@@ -83,7 +88,7 @@ class LocalDB {
       this.stopRealtimeSync(); 
       console.log("Starting real-time sync for user:", this.userId);
 
-      const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS];
+      const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_MOCK_TESTS];
 
       collections.forEach(colName => {
           const q = collection(db, 'users', this.userId!, colName);
@@ -107,7 +112,11 @@ class LocalDB {
                   if (change.type === 'added' || change.type === 'modified') store.put(change.doc.data());
                   if (change.type === 'removed') store.delete(change.doc.id);
               });
-              tx.oncomplete = () => window.dispatchEvent(new Event('ekagrazone_sync_complete'));
+              // Debounce sync complete event
+              if (this.syncTimeout) clearTimeout(this.syncTimeout);
+              this.syncTimeout = setTimeout(() => {
+                  window.dispatchEvent(new Event('ekagrazone_sync_complete'));
+              }, 500);
           }, (error) => {
               console.warn(`Sync error for ${colName}:`, error.message);
           });
@@ -433,6 +442,12 @@ class LocalDB {
       }, { merge: true });
   }
 
+  async updateUserProfile(data: Partial<UserProfile>) {
+      if (!this.userId) return;
+      const userRef = doc(db, 'user_profiles', this.userId);
+      await setDoc(userRef, data, { merge: true });
+  }
+
   private async syncToFirestore(collectionName: string, data: any) {
     if (!this.userId || collectionName === STORE_CUSTOM_SOUNDS) return;
     try { await setDoc(doc(db, 'users', this.userId, collectionName, data.id), data); } catch (e) { console.error(`Failed to sync ${collectionName}`, e); }
@@ -471,9 +486,27 @@ class LocalDB {
   async syncLocalToCloud() {
       if (!this.userId) return;
       await this.syncSettingsToCloud();
-      const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS];
-      const db = await this.connect();
+      const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_MOCK_TESTS];
+      
+      // Merge Strategy: Prefer Local (Guest) data if it exists, then sync to cloud
       for (const colName of collections) {
+          // 1. Check LocalStorage (Guest Data)
+          const localData = localStorage.getItem(colName);
+          if (localData) {
+              try {
+                  const items = JSON.parse(localData);
+                  if (Array.isArray(items)) {
+                      console.log(`Syncing ${items.length} items from localStorage for ${colName}`);
+                      items.forEach(item => this.syncToFirestore(colName, item));
+                  }
+                  localStorage.removeItem(colName); // Clean up after sync
+              } catch (e) {
+                  console.error(`Failed to parse localStorage for ${colName}`, e);
+              }
+          }
+
+          // 2. Check IndexedDB (Local Cache)
+          const db = await this.connect();
           const tx = db.transaction(colName, 'readonly');
           const store = tx.objectStore(colName);
           const request = store.getAll();
@@ -595,12 +628,91 @@ class LocalDB {
   async saveJournalEntry(item: JournalEntry) { await this.saveToStore(STORE_JOURNAL, item); }
   async deleteJournalByDate(date: string) { await this.deleteByDate(STORE_JOURNAL, date); }
 
+  async getDailyNote(dateString: string): Promise<DailyNote | null> {
+      const db = await this.connect();
+      return new Promise((resolve) => {
+          if (!db.objectStoreNames.contains(STORE_DAILY_NOTES)) return resolve(null);
+          const tx = db.transaction(STORE_DAILY_NOTES, 'readonly');
+          const store = tx.objectStore(STORE_DAILY_NOTES);
+          store.get(dateString).onsuccess = (e) => resolve((e.target as IDBRequest).result || null);
+      });
+  }
+  async getAllDailyNotes(): Promise<DailyNote[]> { return this.getAllFromStore(STORE_DAILY_NOTES); }
+  async saveDailyNote(item: DailyNote) { await this.saveToStore(STORE_DAILY_NOTES, item); }
+  async deleteDailyNote(dateString: string) { await this.deleteFromStore(STORE_DAILY_NOTES, dateString); }
+
   async getCustomSounds(): Promise<CustomSound[]> { return this.getAllFromStore(STORE_CUSTOM_SOUNDS); }
   async saveCustomSound(item: CustomSound) { await this.saveToStore(STORE_CUSTOM_SOUNDS, item, true); }
   async deleteCustomSound(id: string) { await this.deleteFromStore(STORE_CUSTOM_SOUNDS, id, true); }
 
+  async getMockTests(): Promise<MockTest[]> { return this.getAllFromStore(STORE_MOCK_TESTS); }
+  async saveMockTest(item: MockTest) { await this.saveToStore(STORE_MOCK_TESTS, item); }
+  async deleteMockTest(id: string) {
+    if (!this.userId) {
+        let tests = await this.getMockTests();
+        // Handle deleting a setup and all its attempts
+        const testToDelete = tests.find(t => t.id === id);
+        if (testToDelete && !testToDelete.setupId) {
+            tests = tests.filter(t => t.id !== id && t.setupId !== id);
+        } else {
+            // Handle deleting a single attempt
+            tests = tests.filter(t => t.id !== id);
+        }
+        localStorage.setItem(STORE_MOCK_TESTS, JSON.stringify(tests));
+        return;
+    }
+
+    // 1. Capture ID locally & 2. Fix Path Construction
+    const idToDelete = String(id);
+    if (!idToDelete || idToDelete === 'undefined' || idToDelete === 'null') {
+        console.error("Invalid ID provided for deletion:", id);
+        return Promise.reject("Invalid ID");
+    }
+
+    const localDb = await this.connect();
+    const tx = localDb.transaction(STORE_MOCK_TESTS, 'readwrite');
+    const store = tx.objectStore(STORE_MOCK_TESTS);
+
+    // First, delete locally to update UI quickly
+    store.delete(idToDelete);
+
+    // Then, handle Firestore deletion
+    if (this.userId) {
+        const batch = writeBatch(db);
+        const mainDocRef = doc(db, 'users', this.userId, STORE_MOCK_TESTS, idToDelete);
+        batch.delete(mainDocRef);
+
+        // Also delete associated attempts if this is a setup
+        const attemptsQuery = query(collection(db, 'users', this.userId, STORE_MOCK_TESTS), where('setupId', '==', idToDelete));
+        try {
+            const attemptsSnapshot = await getDocs(attemptsQuery);
+            // 3. Correct the Deletion Loop
+            attemptsSnapshot.forEach(docSnap => {
+                if (docSnap.exists()) {
+                    batch.delete(docSnap.ref);
+                }
+            });
+            await batch.commit();
+        } catch (error) {
+            console.error("Error deleting mock test and its attempts from Firestore:", error);
+            // Note: Local deletion has already happened.
+            // A more robust system might re-sync or handle this inconsistency.
+            throw error;
+        }
+    }
+
+    return new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
   // --- Generic Helpers ---
   private async getAllFromStore(storeName: string, defaults: any[] = []): Promise<any[]> {
+      if (!this.userId) {
+          const localData = localStorage.getItem(storeName);
+          return localData ? JSON.parse(localData) : defaults;
+      }
       const db = await this.connect();
       return new Promise((resolve, reject) => {
           if (!db.objectStoreNames.contains(storeName)) { resolve(defaults); return; }
@@ -610,6 +722,14 @@ class LocalDB {
       });
   }
   private async saveToStore(storeName: string, item: any, localOnly = false) {
+      if (!this.userId) {
+          const items = await this.getAllFromStore(storeName);
+          const idx = items.findIndex((i: any) => i.id === item.id);
+          if (idx > -1) items[idx] = item;
+          else items.push(item);
+          localStorage.setItem(storeName, JSON.stringify(items));
+          return;
+      }
       const db = await this.connect();
       return new Promise<void>((resolve, reject) => {
           const req = db.transaction(storeName, 'readwrite').objectStore(storeName).put(item);
@@ -618,6 +738,12 @@ class LocalDB {
       });
   }
   private async deleteFromStore(storeName: string, id: string, localOnly = false) {
+      if (!this.userId) {
+          const items = await this.getAllFromStore(storeName);
+          const filtered = items.filter((i: any) => i.id !== id);
+          localStorage.setItem(storeName, JSON.stringify(filtered));
+          return;
+      }
       const db = await this.connect();
       return new Promise<void>((resolve, reject) => {
           const req = db.transaction(storeName, 'readwrite').objectStore(storeName).delete(id);
@@ -626,6 +752,10 @@ class LocalDB {
       });
   }
   private async getByDateFromStore(storeName: string, date: string): Promise<any[]> {
+      if (!this.userId) {
+          const items = await this.getAllFromStore(storeName);
+          return items.filter((i: any) => i.dateString === date);
+      }
       const db = await this.connect();
       return new Promise((resolve) => {
           if (!db.objectStoreNames.contains(storeName)) return resolve([]);
@@ -634,6 +764,12 @@ class LocalDB {
       });
   }
   private async deleteByDate(storeName: string, date: string) {
+      if (!this.userId) {
+          const items = await this.getAllFromStore(storeName);
+          const filtered = items.filter((i: any) => i.dateString !== date);
+          localStorage.setItem(storeName, JSON.stringify(filtered));
+          return;
+      }
       await this.deleteCloudDocsByDate(storeName, date);
       const db = await this.connect();
       return new Promise<void>((resolve) => {
@@ -649,7 +785,7 @@ class LocalDB {
   async factoryReset(): Promise<void> {
       if (this.userId) {
           // 1. Wipe Firestore Collections
-          const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS];
+          const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_MOCK_TESTS];
           const batch = writeBatch(db);
           for (const col of collections) {
               const snapshot = await getDocs(collection(db, 'users', this.userId, col));
@@ -686,7 +822,7 @@ class LocalDB {
       
       // 4. Wipe Local IndexedDB
       const dbInstance = await this.connect();
-      const stores = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_CUSTOM_SOUNDS];
+      const stores = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_CUSTOM_SOUNDS, STORE_MOCK_TESTS];
       const existingStores = stores.filter(s => dbInstance.objectStoreNames.contains(s));
       const tx = dbInstance.transaction(existingStores, 'readwrite');
       existingStores.forEach(s => tx.objectStore(s).clear());
@@ -709,6 +845,7 @@ class LocalDB {
         exams: await this.getExams(),
         chats: await this.getChatHistory(),
         journal: await this.getAllJournalEntries(),
+        dailyNotes: await this.getAllDailyNotes(),
         customSounds: await this.getCustomSounds()
     };
   }

@@ -5,6 +5,7 @@ import { Play, Pause, Square, Timer, Hourglass, CheckCircle2, Coffee, Armchair, 
 import { useTheme } from '../contexts/ThemeContext';
 import { dbService } from '../services/db';
 import { useSound, SoundType } from '../contexts/SoundContext';
+import { usePerformance } from '../contexts/PerformanceContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { XP_PER_MINUTE } from '../utils/xp';
 
@@ -34,7 +35,7 @@ const FALLBACK_QUOTES = [
     "Your future is created by what you do today, not tomorrow."
 ];
 
-export const TimerDisplay: React.FC<TimerDisplayProps> = ({
+export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
   elapsedMs,
   status,
   mode,
@@ -65,6 +66,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
   const [uploadLoading, setUploadLoading] = useState(false);
 
   const { accent } = useTheme();
+  const { isHighQuality } = usePerformance();
   const { currentSound, isPlaying, volume, allSounds, playSound, setVolume, togglePlay, addCustomSound, removeCustomSound } = useSound();
   
   // Sync edit state when props change
@@ -307,23 +309,27 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
                 {/* Visualization Container - fluid max width for mobile */}
                 <div className="relative w-full aspect-square max-w-[260px] sm:max-w-[320px] md:max-w-[50vmin] flex items-center justify-center">
                     {/* Animated Background Blob */}
-                    <div 
-                        className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[140%] rounded-full blur-[100px] transition-all duration-1000 pointer-events-none
-                        ${status === 'running' ? 'opacity-40 scale-100' : 'opacity-10 scale-75'}
-                        ${!theme.isHex && status === 'running' ? theme.bg : 'bg-slate-700'}
-                        ${isComplete ? 'bg-emerald-500 opacity-40 scale-110' : ''}
-                        `}
-                        style={theme.isHex && status === 'running' && !isComplete ? { backgroundColor: theme.bg } : {}}
-                    />
-                    
-                    {/* Second pulsing blob */}
-                    <div 
-                        className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] h-[90%] rounded-full blur-[60px] pointer-events-none transition-all duration-700
-                        ${status === 'running' ? 'opacity-30 animate-pulse' : 'opacity-0'}
-                        ${!theme.isHex ? theme.bg : ''}
-                        `} 
-                        style={theme.isHex ? { backgroundColor: theme.bg } : {}}
-                    />
+                    {isHighQuality && (
+                        <>
+                            <div 
+                                className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[140%] rounded-full blur-[100px] transition-all duration-1000 pointer-events-none
+                                ${status === 'running' ? 'opacity-40 scale-100' : 'opacity-10 scale-75'}
+                                ${!theme.isHex && status === 'running' ? theme.bg : 'bg-slate-700'}
+                                ${isComplete ? 'bg-emerald-500 opacity-40 scale-110' : ''}
+                                `}
+                                style={theme.isHex && status === 'running' && !isComplete ? { backgroundColor: theme.bg } : {}}
+                            />
+                            
+                            {/* Second pulsing blob */}
+                            <div 
+                                className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] h-[90%] rounded-full blur-[60px] pointer-events-none transition-all duration-700
+                                ${status === 'running' ? 'opacity-30 animate-pulse' : 'opacity-0'}
+                                ${!theme.isHex ? theme.bg : ''}
+                                `} 
+                                style={theme.isHex ? { backgroundColor: theme.bg } : {}}
+                            />
+                        </>
+                    )}
 
                     {/* Visual Rings */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -704,4 +710,4 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
         </div>
     </div>
   );
-};
+});

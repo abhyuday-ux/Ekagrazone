@@ -99,9 +99,10 @@ export const PlanPage: React.FC<PlanPageProps> = ({
       const exam: Exam = {
           id: crypto.randomUUID(),
           title: newExamTitle,
-          subjectId: newExamSubject,
+          subjectIds: [newExamSubject],
           date: newExamDate,
-          topics: newExamTopics
+          topics: newExamTopics,
+          createdAt: Date.now()
       };
 
       await dbService.saveExam(exam);

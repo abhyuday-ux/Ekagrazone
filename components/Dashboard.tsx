@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { StudySession, Subject, isHexColor, getLocalDateString, UserProfile } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,9 +9,15 @@ import {
   Trophy, BarChart2, Zap, BookOpen, CalendarDays,
   Sparkles, TrendingUp, MoreHorizontal, PieChart, ArrowUpRight, ArrowDownRight, History, Activity, Shield
 } from 'lucide-react';
+import { ReportCard } from './ReportCard';
+import { Play, CheckSquare, BookOpen as BookIcon } from 'lucide-react';
 import { SubjectDonut } from './SubjectDonut';
 import { dbService } from '../services/db';
+import { ConfirmationModal } from './ConfirmationModal';
 import { getLevelProgress, getRankInfo } from '../utils/xp';
+
+// Lazy load ReportAlbum for performance
+const ReportAlbum = React.lazy(() => import('./ReportAlbum').then(module => ({ default: module.ReportAlbum })));
 
 interface DashboardProps {
   sessions: StudySession[];
@@ -20,18 +25,26 @@ interface DashboardProps {
   targetHours: number;
   userName?: string;
   onNavigate: (tab: any) => void;
+  tasks: any[];
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ 
+export const Dashboard: React.FC<DashboardProps> = React.memo(({ 
   sessions, 
   subjects, 
   targetHours, 
   userName = "Aspirant",
-  onNavigate
+  onNavigate,
+  tasks
 }) => {
   const { accent } = useTheme();
   const [timeOfDay, setTimeOfDay] = useState('');
+  const [isDayStarted, setIsDayStarted] = useState(false);
+  const [dayStartTime, setDayStartTime] = useState<number | null>(null);
   const [isDayCompleted, setIsDayCompleted] = useState(false);
+  const [showReportCard, setShowReportCard] = useState(false);
+  const [showReportAlbum, setShowReportAlbum] = useState(false);
+  const [reportConfetti, setReportConfetti] = useState(false);
+  const [isConfirmingCompleteDay, setIsConfirmingCompleteDay] = useState(false);
   
   // User Profile State for XP/Level
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -44,6 +57,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
     if (hour < 12) setTimeOfDay('Morning');
     else if (hour < 18) setTimeOfDay('Afternoon');
     else setTimeOfDay('Evening');
+
+    const started = localStorage.getItem(`ekagra_started_${todayStr}`);
+    if (started === 'true') setIsDayStarted(true);
+
+    const startTime = localStorage.getItem(`ekagra_startTime_${todayStr}`);
+    if (startTime) setDayStartTime(parseInt(startTime));
 
     const completed = localStorage.getItem(`omni_completed_${todayStr}`);
     if (completed === 'true') setIsDayCompleted(true);
@@ -65,6 +84,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
         window.removeEventListener('ekagrazone_sync_complete', handleSync);
         window.removeEventListener('ekagra_levelup', handleSync);
     };
+  }, [todayStr]);
+
+  const handleStartDay = useCallback(() => {
+      const now = Date.now();
+      setIsDayStarted(true);
+      setDayStartTime(now);
+      localStorage.setItem(`ekagra_started_${todayStr}`, 'true');
+      localStorage.setItem(`ekagra_startTime_${todayStr}`, now.toString());
+  }, [todayStr]);
+
+  const handleCompleteDay = useCallback(() => {
+      setIsDayCompleted(true);
+      localStorage.setItem(`omni_completed_${todayStr}`, 'true');
+      setReportConfetti(true);
+      setShowReportCard(true);
   }, [todayStr]);
 
   // --- Calculations ---
@@ -198,6 +232,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
   };
 
+  const handleUpdateChallenge = useCallback(async () => {
+      const newTitle = prompt("Enter Challenge Title (e.g., NEET PREP DAY):", userProfile?.challengeTitle || "MAINS GRIND DAY");
+      if (newTitle !== null) {
+          const newStartDate = prompt("Enter Start Date (YYYY-MM-DD):", userProfile?.challengeStartDate || getLocalDateString());
+          if (newStartDate) {
+              await dbService.updateUserProfile({
+                  challengeTitle: newTitle,
+                  challengeStartDate: newStartDate
+              });
+              // Refresh profile
+              const profile = await dbService.getUserProfile();
+              setUserProfile(profile);
+          }
+      }
+  }, [userProfile]);
+
+  const challengeDayNumber = useMemo(() => {
+      if (!userProfile?.challengeStartDate) return 1;
+      const start = new Date(userProfile.challengeStartDate);
+      const now = new Date();
+      const diffTime = now.getTime() - start.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; 
+      return Math.max(1, diffDays);
+  }, [userProfile]);
+
   return (
     <div className="h-full overflow-y-auto custom-scrollbar flex flex-col pb-20 lg:pb-0">
         <motion.div 
@@ -210,13 +269,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <motion.div variants={itemVariants} className="flex-none mb-8 pt-4 lg:pt-2 px-1">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
-                        <div className="flex items-center gap-2 mb-1.5 opacity-80">
+                        <div className="flex items-center gap-2 mb-1.5 opacity-80 cursor-pointer hover:opacity-100 transition-opacity" onClick={handleUpdateChallenge} title="Click to edit challenge">
                             <span className="flex h-2 w-2 relative">
                                 <span className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-${accent}-400 opacity-75`}></span>
                                 <span className={`relative inline-flex rounded-full h-2 w-2 bg-${accent}-500`}></span>
                             </span>
                             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                                {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric'})}
+                                {userProfile?.challengeTitle || "MAINS GRIND DAY"} [{challengeDayNumber}]
                             </span>
                         </div>
                         <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-tight">
@@ -224,22 +283,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </h1>
                     </div>
                     
-                    <motion.button 
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => onNavigate('calendar')}
-                        className="self-start md:self-auto flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-xs font-bold text-slate-300 transition-all shadow-lg backdrop-blur-sm"
-                    >
-                        <Calendar size={14} /> 
-                        <span>Full Schedule</span>
-                    </motion.button>
+                    <div className="flex items-center gap-2 self-start md:self-auto">
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setShowReportAlbum(true)}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-xs font-bold text-slate-300 transition-all shadow-lg backdrop-blur-sm"
+                        >
+                            <BookIcon size={14} /> 
+                            <span>Report Album</span>
+                        </motion.button>
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => onNavigate('calendar')}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-xs font-bold text-slate-300 transition-all shadow-lg backdrop-blur-sm"
+                        >
+                            <Calendar size={14} /> 
+                            <span>Schedule</span>
+                        </motion.button>
+                    </div>
                 </div>
             </motion.div>
 
             {/* 2. Main Dashboard Grid - Responsive Columns */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
                 
-                {/* Hero Card / XP Rank Card - Spans 2 cols usually, but 1 col on mobile if needed or full width */}
+                {/* Hero Card / XP Rank Card */}
                 <motion.div 
                     variants={itemVariants}
                     className="col-span-1 sm:col-span-2 bg-gradient-to-br from-slate-900 to-slate-950 border border-white/10 rounded-[2rem] p-6 lg:p-8 relative overflow-hidden group shadow-2xl flex flex-col justify-between min-h-[240px]"
@@ -293,28 +363,56 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
 
                     <div className="relative z-10 mt-4 flex items-center gap-3">
-                        <motion.button 
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => !isDayCompleted && onNavigate('timer')}
-                            disabled={isDayCompleted}
-                            className={`
-                                flex-1 py-3.5 px-6 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all
-                                ${isDayCompleted 
-                                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/5' 
-                                    : `bg-gradient-to-r from-${accent}-600 to-${accent}-500 hover:from-${accent}-500 hover:to-${accent}-400 text-white shadow-lg shadow-${accent}-500/25 border border-${accent}-400/20`}
-                            `}
-                        >
-                            <Zap size={18} fill="currentColor" /> {isDayCompleted ? 'Day Complete' : 'Earn XP'}
-                        </motion.button>
-                        <motion.button 
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => onNavigate('timeline')}
-                            className="p-3.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 hover:text-white transition-colors border border-white/10"
-                        >
-                            <BarChart2 size={22} />
-                        </motion.button>
+                        {!isDayStarted ? (
+                            <motion.button 
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={handleStartDay}
+                                className={`flex-1 py-3.5 px-6 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/25 border border-emerald-400/20`}
+                            >
+                                <Play size={18} fill="currentColor" /> Start Day
+                            </motion.button>
+                        ) : (
+                            <>
+                                <motion.button 
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => !isDayCompleted && onNavigate('timer')}
+                                    disabled={isDayCompleted}
+                                    className={`
+                                        flex-1 py-3.5 px-6 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all
+                                        ${isDayCompleted 
+                                            ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/5' 
+                                            : `bg-gradient-to-r from-${accent}-600 to-${accent}-500 hover:from-${accent}-500 hover:to-${accent}-400 text-white shadow-lg shadow-${accent}-500/25 border border-${accent}-400/20`}
+                                    `}
+                                >
+                                    <Zap size={18} fill="currentColor" /> {isDayCompleted ? 'Day Complete' : 'Earn XP'}
+                                </motion.button>
+
+                                <motion.button 
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={isDayCompleted ? () => setShowReportCard(true) : () => setIsConfirmingCompleteDay(true)}
+                                    className={`p-3.5 rounded-xl text-slate-300 hover:text-white transition-colors border border-white/10 ${isDayCompleted ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-white/5 hover:bg-white/10'}`}
+                                    title={isDayCompleted ? "View Report" : "Complete Day"}
+                                >
+                                    {isDayCompleted ? <Zap size={22} className="text-purple-400" fill="currentColor" /> : <CheckSquare size={22} />}
+                                </motion.button>
+                            </>
+                        )}
+                        
+                        {/* Neon Grind Button (Always visible if day started, to check progress) */}
+                        {isDayStarted && !isDayCompleted && (
+                            <motion.button 
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => { setReportConfetti(false); setShowReportCard(true); }}
+                                className="p-3.5 bg-slate-800/50 hover:bg-slate-800 rounded-xl text-yellow-400 transition-colors border border-yellow-500/20"
+                                title="Neon Grind (Live Report)"
+                            >
+                                <Zap size={22} />
+                            </motion.button>
+                        )}
                     </div>
                 </motion.div>
 
@@ -465,7 +563,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </motion.div>
 
             </div>
+
+            <AnimatePresence>
+                {showReportCard && (
+                    <ReportCard 
+                        dateString={todayStr}
+                        sessions={todaySessions}
+                        tasks={tasks.filter(t => t.dateString === todayStr)}
+                        subjects={subjects}
+                        onClose={() => setShowReportCard(false)}
+                        triggerConfetti={reportConfetti}
+                        dayStartTime={dayStartTime}
+                        challengeTitle={userProfile?.challengeTitle || "MAINS GRIND DAY"}
+                        challengeDayNumber={challengeDayNumber}
+                    />
+                )}
+                {showReportAlbum && (
+                    <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div></div>}>
+                        <ReportAlbum 
+                            subjects={subjects}
+                            onClose={() => setShowReportAlbum(false)}
+                        />
+                    </Suspense>
+                )}
+            </AnimatePresence>
+
+            <ConfirmationModal 
+                isOpen={isConfirmingCompleteDay}
+                onClose={() => setIsConfirmingCompleteDay(false)}
+                onConfirm={handleCompleteDay}
+                title="Complete Your Day?"
+                message="This will generate your final report card for the day. You won't be able to log more sessions after this."
+                confirmText="Yes, Complete Day"
+            />
         </motion.div>
     </div>
   );
-};
+});
