@@ -27,9 +27,11 @@ export const MaintenanceMode: React.FC = () => {
         <div className="flex justify-center mb-8">
             <div className="relative">
                 <div className={`absolute inset-0 bg-${accent}-500 blur-2xl opacity-20 rounded-full animate-pulse`} />
-                <div className={`relative w-20 h-20 bg-slate-950 border border-white/10 rounded-2xl flex items-center justify-center shadow-2xl`}>
-                    <Zap size={40} className={`text-${accent}-400 fill-${accent}-400`} />
-                </div>
+                <img 
+                    src="https://i.ibb.co/kgHZ72z1/EKAGRAZONE-LOGO-removebg-preview.png" 
+                    alt="EkagraZone Logo" 
+                    className="relative w-20 h-20 rounded-2xl shadow-2xl"
+                />
                 <div className="absolute -bottom-3 -right-3 bg-slate-900 border border-white/10 p-2 rounded-full text-amber-400">
                     <Construction size={16} />
                 </div>

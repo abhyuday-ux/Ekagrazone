@@ -100,12 +100,12 @@ export const LoginPage: React.FC = () => {
         className="w-full max-w-7xl mx-auto px-6 py-6 flex justify-between items-center relative z-20"
       >
           <div className="flex items-center gap-2 cursor-pointer select-none" onClick={triggerSpin}>
-            <div 
-                className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 transition-transform"
+            <img 
+                src="https://i.ibb.co/kgHZ72z1/EKAGRAZONE-LOGO-removebg-preview.png" 
+                alt="EkagraZone Logo" 
+                className="w-8 h-8 rounded-lg shadow-lg shadow-cyan-500/20 transition-transform"
                 style={{ animation: isSpinning ? 'spin 0.7s ease-in-out' : 'none' }}
-            >
-                <Zap size={16} fill="white" className="text-white" />
-            </div>
+            />
             <span className="text-lg font-bold tracking-wide text-white">EKAGRAZONE</span>
           </div>
           <div className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-400">

@@ -24,6 +24,7 @@ import { FriendObserver } from './components/FriendObserver';
 import { NotificationCenter } from './components/NotificationCenter';
 import { ChallengeSettings } from './components/ChallengeSettings';
 import { ExamTracker } from './components/ExamTracker/ExamTracker';
+import { EkagraLogo } from './components/EkagraLogo';
 import { useAuth } from './contexts/AuthContext'; 
 import { dbService } from './services/db';
 import { useSound } from './contexts/SoundContext';
@@ -647,12 +648,12 @@ const App: React.FC = () => {
   const Header = () => (
     <div className="flex justify-between items-center mb-6">
        <div className="flex items-center gap-2 cursor-pointer select-none" onClick={triggerLogoSpin}>
-         <div 
-            className={`w-8 h-8 bg-${accent}-500/20 backdrop-blur-md border border-white/10 rounded-xl flex items-center justify-center shadow-lg shadow-${accent}-500/10`}
+         <img 
+            src="https://i.ibb.co/kgHZ72z1/EKAGRAZONE-LOGO-removebg-preview.png" 
+            alt="EkagraZone Logo" 
+            className="w-8 h-8 rounded-xl shadow-lg"
             style={{ animation: isLogoSpinning ? 'spin 0.7s ease-in-out' : 'none' }}
-         >
-           <Zap size={18} className={`text-${accent}-400 fill-${accent}-400`} />
-         </div>
+         />
          <h1 className="font-bold text-xl tracking-tight text-slate-100">EKAGRAZONE</h1>
        </div>
        <div className="flex items-center gap-2">
@@ -1006,12 +1007,10 @@ const App: React.FC = () => {
       <nav className="flex flex-col w-20 xl:w-64 flex-none py-6 h-full max-h-screen relative z-50">
          <div className="flex xl:justify-start justify-center px-4 mb-8 flex-none">
              <div className="flex items-center gap-3 cursor-pointer select-none" onClick={triggerLogoSpin}>
-                <div 
-                    className={`w-10 h-10 bg-${accent}-500/20 backdrop-blur-xl border border-white/10 rounded-xl flex items-center justify-center shadow-lg shadow-${accent}-500/20 flex-none transition-transform`}
+                <EkagraLogo 
+                    className={`w-10 h-10 text-${accent}-500 shadow-lg shadow-${accent}-500/20 flex-none transition-transform`}
                     style={{ animation: isLogoSpinning ? 'spin 0.7s ease-in-out' : 'none' }}
-                >
-                    <Zap size={20} className={`text-${accent}-400 fill-${accent}-400`} />
-                </div>
+                />
                 <h1 className="hidden xl:block font-bold text-lg tracking-tight text-white">EKAGRAZONE</h1>
              </div>
          </div>
