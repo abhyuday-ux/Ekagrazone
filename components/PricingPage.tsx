@@ -11,8 +11,9 @@ export const PricingPage: React.FC = () => {
 
     useEffect(() => {
         try {
-            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            if (timeZone === 'Asia/Kolkata') {
+            const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            // Check for both modern and legacy timezone names
+            if (userTimeZone.includes('Calcutta') || userTimeZone.includes('Kolkata')) {
                 setIsIndia(true);
             }
         } catch (e) {
@@ -197,7 +198,13 @@ export const PricingPage: React.FC = () => {
 
                 </motion.div>
 
-                <div className="mt-16 text-center">
+                <div className="mt-16 text-center space-y-2">
+                    <button 
+                        onClick={() => setIsIndia(!isIndia)}
+                        className="text-[10px] text-slate-600 hover:text-slate-400 underline cursor-pointer transition-colors"
+                    >
+                        {isIndia ? "Not in India? Switch to Global Prices" : "In India? Switch to Local Prices"}
+                    </button>
                     <p className="text-slate-500 text-sm">
                         Secure payment powered by Stripe. Cancel anytime.
                     </p>
