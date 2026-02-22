@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Check, X, Zap, Crown, LogOut, Shield, Globe, AlertTriangle, Star, Sparkles } from 'lucide-react';
+import { Check, X, Zap, Crown, LogOut, Shield, Globe, AlertTriangle, Star, Sparkles, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { auth } from '../services/firebase';
+import { auth, db } from '../services/firebase';
 import { signOut } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 
-export const PricingPage: React.FC = () => {
-    const { continueAsGuest } = useAuth();
+export const PricingPage: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
+    const { continueAsGuest, currentUser, signInWithGoogle } = useAuth();
     const [isIndia, setIsIndia] = useState(false);
+    const [isUpgrading, setIsUpgrading] = useState(false);
 
     useEffect(() => {
         try {
@@ -22,13 +24,45 @@ export const PricingPage: React.FC = () => {
     }, []);
 
     const handleGuestSwitch = async () => {
+        if (onClose) {
+            onClose();
+            return;
+        }
         // Set guest flag FIRST so when auth state changes, we fall into guest mode
         await continueAsGuest(); 
         await signOut(auth);
     };
 
-    const handleUpgrade = () => {
-        alert("Redirecting to payment gateway...");
+    const handleUpgrade = async (plan: 'monthly' | 'yearly') => {
+        if (!currentUser) {
+            try {
+                await signInWithGoogle();
+            } catch (error) {
+                console.error("Sign in failed", error);
+            }
+            return;
+        }
+        
+        setIsUpgrading(true);
+        
+        // Simulate payment processing
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        try {
+            await setDoc(doc(db, 'users', currentUser.uid), {
+                hasPremium: true,
+                subscriptionType: plan,
+                subscriptionDate: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            }, { merge: true });
+            
+            // Reload to trigger auth check and remove lock
+            window.location.reload();
+        } catch (error) {
+            console.error("Upgrade failed", error);
+            setIsUpgrading(false);
+            alert("Upgrade failed. Please try again.");
+        }
     };
 
     const containerVariants = {
@@ -110,7 +144,8 @@ export const PricingPage: React.FC = () => {
                             onClick={handleGuestSwitch}
                             className="w-full py-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium transition-all flex items-center justify-center gap-2 mt-4"
                         >
-                            <LogOut size={18} /> Sign Out & Continue as Guest
+                            {onClose ? <X size={18} /> : <LogOut size={18} />} 
+                            {onClose ? 'Continue as Guest' : 'Sign Out & Continue as Guest'}
                         </button>
                     </motion.div>
 
@@ -146,10 +181,11 @@ export const PricingPage: React.FC = () => {
                         </div>
 
                         <button 
-                            onClick={handleUpgrade}
-                            className="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all flex items-center justify-center gap-2 mt-4 shadow-lg shadow-indigo-500/25"
+                            onClick={() => handleUpgrade('monthly')}
+                            disabled={isUpgrading}
+                            className="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold transition-all flex items-center justify-center gap-2 mt-4 shadow-lg shadow-indigo-500/25"
                         >
-                            Upgrade to Pro Access
+                            {isUpgrading ? <Loader2 className="animate-spin" /> : !currentUser ? 'Sign In to Upgrade' : 'Upgrade to Pro Access'}
                         </button>
                     </motion.div>
 
@@ -187,11 +223,16 @@ export const PricingPage: React.FC = () => {
                         </div>
 
                         <button 
-                            onClick={handleUpgrade}
-                            className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-bold transition-all flex items-center justify-center gap-2 mt-4 shadow-lg shadow-amber-500/25 group"
+                            onClick={() => handleUpgrade('yearly')}
+                            disabled={isUpgrading}
+                            className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold transition-all flex items-center justify-center gap-2 mt-4 shadow-lg shadow-amber-500/25 group"
                         >
-                            <Crown size={18} className="fill-white group-hover:scale-110 transition-transform" />
-                            Become a Legend
+                            {isUpgrading ? <Loader2 className="animate-spin" /> : (
+                                <>
+                                    <Crown size={18} className="fill-white group-hover:scale-110 transition-transform" />
+                                    {!currentUser ? 'Sign In & Become a Legend' : 'Become a Legend'}
+                                </>
+                            )}
                         </button>
                         <p className="text-center text-[10px] text-slate-500 font-mono">2 MONTHS FREE INCLUDED</p>
                     </motion.div>

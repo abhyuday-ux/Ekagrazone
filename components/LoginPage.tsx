@@ -169,11 +169,13 @@ export const LoginPage: React.FC = () => {
                     </svg>
                     Start Syncing
                  </button>
+                 
                  <button 
                     onClick={continueAsGuest}
-                    className="h-14 px-8 bg-slate-800/50 hover:bg-slate-800 border border-white/10 rounded-xl flex items-center justify-center gap-2 transition-all font-bold text-white hover:border-white/20"
+                    className="font-hand text-3xl text-slate-400 hover:text-cyan-300 transition-colors relative group px-4 py-2"
                  >
-                    Try as Guest <ArrowRight size={16} />
+                    Continue as Guest
+                    <span className="absolute bottom-2 left-4 right-4 h-0.5 bg-cyan-300/50 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center"></span>
                  </button>
              </motion.div>
 

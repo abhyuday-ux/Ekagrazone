@@ -29,6 +29,7 @@ import { EkagraLogo } from './components/EkagraLogo';
 import { useAuth } from './contexts/AuthContext'; 
 import { dbService } from './services/db';
 import { useSound } from './contexts/SoundContext';
+import { HeaderAd } from './components/HeaderAd';
 import { usePerformance } from './contexts/PerformanceContext';
 import { StudySession, Subject, DEFAULT_SUBJECTS, Task, Exam, isHexColor, TimerDurations, DEFAULT_DURATIONS, UserProfile } from './types';
 import { Zap, Wifi, WifiOff, RefreshCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Settings, Timer, BarChart3, CalendarDays, Target, Trash2, AlertCircle, PanelLeftClose, PanelLeftOpen, CheckSquare, Palette, Image as ImageIcon, ToggleLeft, ToggleRight, Maximize2, X, BookOpen, Repeat, Home, AlertTriangle, Download, Upload, Database, Layout, Rocket, Globe, RotateCcw, LogOut, HardDrive, LogIn, GraduationCap, Volume2, VolumeX, Play, Pause, Hourglass, Users, Bell, Loader2, ShieldCheck, Lock } from 'lucide-react';
@@ -141,7 +142,7 @@ const MiniTimer: React.FC<MiniTimerProps> = React.memo(({
 });
 
 const App: React.FC = () => {
-  const { currentUser, isGuest, loading, logout, signInWithGoogle } = useAuth(); 
+  const { currentUser, isGuest, loading, logout, signInWithGoogle, hasPremium } = useAuth(); 
   const { isPlaying, currentSound, togglePlay } = useSound();
   const { graphicsQuality, setGraphicsQuality, isHighQuality } = usePerformance();
 
@@ -181,6 +182,7 @@ const App: React.FC = () => {
 
   // Animation State
   const [isLogoSpinning, setIsLogoSpinning] = useState(false);
+  const [showPricing, setShowPricing] = useState(false);
 
   const { accent, setAccent } = useTheme();
   
@@ -351,6 +353,19 @@ const App: React.FC = () => {
       const allExams = await dbService.getExams();
       setExams(allExams);
   };
+
+  // Sync local data when user signs in
+  useEffect(() => {
+    if (currentUser && !isGuest) {
+      dbService.syncLocalToCloud().then(() => {
+          console.log("Synced local data to cloud");
+          refreshSubjects();
+          loadSessions();
+          loadTasks();
+          loadExams();
+      }).catch(err => console.error("Sync failed", err));
+    }
+  }, [currentUser, isGuest]);
 
   const handleDeleteExam = async (id: string) => {
       if(confirm("Delete this exam?")) {
@@ -1140,7 +1155,12 @@ const App: React.FC = () => {
           <div className="fixed inset-0 z-[50] animate-in fade-in duration-700 bg-black">
               {wallpaper && <img src={wallpaper} alt="Zen Background" className="absolute inset-0 w-full h-full object-cover" />}
               <div className="absolute inset-0 bg-black/30" /> 
-              <button onClick={() => setIsZenActive(false)} className="absolute top-6 right-6 p-2 rounded-full bg-black/20 hover:bg-black/40 text-white/50 hover:text-white transition-all z-[60]"><X size={24} /></button>
+              <button 
+                onClick={() => setIsZenActive(false)} 
+                className="absolute top-6 right-6 p-2 rounded-full bg-black/20 hover:bg-black/40 text-white/50 hover:text-white transition-all z-[60]"
+              >
+                <X size={24} />
+              </button>
               <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-end items-center pb-12">
                   <div className="pointer-events-auto">
                     <TimerDisplay 
@@ -1156,6 +1176,7 @@ const App: React.FC = () => {
                         durations={timerDurations}
                         onUpdateDurations={handleUpdateDurations}
                         isWallpaperMode={true}
+                        onUpgrade={() => setShowPricing(true)}
                     />
                   </div>
               </div>
@@ -1198,6 +1219,7 @@ const App: React.FC = () => {
                         durations={timerDurations}
                         onUpdateDurations={handleUpdateDurations}
                         isWallpaperMode={true}
+                        onUpgrade={() => setShowPricing(true)}
                     />
                   </div>
                   <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-400 font-mono tracking-widest opacity-60">
@@ -1227,6 +1249,7 @@ const App: React.FC = () => {
 
       {/* --- Mobile Layout (< md) --- */}
       <div className={`md:hidden flex flex-col h-[100dvh] relative z-10 ${isZenActive || isSpaceMode ? 'hidden' : ''}`}>
+        {!hasPremium && <HeaderAd onClick={() => setShowPricing(true)} />}
         <div className="flex-none px-4 pt-4 transition-all">
            <Header />
         </div>
@@ -1355,6 +1378,7 @@ const App: React.FC = () => {
          >
             {/* Content Area */}
             <div className="flex-1 flex flex-col min-w-0">
+                {!hasPremium && <HeaderAd onClick={() => setShowPricing(true)} />}
                 {/* Top Bar inside glass */}
                 {activeTab !== 'calendar' && (
                     <div className="flex justify-between items-center mb-6 flex-none z-30 relative transition-opacity">
@@ -1565,6 +1589,26 @@ const App: React.FC = () => {
           onToggle={status === 'running' ? pause : handleStartRequest}
           onActivate={() => setActiveTab('timer')}
       />
+
+       {/* Pricing Modal Overlay */}
+       <AnimatePresence>
+           {showPricing && (
+               <motion.div 
+                   initial={{ opacity: 0 }}
+                   animate={{ opacity: 1 }}
+                   exit={{ opacity: 0 }}
+                   className="fixed inset-0 z-[9999] bg-slate-950 overflow-y-auto"
+               >
+                   <button 
+                       onClick={() => setShowPricing(false)} 
+                       className="fixed top-6 right-6 z-[10000] p-2 rounded-full bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors border border-white/10"
+                   >
+                       <X size={24} />
+                   </button>
+                   <PricingPage />
+               </motion.div>
+           )}
+       </AnimatePresence>
     </div>
   );
 };

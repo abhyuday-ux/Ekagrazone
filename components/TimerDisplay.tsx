@@ -9,6 +9,9 @@ import { usePerformance } from '../contexts/PerformanceContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { XP_PER_MINUTE } from '../utils/xp';
 
+import { useAuth } from '../contexts/AuthContext';
+import { HeaderAd } from './HeaderAd';
+
 interface TimerDisplayProps {
   elapsedMs: number;
   status: TimerStatus;
@@ -23,6 +26,7 @@ interface TimerDisplayProps {
   onSetMode: (mode: TimerMode) => void;
   sidePanel?: React.ReactNode;
   isWallpaperMode?: boolean; 
+  onUpgrade?: () => void;
 }
 
 const FALLBACK_QUOTES = [
@@ -48,8 +52,10 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
   onStop,
   onSetMode,
   sidePanel,
-  isWallpaperMode = false
+  isWallpaperMode = false,
+  onUpgrade
 }) => {
+  const { hasPremium } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [showSoundMenu, setShowSoundMenu] = useState(false);
   const [quote, setQuote] = useState<string>('');
@@ -226,7 +232,9 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
   // IMMERSIVE / ZEN MODE LAYOUT
   if (isWallpaperMode) {
       return (
-          <div className="flex items-center gap-6 p-6 bg-black/40 backdrop-blur-xl rounded-full border border-white/10 shadow-2xl animate-in slide-in-from-bottom-8">
+          <>
+            {!hasPremium && onUpgrade && <HeaderAd onClick={onUpgrade} isZenMode={true} />}
+            <div className={`flex items-center gap-6 p-6 bg-black/40 backdrop-blur-xl rounded-full border border-white/10 shadow-2xl animate-in slide-in-from-bottom-8 relative z-10 ${!hasPremium ? 'mt-24 md:mt-36' : ''}`}>
             {/* Time */}
             <div className="text-6xl font-mono font-bold text-white tabular-nums tracking-tight drop-shadow-lg">
                 {isComplete ? "DONE" : formatTime(displayMs)}
@@ -261,7 +269,8 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                     {isPlaying ? <Volume2 size={20} /> : <VolumeX size={20} />}
                 </button>
             </div>
-        </div>
+          </div>
+        </>
       );
   }
 

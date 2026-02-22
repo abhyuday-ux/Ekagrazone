@@ -58,9 +58,23 @@ export const PremiumLock: React.FC = () => {
                     </button>
                 </div>
 
-                <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-center gap-2 text-xs text-slate-500 font-mono">
-                    <ShieldAlert size={12} />
-                    ACCESS RESTRICTED
+                <div className="mt-8 pt-6 border-t border-white/5 flex flex-col items-center justify-center gap-4">
+                    <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
+                        <ShieldAlert size={12} />
+                        ACCESS RESTRICTED
+                    </div>
+                    
+                    <button 
+                        onClick={() => {
+                            // Set guest mode flag first so it persists after logout
+                            localStorage.setItem('ekagrazone_guest_mode', 'true');
+                            logout();
+                        }}
+                        className="font-hand text-2xl text-slate-400 hover:text-cyan-300 transition-colors relative group py-2"
+                    >
+                        Continue as Guest
+                        <span className="absolute bottom-1 left-0 w-0 h-0.5 bg-cyan-300/50 transition-all duration-300 group-hover:w-full"></span>
+                    </button>
                 </div>
 
             </motion.div>
