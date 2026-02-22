@@ -16,6 +16,7 @@ import { StatsPage } from './components/StatsPage';
 import { PlanPage } from './components/PlanPage'; 
 import { LoginPage } from './components/LoginPage'; 
 import { MaintenanceMode } from './components/MaintenanceMode';
+import { PremiumLock } from './components/PremiumLock';
 import { ExamList } from './components/ExamList';
 import { SocialPanel } from './components/SocialPanel';
 import { UsernameSetup } from './components/UsernameSetup';
@@ -631,6 +632,14 @@ const App: React.FC = () => {
               </div>
           );
       }
+      
+      // Premium Check for Non-Guest Users
+      // VIPs (isAuthorized) bypass this check
+      const { hasPremium } = useAuth();
+      if (!currentUser.isAnonymous && !hasPremium && !isAuthorized) {
+          return <PremiumLock />;
+      }
+
       if (!isAuthorized) {
           return <MaintenanceMode />;
       }

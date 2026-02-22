@@ -130,7 +130,7 @@ const FriendRow: React.FC<{
 };
 
 export const SocialPanel: React.FC = () => {
-    const { currentUser, isGuest } = useAuth();
+    const { currentUser, isGuest, hasPremium, signInWithGoogle } = useAuth();
     const { accent } = useTheme();
     const [activeTab, setActiveTab] = useState<'global' | 'friends'>('global');
     
@@ -342,9 +342,22 @@ export const SocialPanel: React.FC = () => {
                             className="h-full overflow-y-auto px-6 pb-6 custom-scrollbar"
                         >
                             <div className="max-w-3xl mx-auto space-y-2 pt-4">
-                                {isGuest ? (
-                                    <div className="text-center py-20 opacity-50">
-                                        <p>Please sign in to view the global leaderboard.</p>
+                                {!hasPremium ? (
+                                    <div className="text-center py-20 flex flex-col items-center justify-center">
+                                        <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-amber-500/20">
+                                            <Crown size={32} className="text-white" />
+                                        </div>
+                                        <h3 className="text-2xl font-bold text-white mb-2">Premium Feature</h3>
+                                        <p className="text-slate-400 max-w-xs mx-auto mb-8">
+                                            Upgrade to compete on the Global Leaderboard and sync your stats across devices.
+                                        </p>
+                                        <button 
+                                            onClick={() => signInWithGoogle()}
+                                            className="px-8 py-3 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-100 transition-colors flex items-center gap-2"
+                                        >
+                                            <Zap size={18} className="fill-slate-900" />
+                                            Upgrade to Sync & Compete
+                                        </button>
                                     </div>
                                 ) : leaderboardUsers.length === 0 ? (
                                     <div className="text-center py-20 opacity-50">
