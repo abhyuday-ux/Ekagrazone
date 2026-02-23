@@ -42,6 +42,8 @@ export const LoginPage: React.FC = () => {
   const { signInWithGoogle, continueAsGuest } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [isSpinning, setIsSpinning] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
   const { scrollY } = useScroll();
   
   const backgroundY = useTransform(scrollY, [0, 1000], [0, 200]);
@@ -364,13 +366,130 @@ export const LoginPage: React.FC = () => {
         ))}
       </div>
       
-      {/* Simple Footer */}
-      <div className="w-full text-center py-12 relative z-10 border-t border-white/5 mt-12 bg-[#050511]">
-          <div className="flex flex-col items-center gap-2">
-              <p className="text-[10px] text-slate-600 font-mono">DESIGNED & BUILT BY ABHYUDAY</p>
-              <p className="font-hand text-lg text-slate-700">Stay Focused.</p>
+      {/* SEO Content Section */}
+      <div className="w-full max-w-7xl mx-auto px-6 py-16 relative z-10">
+        <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-3xl p-8 md:p-12">
+          <h2 className="text-3xl font-bold text-white mb-8 text-center">Master Your Deep Work with EkagraZone</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-slate-400">
+            <div className="space-y-3">
+              <h3 className="text-cyan-400 font-bold text-lg flex items-center gap-2">
+                <span className="text-2xl">🏆</span> Gamified Pomodoro Timer
+              </h3>
+              <p className="leading-relaxed text-sm">
+                Transform productivity into a game. Earn XP for every minute of focus, climb the global leaderboard, and unlock achievements. Our <strong>Gamified Pomodoro Timer</strong> makes deep work addictive and rewarding.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <h3 className="text-cyan-400 font-bold text-lg flex items-center gap-2">
+                <span className="text-2xl">🧠</span> Scientific Focus
+              </h3>
+              <p className="leading-relaxed text-sm">
+                Leverage the power of the <strong>25/5 minute interval system</strong>. Based on circadian rhythm research, EkagraZone optimizes your brain performance by balancing intense focus sprints with restorative breaks.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <h3 className="text-cyan-400 font-bold text-lg flex items-center gap-2">
+                <span className="text-2xl">⚔️</span> Productivity Arena
+              </h3>
+              <p className="leading-relaxed text-sm">
+                Step into the <strong>Productivity Arena</strong>. Compete with friends in real-time, track your daily focus stats, and visualize your consistency with advanced heatmaps and analytics.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Why EkagraZone Section */}
+      <div className="w-full max-w-7xl mx-auto px-6 pb-16 relative z-10">
+        <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-3xl p-8 md:p-12">
+          <h2 className="text-3xl font-bold text-white mb-8 text-center">Why EkagraZone?</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-slate-400">
+            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
+              <h4 className="text-cyan-400 font-bold mb-2">Focus Timer</h4>
+              <p className="text-xs leading-relaxed">Customizable Pomodoro timer to break work into manageable intervals.</p>
+            </div>
+            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
+              <h4 className="text-cyan-400 font-bold mb-2">Productivity Tracker</h4>
+              <p className="text-xs leading-relaxed">Detailed analytics to visualize your productivity patterns and improvements.</p>
+            </div>
+            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
+              <h4 className="text-cyan-400 font-bold mb-2">Study Aid</h4>
+              <p className="text-xs leading-relaxed">Perfect for students needing structured study sessions and break management.</p>
+            </div>
+            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
+              <h4 className="text-cyan-400 font-bold mb-2">Flow State</h4>
+              <p className="text-xs leading-relaxed">Immersive environments and sounds to help you enter and maintain flow state.</p>
+            </div>
+            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
+              <h4 className="text-cyan-400 font-bold mb-2">Gamification</h4>
+              <p className="text-xs leading-relaxed">Earn XP, level up, and compete on leaderboards to make work fun.</p>
+            </div>
+            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
+              <h4 className="text-cyan-400 font-bold mb-2">Habit Building</h4>
+              <p className="text-xs leading-relaxed">Track daily habits and build streaks to form long-lasting positive routines.</p>
+            </div>
+            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
+              <h4 className="text-cyan-400 font-bold mb-2">Mindfulness</h4>
+              <p className="text-xs leading-relaxed">Integrated journaling and reflection tools to support your mental well-being.</p>
+            </div>
+            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
+              <h4 className="text-cyan-400 font-bold mb-2">Community</h4>
+              <p className="text-xs leading-relaxed">Join a global community of focused individuals and stay motivated together.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Legal Compliance Footer */}
+      <div className="w-full text-center py-8 relative z-10 border-t border-white/5 bg-[#050511]">
+          <div className="flex flex-col items-center gap-4">
+              <div className="flex items-center gap-6 text-xs text-slate-500 font-medium">
+                  <button onClick={() => setShowPrivacy(true)} className="hover:text-cyan-400 transition-colors">Privacy Policy</button>
+                  <span className="text-slate-700">•</span>
+                  <button onClick={() => setShowTerms(true)} className="hover:text-cyan-400 transition-colors">Terms of Service</button>
+              </div>
+              <p className="text-[10px] text-slate-700 font-mono mt-2">© 2024 EKAGRAZONE. DESIGNED & BUILT BY ABHYUDAY.</p>
           </div>
       </div>
+
+      {/* Privacy Policy Modal */}
+      {showPrivacy && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-slate-900/90 border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl backdrop-blur-xl">
+            <h3 className="text-xl font-bold text-[#158af2] mb-4">Privacy Policy</h3>
+            <div className="space-y-4 text-sm text-slate-300">
+              <p>EkagraZone uses Google AdSense to serve ads. Google uses cookies (DART cookies) to serve ads based on user visits. Users can opt-out via Google Ad settings.</p>
+              <p>We collect email addresses only for account authentication and leaderboard ranking. We do not sell user data to third parties.</p>
+            </div>
+            <button 
+              onClick={() => setShowPrivacy(false)}
+              className="mt-6 w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white font-medium transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Terms of Service Modal */}
+      {showTerms && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-slate-900/90 border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl backdrop-blur-xl">
+            <h3 className="text-xl font-bold text-[#158af2] mb-4">Terms of Service</h3>
+            <div className="space-y-4 text-sm text-slate-300">
+              <p>EkagraZone is a productivity tool provided "as is". Users agree not to use bots or scripts to manipulate the leaderboard.</p>
+              <p>We reserve the right to remove accounts that engage in unfair play or harassment in the community Arena.</p>
+              <p>The "Legend" status is a one-time/subscription-based digital upgrade and is non-refundable.</p>
+            </div>
+            <button 
+              onClick={() => setShowTerms(false)}
+              className="mt-6 w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white font-medium transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
