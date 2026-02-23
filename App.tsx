@@ -672,10 +672,8 @@ const App: React.FC = () => {
   const Header = () => (
     <div className="flex justify-between items-center mb-6">
        <div className="flex items-center gap-2 cursor-pointer select-none" onClick={triggerLogoSpin}>
-         <img 
-            src="https://i.ibb.co/kgHZ72z1/EKAGRAZONE-LOGO-removebg-preview.png" 
-            alt="EkagraZone Logo" 
-            className="w-8 h-8 rounded-xl shadow-lg"
+         <EkagraLogo 
+            className="w-8 h-8 rounded-xl shadow-lg text-white"
             style={{ animation: isLogoSpinning ? 'spin 0.7s ease-in-out' : 'none' }}
          />
          <h1 className="font-bold text-xl tracking-tight text-slate-100">EKAGRAZONE</h1>

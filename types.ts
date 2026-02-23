@@ -165,6 +165,7 @@ export interface UserProfile {
   lastActive: number;
   challengeTitle?: string;
   challengeStartDate?: string; // ISO Date YYYY-MM-DD
+  subscriptionType?: 'monthly' | 'yearly' | 'lifetime';
 }
 
 export type FriendStatus = 'pending_sent' | 'pending_received' | 'accepted';

@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { EkagraLogo } from './EkagraLogo';
 import { Zap, BarChart2, Timer, Workflow, CheckCircle2, Shield, ArrowRight, Layout, Calendar, CheckSquare, Sparkles } from 'lucide-react';
 import { motion, useScroll, useTransform, Variants } from 'framer-motion';
 
@@ -100,10 +101,8 @@ export const LoginPage: React.FC = () => {
         className="w-full max-w-7xl mx-auto px-6 py-6 flex justify-between items-center relative z-20"
       >
           <div className="flex items-center gap-2 cursor-pointer select-none" onClick={triggerSpin}>
-            <img 
-                src="https://i.ibb.co/kgHZ72z1/EKAGRAZONE-LOGO-removebg-preview.png" 
-                alt="EkagraZone Logo" 
-                className="w-8 h-8 rounded-lg shadow-lg shadow-cyan-500/20 transition-transform"
+            <EkagraLogo 
+                className="w-8 h-8 flex-none transition-transform"
                 style={{ animation: isSpinning ? 'spin 0.7s ease-in-out' : 'none' }}
             />
             <span className="text-lg font-bold tracking-wide text-white">EKAGRAZONE</span>
