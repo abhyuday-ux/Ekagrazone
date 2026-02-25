@@ -124,23 +124,23 @@ export const PlanPage: React.FC<PlanPageProps> = ({
     <div className="flex flex-col h-full bg-slate-900/0">
       
       {/* Immersive Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-end sm:items-center gap-4 flex-none p-6 pb-2">
-          <div className="space-y-1">
-            <h2 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 flex-none p-4 md:p-6 pb-2">
+          <div className="space-y-1 px-2 md:px-0">
+            <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight flex items-center gap-3">
                 <Calendar size={28} className={`text-${accent}-400`} />
                 Planner
             </h2>
             <p className="text-slate-400 text-sm font-medium">Master your schedule, own your time.</p>
           </div>
           
-          <div className="bg-white/5 p-1 rounded-xl border border-white/5 flex relative backdrop-blur-md shadow-lg overflow-x-auto no-scrollbar max-w-full">
+          <div className="bg-white/5 p-1 rounded-xl border border-white/5 flex relative backdrop-blur-md shadow-lg overflow-x-auto no-scrollbar max-w-[calc(100vw-2rem)] mx-auto sm:mx-0">
               {['calendar', 'tasks', 'year'].map((tab) => {
                   const isActive = view === tab;
                   return (
                       <button
                           key={tab}
                           onClick={() => setView(tab as ViewMode)}
-                          className={`relative px-5 py-2 rounded-lg text-xs font-bold transition-all z-10 flex items-center gap-2 whitespace-nowrap ${isActive ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                          className={`relative px-4 md:px-5 py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all z-10 flex items-center gap-2 whitespace-nowrap ${isActive ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
                       >
                           {isActive && (
                               <motion.div 
@@ -150,7 +150,7 @@ export const PlanPage: React.FC<PlanPageProps> = ({
                               />
                           )}
                           <span className="relative z-10 flex items-center gap-2 uppercase tracking-wide">
-                              {tab === 'calendar' ? 'Schedule' : tab === 'tasks' ? 'Tasks' : 'Yearly Insights'}
+                              {tab === 'calendar' ? 'Schedule' : tab === 'tasks' ? 'Tasks' : 'Insights'}
                           </span>
                       </button>
                   )

@@ -28,46 +28,37 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks, subjects, onTas
   const [isAdding, setIsAdding] = useState<TaskStatus | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskSubject, setNewTaskSubject] = useState(subjects[0]?.id || '');
+  const [activeTab, setActiveTab] = useState<TaskStatus>('todo');
 
-  // Default to today if no date selected, or use selected date from parent
   const targetDate = selectedDate || new Date().toISOString().split('T')[0];
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   );
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
-
     if (!over) return;
 
     const activeId = active.id as string;
     const overId = over.id as string;
-
     const activeTask = tasks.find(t => t.id === activeId);
     if (!activeTask) return;
 
     let newStatus: TaskStatus = activeTask.status;
-    let overTask = tasks.find(t => t.id === overId);
-    
     const columnIds = COLUMNS.map(c => c.id);
+    
     if (columnIds.includes(overId as TaskStatus)) {
         newStatus = overId as TaskStatus;
-        overTask = undefined; 
-    } else if (overTask) {
-        newStatus = overTask.status;
+    } else {
+        const overTask = tasks.find(t => t.id === overId);
+        if (overTask) newStatus = overTask.status;
     }
 
-    const hasStatusChanged = activeTask.status !== newStatus;
-
-    if (hasStatusChanged) {
-      const updatedTask = { 
-        ...activeTask, 
-        status: newStatus, 
-        updatedAt: Date.now() 
-      };
+    if (activeTask.status !== newStatus) {
+      const updatedTask = { ...activeTask, status: newStatus, updatedAt: Date.now() };
       await dbService.saveTask(updatedTask);
       onTaskUpdate();
     }
@@ -75,19 +66,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks, subjects, onTas
 
   const handleAddTask = async (status: TaskStatus) => {
     if (!newTaskTitle.trim()) return;
-    
     const newTask: Task = {
         id: crypto.randomUUID(),
         title: newTaskTitle.trim(),
         status,
         priority: 'medium',
-        subjectId: newTaskSubject,
+        subjectId: newTaskSubject || (subjects[0]?.id || ''),
         dateString: targetDate, 
         createdAt: Date.now(),
         updatedAt: Date.now(),
         order: Date.now(), 
     };
-
     await dbService.saveTask(newTask);
     setIsAdding(null);
     setNewTaskTitle('');
@@ -117,32 +106,91 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks, subjects, onTas
   const activeTaskData = tasks.find(t => t.id === activeId);
 
   return (
-    <div className="h-full w-full relative">
+    <div className="h-full w-full flex flex-col">
+      {/* Mobile Tab Bar */}
+      <div className="flex md:hidden bg-slate-900/40 backdrop-blur-md p-1 rounded-xl border border-white/5 mb-4 mx-2">
+          {COLUMNS.map(col => (
+              <button
+                  key={col.id}
+                  onClick={() => setActiveTab(col.id)}
+                  className={`relative flex-1 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeTab === col.id ? 'text-white' : 'text-slate-500'}`}
+              >
+                  {activeTab === col.id && (
+                      <motion.div 
+                          layoutId="activeKanbanTab"
+                          className="absolute inset-0 bg-white/10 rounded-lg shadow-sm"
+                          transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                      />
+                  )}
+                  <span className="relative z-10">{col.title}</span>
+                  <span className="relative z-10 text-[10px] opacity-50 bg-black/20 px-1.5 rounded-full">
+                      {tasksByColumn[col.id].length}
+                  </span>
+              </button>
+          ))}
+      </div>
+
       <DndContext 
         sensors={sensors} 
         collisionDetection={closestCenter} 
         onDragStart={(e) => setActiveId(e.active.id as string)}
         onDragEnd={handleDragEnd}
       >
-        {/* Responsive Layout: Vertical stack on mobile, horizontal on desktop */}
-        <div className="flex flex-col md:flex-row h-full gap-4 overflow-y-auto md:overflow-y-hidden md:overflow-x-auto pb-32 md:pb-2 no-scrollbar md:custom-scrollbar scroll-smooth">
-          {COLUMNS.map(col => (
-            <KanbanColumn 
-                key={col.id}
-                col={col}
-                tasks={tasksByColumn[col.id]}
-                subjects={subjects}
-                isAdding={isAdding === col.id}
-                setIsAdding={setIsAdding}
-                newTaskTitle={newTaskTitle}
-                setNewTaskTitle={setNewTaskTitle}
-                newTaskSubject={newTaskSubject}
-                setNewTaskSubject={setNewTaskSubject}
-                onAddTask={handleAddTask}
-                onStartSession={onStartSession}
-                onEditTask={setEditingTask}
-            />
-          ))}
+        {/* Desktop: Grid View | Mobile: Tabbed View */}
+        <div className="flex-1 min-h-0 relative">
+            {/* Desktop Layout */}
+            <div className="hidden md:flex h-full gap-4 overflow-x-auto pb-2 custom-scrollbar">
+                {COLUMNS.map(col => (
+                    <KanbanColumn 
+                        key={col.id}
+                        col={col}
+                        tasks={tasksByColumn[col.id]}
+                        subjects={subjects}
+                        isAdding={isAdding === col.id}
+                        setIsAdding={setIsAdding}
+                        newTaskTitle={newTaskTitle}
+                        setNewTaskTitle={setNewTaskTitle}
+                        newTaskSubject={newTaskSubject}
+                        setNewTaskSubject={setNewTaskSubject}
+                        onAddTask={handleAddTask}
+                        onStartSession={onStartSession}
+                        onEditTask={setEditingTask}
+                    />
+                ))}
+            </div>
+
+            {/* Mobile Layout (Animated Transitions) */}
+            <div className="md:hidden h-full px-2">
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={activeTab}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.2 }}
+                        className="h-full"
+                    >
+                        {COLUMNS.filter(c => c.id === activeTab).map(col => (
+                            <KanbanColumn 
+                                key={col.id}
+                                col={col}
+                                tasks={tasksByColumn[col.id]}
+                                subjects={subjects}
+                                isAdding={isAdding === col.id}
+                                setIsAdding={setIsAdding}
+                                newTaskTitle={newTaskTitle}
+                                setNewTaskTitle={setNewTaskTitle}
+                                newTaskSubject={newTaskSubject}
+                                setNewTaskSubject={setNewTaskSubject}
+                                onAddTask={handleAddTask}
+                                onStartSession={onStartSession}
+                                onEditTask={setEditingTask}
+                                isMobile
+                            />
+                        ))}
+                    </motion.div>
+                </AnimatePresence>
+            </div>
         </div>
 
         <DragOverlay>
@@ -185,62 +233,70 @@ interface KanbanColumnProps {
     onAddTask: (status: TaskStatus) => void;
     onStartSession: (id: string) => void;
     onEditTask: (task: Task) => void;
+    isMobile?: boolean;
 }
 
 const KanbanColumn: React.FC<KanbanColumnProps> = ({ 
     col, tasks, subjects, isAdding, setIsAdding, 
     newTaskTitle, setNewTaskTitle, newTaskSubject, setNewTaskSubject, 
-    onAddTask, onStartSession, onEditTask 
+    onAddTask, onStartSession, onEditTask, isMobile
 }) => {
     const { setNodeRef } = useDroppable({ id: col.id });
 
     return (
-        <div className="flex-none md:flex-1 flex flex-col bg-slate-900/30 backdrop-blur-sm border border-white/5 rounded-2xl w-full md:w-auto md:min-w-[280px] md:h-full">
+        <div className={`flex flex-col bg-slate-900/30 backdrop-blur-sm border border-white/5 rounded-2xl h-full ${isMobile ? 'w-full' : 'flex-1 min-w-[300px]'}`}>
             {/* Header */}
-            <div className="p-4 flex justify-between items-center border-b border-white/5 flex-none bg-white/5 md:bg-transparent rounded-t-2xl">
+            <div className="p-4 flex justify-between items-center border-b border-white/5 flex-none">
                 <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${col.color}`} />
                     <h3 className="font-bold text-slate-200">{col.title}</h3>
                     <span className="text-xs bg-white/5 text-slate-400 px-2 py-0.5 rounded-full border border-white/5">{tasks.length}</span>
                 </div>
-                <button onClick={() => { setIsAdding(col.id); setNewTaskTitle(''); }} className="text-slate-400 hover:text-white p-1.5 hover:bg-white/10 rounded-lg transition-colors">
-                    <Plus size={18} />
+                <button 
+                    onClick={() => { setIsAdding(col.id); setNewTaskTitle(''); }} 
+                    className="text-slate-400 hover:text-white p-2 hover:bg-white/10 rounded-xl transition-colors"
+                >
+                    <Plus size={20} />
                 </button>
             </div>
 
-            {/* Droppable Content - Auto height on mobile, scrollable on desktop */}
-            <div ref={setNodeRef} className="p-3 space-y-3 md:flex-1 md:overflow-y-auto custom-scrollbar min-h-[100px]">
+            {/* Droppable Content */}
+            <div ref={setNodeRef} className="p-3 space-y-3 flex-1 overflow-y-auto custom-scrollbar min-h-[150px]">
                 <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                 
                 {isAdding && (
-                    <div className="bg-slate-800 p-3 rounded-xl border border-indigo-500/50 shadow-lg mb-3 animate-in fade-in zoom-in-95">
+                    <motion.div 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-slate-800 p-4 rounded-2xl border border-indigo-500/50 shadow-xl mb-4"
+                    >
                         <input 
                             autoFocus
-                            className="w-full bg-transparent text-sm text-white placeholder-slate-500 mb-3 focus:outline-none"
-                            placeholder="Task title..."
+                            className="w-full bg-transparent text-sm text-white placeholder-slate-500 mb-4 focus:outline-none"
+                            placeholder="What needs to be done?"
                             value={newTaskTitle}
                             onChange={e => setNewTaskTitle(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && onAddTask(col.id)}
                         />
-                        <div className="flex gap-2 mb-3 overflow-x-auto no-scrollbar pb-1">
+                        <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-1">
                             {subjects.filter(s => !s.isArchived).map(sub => {
                                 const isHex = isHexColor(sub.color);
                                 return (
                                     <button 
                                         key={sub.id} 
                                         onClick={() => setNewTaskSubject(sub.id)}
-                                        className={`w-4 h-4 rounded-full flex-none ${!isHex ? sub.color : ''} ${newTaskSubject === sub.id ? 'ring-2 ring-white scale-110' : 'opacity-50'}`}
+                                        className={`w-5 h-5 rounded-full flex-none transition-transform ${!isHex ? sub.color : ''} ${newTaskSubject === sub.id ? 'ring-2 ring-white scale-110' : 'opacity-40 hover:opacity-100'}`}
                                         style={isHex ? { backgroundColor: sub.color } : {}}
                                         title={sub.name}
                                     />
                                 );
                             })}
                         </div>
-                        <div className="flex justify-end gap-2">
-                            <button onClick={() => setIsAdding(null)} className="text-xs text-slate-400 px-2 py-1 hover:text-white">Cancel</button>
-                            <button onClick={() => onAddTask(col.id)} className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-bold">Add</button>
+                        <div className="flex justify-end gap-3">
+                            <button onClick={() => setIsAdding(null)} className="text-xs text-slate-400 px-3 py-2 hover:text-white font-medium">Cancel</button>
+                            <button onClick={() => onAddTask(col.id)} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold transition-colors">Add Task</button>
                         </div>
-                    </div>
+                    </motion.div>
                 )}
 
                 {tasks.map(task => (
@@ -254,8 +310,11 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                 ))}
                 
                 {tasks.length === 0 && !isAdding && (
-                    <div className="h-24 border-2 border-dashed border-white/5 rounded-xl flex items-center justify-center text-slate-600/50 text-xs">
-                        Drop items here
+                    <div className="h-32 border-2 border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center text-slate-600/50 gap-2">
+                        <div className="p-3 bg-white/5 rounded-full">
+                            <Plus size={20} />
+                        </div>
+                        <span className="text-xs font-medium">No tasks yet</span>
                     </div>
                 )}
                 </SortableContext>

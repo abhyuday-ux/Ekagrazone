@@ -1,8 +1,9 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StudySession } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface YearlyHeatmapProps {
   sessions: StudySession[];
@@ -10,6 +11,7 @@ interface YearlyHeatmapProps {
 
 export const YearlyHeatmap: React.FC<YearlyHeatmapProps> = ({ sessions }) => {
   const { accent } = useTheme();
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // 1. Group sessions by date
   const sessionMap = useMemo(() => {
@@ -20,29 +22,29 @@ export const YearlyHeatmap: React.FC<YearlyHeatmapProps> = ({ sessions }) => {
       return map;
   }, [sessions]);
 
-  // 2. Generate Days for the last 365 days
-  const weeks = useMemo(() => {
-      const result = [];
+  // 2. Generate Months Data
+  const monthsData = useMemo(() => {
+      const months = [];
       const today = new Date();
-      const startDate = new Date();
-      startDate.setDate(today.getDate() - 364); // Last 365 days
       
-      // Adjust to start on the nearest Sunday to keep the grid aligned
-      const startDay = startDate.getDay();
-      startDate.setDate(startDate.getDate() - startDay);
-
-      let currentDay = new Date(startDate);
-      
-      // We want roughly 53 weeks
-      for (let w = 0; w < 53; w++) {
-          const week = [];
-          for (let d = 0; d < 7; d++) {
-              week.push(new Date(currentDay));
-              currentDay.setDate(currentDay.getDate() + 1);
+      // We'll show the last 12 months
+      for (let i = 11; i >= 0; i--) {
+          const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+          const monthName = monthDate.toLocaleString('default', { month: 'long' });
+          const year = monthDate.getFullYear();
+          
+          // Get all days in this month
+          const daysInMonth = new Date(year, monthDate.getMonth() + 1, 0).getDate();
+          const days = [];
+          
+          for (let d = 1; d <= daysInMonth; d++) {
+              const date = new Date(year, monthDate.getMonth(), d);
+              days.push(date);
           }
-          result.push(week);
+          
+          months.push({ name: monthName, year, days });
       }
-      return result;
+      return months;
   }, []);
 
   const getIntensity = (ms: number) => {
@@ -60,69 +62,86 @@ export const YearlyHeatmap: React.FC<YearlyHeatmapProps> = ({ sessions }) => {
       return `bg-${accent}-500`;
   };
 
+  // On mobile, if not expanded, only show the current month (the last one)
+  const visibleMonths = isExpanded ? monthsData : [monthsData[monthsData.length - 1]];
+
   return (
-    <div className="min-w-[800px] py-2">
-        <div className="flex gap-1">
-            {/* Day Labels */}
-            <div className="flex flex-col gap-1 pr-2 pt-6">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
-                    <div key={day} className="h-3 text-[9px] text-slate-600 font-bold flex items-center">
-                        {i % 2 === 0 ? day : ''}
-                    </div>
-                ))}
-            </div>
+    <div className="flex flex-col gap-6 w-full">
+        <div className="flex justify-between items-center md:hidden">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">History</h3>
+            <button 
+                onClick={() => setIsExpanded(!isExpanded)}
+                className={`flex items-center gap-1.5 text-[10px] font-bold bg-white/5 hover:bg-white/10 text-slate-300 px-3 py-1.5 rounded-lg transition-all border border-white/5`}
+            >
+                {isExpanded ? (
+                    <>Show Less <ChevronUp size={14} /></>
+                ) : (
+                    <>Full Year <ChevronDown size={14} /></>
+                )}
+            </button>
+        </div>
 
-            {/* Grid */}
-            <div className="flex gap-1">
-                {weeks.map((week, wIndex) => (
-                    <div key={wIndex} className="flex flex-col gap-1">
-                        {/* Month Label (only show if it's the first week of the month) */}
-                        <div className="h-5 text-[9px] text-slate-500 font-bold">
-                            {wIndex > 0 && week[0].getMonth() !== weeks[wIndex-1][0].getMonth() ? 
-                                week[0].toLocaleString('default', { month: 'short' }) : 
-                                wIndex === 0 ? week[0].toLocaleString('default', { month: 'short' }) : ''
-                            }
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <AnimatePresence mode="popLayout">
+                {(isExpanded ? monthsData : visibleMonths).map((month, mIndex) => (
+                    <motion.div 
+                        key={`${month.name}-${month.year}`}
+                        layout
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="bg-white/5 border border-white/5 rounded-2xl p-4 flex flex-col gap-3"
+                    >
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-sm font-bold text-white">{month.name}</h3>
+                            <span className="text-[10px] text-slate-500 font-mono">{month.year}</span>
                         </div>
-                        {week.map((date, dIndex) => {
-                            const dateStr = date.toISOString().split('T')[0];
-                            const ms = sessionMap[dateStr] || 0;
-                            const level = getIntensity(ms);
-                            const hours = (ms / 3600000).toFixed(1);
-                            const isFuture = date > new Date();
+                        
+                        <div className="flex flex-wrap gap-1.5">
+                            {month.days.map((date) => {
+                                const dateStr = date.toISOString().split('T')[0];
+                                const ms = sessionMap[dateStr] || 0;
+                                const level = getIntensity(ms);
+                                const hours = (ms / 3600000).toFixed(1);
+                                const isFuture = date > new Date();
 
-                            return (
-                                <div 
-                                    key={dateStr}
-                                    className={`
-                                        w-3 h-3 rounded-[2px] relative group/cell transition-all duration-300
-                                        ${isFuture ? 'opacity-0 pointer-events-none' : getLevelColor(level)}
-                                        ${level > 0 ? 'shadow-[0_0_5px_rgba(0,0,0,0.1)]' : ''}
-                                    `}
-                                >
-                                     {/* Tooltip */}
-                                     {!isFuture && (
-                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/cell:block z-50 min-w-[max-content] bg-slate-900 border border-white/10 px-2 py-1 rounded-md shadow-2xl text-center pointer-events-none transform scale-100 origin-bottom">
-                                            <div className="text-[10px] font-bold text-white whitespace-nowrap">{date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric'})}</div>
-                                            <div className={`text-[9px] text-${accent}-400 font-mono font-bold`}>{ms ? `${hours}h focused` : 'No focus sessions'}</div>
-                                            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900" />
-                                        </div>
-                                     )}
-                                </div>
-                            );
-                        })}
-                    </div>
+                                return (
+                                    <div 
+                                        key={dateStr}
+                                        className={`
+                                            w-3.5 h-3.5 rounded-[3px] relative group/cell transition-all duration-300
+                                            ${isFuture ? 'bg-slate-800/10' : getLevelColor(level)}
+                                        `}
+                                    >
+                                         {/* Tooltip */}
+                                         {!isFuture && (
+                                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/cell:block z-50 min-w-[max-content] bg-slate-900 border border-white/10 px-2 py-1 rounded-md shadow-2xl text-center pointer-events-none transform scale-100 origin-bottom">
+                                                <div className="text-[10px] font-bold text-white whitespace-nowrap">{date.toLocaleDateString(undefined, { month: 'short', day: 'numeric'})}</div>
+                                                <div className={`text-[9px] text-${accent}-400 font-mono font-bold`}>{ms ? `${hours}h focused` : 'No focus'}</div>
+                                                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900" />
+                                            </div>
+                                         )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </motion.div>
                 ))}
-            </div>
+            </AnimatePresence>
         </div>
 
         {/* Legend */}
-        <div className="flex items-center justify-end gap-2 mt-4 text-[10px] text-slate-500 font-medium px-2">
-            <span>Less</span>
-            <div className="w-3 h-3 rounded-[2px] bg-slate-800/30" />
-            <div className={`w-3 h-3 rounded-[2px] bg-${accent}-500/30`} />
-            <div className={`w-3 h-3 rounded-[2px] bg-${accent}-500/60`} />
-            <div className={`w-3 h-3 rounded-[2px] bg-${accent}-500`} />
-            <span>More</span>
+        <div className="flex items-center justify-center gap-4 text-[10px] text-slate-500 font-medium pt-4 border-t border-white/5">
+            <div className="flex items-center gap-1.5">
+                <span>Less</span>
+                <div className="flex gap-1">
+                    <div className="w-3 h-3 rounded-[2px] bg-slate-800/30" />
+                    <div className={`w-3 h-3 rounded-[2px] bg-${accent}-500/30`} />
+                    <div className={`w-3 h-3 rounded-[2px] bg-${accent}-500/60`} />
+                    <div className={`w-3 h-3 rounded-[2px] bg-${accent}-500`} />
+                </div>
+                <span>More</span>
+            </div>
         </div>
     </div>
   );

@@ -249,14 +249,14 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
       return (
           <>
             {!hasPremium && onUpgrade && <HeaderAd onClick={onUpgrade} isZenMode={true} />}
-            <div className={`flex items-center gap-6 p-6 bg-black/40 backdrop-blur-xl rounded-full border border-white/10 shadow-2xl animate-in slide-in-from-bottom-8 relative z-10 ${!hasPremium ? 'mt-24 md:mt-36' : ''}`}>
+            <div className={`flex flex-col md:flex-row items-center gap-4 md:gap-6 p-5 md:p-6 bg-black/40 backdrop-blur-xl rounded-[2.5rem] md:rounded-full border border-white/10 shadow-2xl animate-in slide-in-from-bottom-8 relative z-10 ${!hasPremium ? 'mt-24 md:mt-36' : ''}`}>
             {/* Time */}
-            <div className={`text-6xl font-mono font-bold tabular-nums tracking-tight drop-shadow-lg ${isOvertime ? 'text-amber-400 animate-pulse' : 'text-white'}`}>
+            <div className={`text-5xl md:text-6xl font-mono font-bold tabular-nums tracking-tight drop-shadow-lg ${isOvertime ? 'text-amber-400 animate-pulse' : 'text-white'}`}>
                 {isComplete ? "DONE" : formatTime(displayMs)}
             </div>
             
             {/* Controls */}
-            <div className="flex items-center gap-3 border-l border-white/20 pl-6">
+            <div className="flex items-center gap-3 border-t md:border-t-0 md:border-l border-white/20 pt-4 md:pt-0 md:pl-6 w-full md:w-auto justify-center">
                 <ZenSubjectPanel 
                     subjects={subjects}
                     selectedSubjectId={currentSubjectId}
