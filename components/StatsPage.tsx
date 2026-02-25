@@ -1,12 +1,13 @@
 
 import React, { useState, useMemo } from 'react';
 import { StudySession, Subject, isHexColor } from '../types';
-import { BarChart2, TrendingUp, Clock, Activity, Zap, Calendar, ArrowRight, Layout, List, PieChart, AlertTriangle, Layers, Flame, Target } from 'lucide-react';
+import { BarChart2, TrendingUp, Clock, Activity, Zap, Calendar, ArrowRight, Layout, List, PieChart, AlertTriangle, Layers, Flame, Target, Trophy } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SubjectDonut } from './SubjectDonut';
 import { DailyTimeline } from './DailyTimeline';
 import { HistoryList } from './HistoryList';
+import { YearlyHeatmap } from './YearlyHeatmap';
 import { dbService } from '../services/db';
 
 interface StatsPageProps {
@@ -191,6 +192,60 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
 
   const selectedDateSessions = useMemo(() => sessions.filter(s => s.dateString === selectedDate), [sessions, selectedDate]);
   
+  // --- Streak Calculation ---
+  const streaks = useMemo(() => {
+    const datesWithSessions = new Set(sessions.filter(s => s.durationMs > 0).map(s => s.dateString));
+    const sortedDates = Array.from(datesWithSessions).sort();
+    
+    if (sortedDates.length === 0) return { current: 0, best: 0 };
+
+    let best = 0;
+    let current = 0;
+    let tempStreak = 0;
+    
+    // Calculate Best Streak
+    const allDates: string[] = [];
+    if (sortedDates.length > 0) {
+        const startStr = sortedDates[0] as string;
+        const start = new Date(startStr);
+        const end = new Date();
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            allDates.push(d.toISOString().split('T')[0]);
+        }
+    }
+
+    allDates.forEach(date => {
+        if (datesWithSessions.has(date)) {
+            tempStreak++;
+            best = Math.max(best, tempStreak);
+        } else {
+            tempStreak = 0;
+        }
+    });
+
+    // Calculate Current Streak
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    if (datesWithSessions.has(today)) {
+        let checkDate = new Date();
+        while (datesWithSessions.has(checkDate.toISOString().split('T')[0])) {
+            current++;
+            checkDate.setDate(checkDate.getDate() - 1);
+        }
+    } else if (datesWithSessions.has(yesterdayStr)) {
+        let checkDate = new Date(yesterday);
+        while (datesWithSessions.has(checkDate.toISOString().split('T')[0])) {
+            current++;
+            checkDate.setDate(checkDate.getDate() - 1);
+        }
+    }
+
+    return { current, best };
+  }, [sessions]);
+
   const changeDate = (offset: number) => {
     const date = new Date(selectedDate);
     date.setDate(date.getDate() + offset);
@@ -280,68 +335,67 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                     </div>
                 </div>
 
-                {/* 2. Enhanced Study Trend */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2 bg-slate-900/40 border border-white/5 rounded-3xl p-6 flex flex-col">
+                {/* 2. Consistency Grid & Stats */}
+                <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                    <div className="xl:col-span-3 bg-slate-900/40 border border-white/5 rounded-3xl p-6 flex flex-col overflow-hidden">
                         <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center gap-2">
                                 <div className={`p-2 bg-${accent}-500/20 rounded-lg text-${accent}-400`}>
-                                    <BarChart2 size={18} />
+                                    <Calendar size={18} />
                                 </div>
-                                <h3 className="font-bold text-slate-200">Study Trend</h3>
+                                <h3 className="font-bold text-slate-200">Consistency Grid</h3>
                             </div>
-                            <span className="text-xs text-slate-500 font-mono">Last {range === 'week' ? '7 Days' : '30 Days'}</span>
+                            <span className="text-xs text-slate-500 font-mono">Past 12 Months</span>
                         </div>
                         
-                        <div className="flex-1 flex items-end gap-2 h-48 w-full relative">
-                            {/* Target Average Line */}
-                            {dailyAverage > 0 && (
-                                <div 
-                                    className="absolute left-0 right-0 border-t border-dashed border-white/20 pointer-events-none z-0"
-                                    style={{ bottom: `${(dailyAverage / maxTrendValue) * 100}%` }}
-                                >
-                                    <span className="absolute right-0 bottom-1 text-[9px] text-slate-400 font-mono bg-slate-900/80 px-1.5 rounded border border-white/10">Average</span>
-                                </div>
-                            )}
-
-                            {trendData.map((d, i) => (
-                                <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative z-10">
-                                    <div className="w-full relative flex items-end justify-center h-full">
-                                        <motion.div 
-                                            initial={{ height: 0 }}
-                                            animate={{ height: `${(d.value / maxTrendValue) * 100}%` }}
-                                            transition={{ duration: 0.8, delay: i * 0.05, ease: "easeOut" }}
-                                            className={`
-                                                w-full max-w-[40px] rounded-t-lg transition-all duration-300 relative group-hover:scale-105
-                                                ${d.value > dailyAverage 
-                                                    ? `bg-gradient-to-t from-${accent}-600 to-${accent}-400 shadow-[0_0_15px_rgba(var(--color-${accent}-500),0.3)]` 
-                                                    : 'bg-gradient-to-t from-slate-700 to-slate-600 opacity-60 hover:opacity-100'}
-                                            `}
-                                            style={{ minHeight: '4px' }}
-                                        />
-                                        
-                                        {/* Dynamic Tooltip */}
-                                        <div className="absolute bottom-full mb-3 hidden group-hover:block z-20">
-                                            <div className="bg-slate-800 border border-white/10 text-white px-3 py-1.5 rounded-xl shadow-xl flex flex-col items-center whitespace-nowrap transform -translate-x-0">
-                                                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wide">{d.fullDate}</span>
-                                                <span className={`text-sm font-bold font-mono text-${accent}-400`}>{d.value.toFixed(1)}h</span>
-                                                {/* Arrow */}
-                                                <div className="w-2 h-2 bg-slate-800 border-r border-b border-white/10 absolute -bottom-1 rotate-45"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <span className="text-[10px] text-slate-500 font-bold uppercase">{d.weekDay?.[0]}</span>
-                                </div>
-                            ))}
+                        <div className="overflow-x-auto pb-2 custom-scrollbar">
+                            <YearlyHeatmap sessions={sessions} />
                         </div>
                     </div>
 
-                    {/* Subject Donut / Distribution */}
-                    <div className="bg-slate-900/40 border border-white/5 rounded-3xl p-6 flex flex-col items-center justify-center">
-                        <h3 className="font-bold text-slate-200 mb-4 w-full text-left flex items-center gap-2">
-                            <PieChart size={18} className="text-slate-400" /> Distribution
-                        </h3>
-                        <SubjectDonut sessions={filteredSessions} subjects={subjects} />
+                    {/* Streak Stats Sidebar */}
+                    <div className="flex flex-col gap-4">
+                        <div className="bg-slate-900/40 border border-white/5 p-6 rounded-3xl flex flex-col gap-1 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-8 bg-orange-500/10 rounded-full blur-xl -mr-4 -mt-4 transition-opacity group-hover:opacity-100 opacity-50" />
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-orange-500/20 rounded-lg text-orange-400">
+                                    <Flame size={20} className="fill-orange-400" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Current Streak</span>
+                            </div>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-4xl font-mono font-bold text-white">{streaks.current}</span>
+                                <span className="text-sm text-slate-500 font-medium">days</span>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-900/40 border border-white/5 p-6 rounded-3xl flex flex-col gap-1 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-8 bg-amber-500/10 rounded-full blur-xl -mr-4 -mt-4 transition-opacity group-hover:opacity-100 opacity-50" />
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-amber-500/20 rounded-lg text-amber-400">
+                                    <Trophy size={20} className="fill-amber-400" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Best Streak</span>
+                            </div>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-4xl font-mono font-bold text-white">{streaks.best}</span>
+                                <span className="text-sm text-slate-500 font-medium">days</span>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-900/40 border border-white/5 p-6 rounded-3xl flex flex-col gap-1 relative overflow-hidden group flex-1">
+                            <div className="absolute top-0 right-0 p-8 bg-blue-500/10 rounded-full blur-xl -mr-4 -mt-4 transition-opacity group-hover:opacity-100 opacity-50" />
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400">
+                                    <Clock size={20} />
+                                </div>
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Lifetime Focus</span>
+                            </div>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-4xl font-mono font-bold text-white">{(sessions.reduce((acc, s) => acc + s.durationMs, 0) / 3600000).toFixed(0)}</span>
+                                <span className="text-sm text-slate-500 font-medium">hours</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

@@ -163,9 +163,11 @@ export const PricingPage: React.FC<{ onClose?: () => void }> = ({ onClose }) => 
                         <div className="flex items-baseline gap-2">
                             <span className="text-4xl font-bold text-white">
                                 {isIndia ? '₹99' : '$4.99'}
+                                <span className="text-sm opacity-80 font-normal">/mo</span>
                             </span>
                             <span className="text-lg text-slate-500 line-through decoration-slate-500/50">
                                 {isIndia ? '₹149' : '$6.99'}
+                                <span className="text-xs opacity-60">/mo</span>
                             </span>
                             <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full ml-auto">
                                 Newly Launched Bonus
@@ -203,13 +205,20 @@ export const PricingPage: React.FC<{ onClose?: () => void }> = ({ onClose }) => 
                             <p className="text-amber-200/60 text-sm">For the relentless achiever.</p>
                         </div>
                         
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-4xl font-bold text-white">
-                                {isIndia ? '₹999' : '$40.99'}
-                            </span>
-                            <span className="text-lg text-slate-500 line-through decoration-slate-500/50">
-                                {isIndia ? '₹1,799' : '$84.99'}
-                            </span>
+                        <div className="flex flex-col gap-1">
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-4xl font-bold text-white">
+                                    {isIndia ? '₹999' : '$40.99'}
+                                    <span className="text-sm opacity-80 font-normal">/yr</span>
+                                </span>
+                                <span className="text-lg text-slate-500 line-through decoration-slate-500/50">
+                                    {isIndia ? '₹1,799' : '$84.99'}
+                                    <span className="text-xs opacity-60">/yr</span>
+                                </span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">
+                                Billed annually
+                            </div>
                         </div>
                         <div className="text-xs text-amber-400 font-bold">
                             {isIndia ? 'Massive ₹800 Saving' : 'Save over 50%'}

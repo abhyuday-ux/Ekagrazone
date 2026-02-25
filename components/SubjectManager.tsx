@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
-import { Subject, SUBJECT_COLORS, isHexColor } from '../types';
-import { Plus, X, Edit2, Archive, Trash2, Check, RotateCcw, Palette } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Subject, isHexColor } from '../types';
+import { Plus, X, Edit2, Trash2, Check, Palette, AlertTriangle, Info, Archive, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
 import { dbService } from '../services/db';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -11,209 +11,384 @@ interface SubjectManagerProps {
   onClose: () => void;
 }
 
-export const SubjectManager: React.FC<SubjectManagerProps> = ({ subjects, onUpdate, onClose }) => {
+const PRESET_THEMES = [
+  { name: 'Chemistry Blue', color: '#3b82f6' },
+  { name: 'Bio Green', color: '#22c55e' },
+  { name: 'Physics Purple', color: '#a855f7' },
+  { name: 'Math Red', color: '#ef4444' },
+  { name: 'History Orange', color: '#f97316' },
+  { name: 'Lit Yellow', color: '#eab308' },
+];
+
+export const SubjectManager: React.FC<SubjectManagerProps> = ({ subjects: initialSubjects, onUpdate, onClose }) => {
+  const [subjects, setSubjects] = useState<Subject[]>(initialSubjects);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [color, setColor] = useState(SUBJECT_COLORS[0]);
+  const [color, setColor] = useState(PRESET_THEMES[0].color);
   const [isCreating, setIsCreating] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { accent } = useTheme();
+
+  const activeSubjects = subjects.filter(s => !s.isArchived);
+  const archivedSubjects = subjects.filter(s => s.isArchived);
+
+  // Sync local state with props when props change
+  useEffect(() => {
+    setSubjects(initialSubjects);
+  }, [initialSubjects]);
 
   const handleStartEdit = (subject: Subject) => {
     setEditingId(subject.id);
     setName(subject.name);
     setColor(subject.color);
     setIsCreating(false);
+    setError(null);
   };
 
   const handleStartCreate = () => {
     setEditingId(null);
     setName('');
-    setColor(SUBJECT_COLORS[0]);
+    setColor(PRESET_THEMES[0].color);
     setIsCreating(true);
+    setError(null);
   };
 
-  // Helper to ensure all subjects are persisted (fixes disappearing defaults bug)
-  const persistAllSubjects = async (updatedList: Subject[]) => {
-      const promises = updatedList.map(s => dbService.saveSubject(s));
-      await Promise.all(promises);
+  const validateSubject = (subjectName: string, currentId: string | null): string | null => {
+    if (!subjectName.trim()) return "Subject name cannot be empty.";
+    const duplicate = subjects.find(
+      s => s.name.toLowerCase() === subjectName.trim().toLowerCase() && s.id !== currentId
+    );
+    if (duplicate) return "Subject already exists.";
+    return null;
   };
 
-  const handleSave = async () => {
-    if (!name.trim()) return;
+  // --- ATOMIC CRUD OPERATIONS (STRATEGY: SAVE FULL ARRAY) ---
+
+  const handleAdd = async () => {
+    const validationError = validateSubject(name, null);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
 
     const newSubject: Subject = {
-      id: isCreating ? crypto.randomUUID() : editingId!,
+      id: Date.now().toString(),
       name: name.trim(),
       color,
       isArchived: false,
     };
 
-    // Preserve archived status if editing
-    if (!isCreating) {
-       const existing = subjects.find(s => s.id === editingId);
-       if (existing) newSubject.isArchived = existing.isArchived;
-    }
-
-    // Determine the full new list of subjects
-    let updatedList: Subject[];
-    if (isCreating) {
-        updatedList = [...subjects, newSubject];
-    } else {
-        updatedList = subjects.map(s => s.id === newSubject.id ? newSubject : s);
-    }
-
-    // Save ALL items to ensure transient defaults are written to DB
-    await persistAllSubjects(updatedList);
-    
-    onUpdate();
+    const newList = [...subjects, newSubject];
+    setSubjects(newList);
     resetForm();
+
+    try {
+      await dbService.saveSubjects(newList);
+      onUpdate();
+    } catch (e) {
+      console.error("Failed to add subject", e);
+      setSubjects(initialSubjects);
+      setError("Failed to save. Please try again.");
+    }
   };
 
-  const handleArchiveToggle = async (subject: Subject) => {
-    const updatedSubject = { ...subject, isArchived: !subject.isArchived };
-    
-    // Update local list structure
-    const updatedList = subjects.map(s => s.id === subject.id ? updatedSubject : s);
-    
-    // Save ALL items to ensure transient defaults are written to DB
-    await persistAllSubjects(updatedList);
-    
-    onUpdate();
+  const handleEdit = async () => {
+    if (!editingId) return;
+    const validationError = validateSubject(name, editingId);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    const newList = subjects.map(s => 
+      s.id === editingId 
+        ? { ...s, name: name.trim(), color } 
+        : s
+    );
+
+    setSubjects(newList);
+    resetForm();
+
+    try {
+      await dbService.saveSubjects(newList);
+      onUpdate();
+    } catch (e) {
+      console.error("Failed to edit subject", e);
+      setSubjects(initialSubjects);
+      setError("Failed to save changes. Please try again.");
+    }
   };
-  
-  const handleDelete = async (id: string) => {
-      if(window.confirm("Are you sure? This will hide stats associated with this subject (but not delete session data).")) {
-          // 1. Ensure other subjects are saved first (in case we are in default mode)
-          const others = subjects.filter(s => s.id !== id);
-          await persistAllSubjects(others);
-          
-          // 2. Delete the specific one
-          await dbService.deleteSubject(id);
-          
-          onUpdate();
+
+  const handleArchiveToggle = async (id: string, archive: boolean, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (archive && activeSubjects.length <= 1) {
+      setError("You cannot archive your last active subject.");
+      return;
+    }
+
+    const newList = subjects.map(s => s.id === id ? { ...s, isArchived: archive } : s);
+    setSubjects(newList);
+
+    try {
+      await dbService.saveSubjects(newList);
+      onUpdate();
+    } catch (err) {
+      console.error("Failed to toggle archive", err);
+      setSubjects(initialSubjects);
+      setError("Failed to update status. Please try again.");
+    }
+  };
+
+  const handleDelete = async (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (window.confirm("Are you sure? This will permanently delete this subject and all associated statistics.")) {
+      const newList = subjects.filter(s => s.id !== id);
+      setSubjects(newList);
+
+      try {
+        await dbService.saveSubjects(newList);
+        onUpdate();
+      } catch (err) {
+        console.error("Failed to delete subject", err);
+        setSubjects(initialSubjects);
+        setError("Failed to delete subject. Please try again.");
       }
+    }
+  };
+
+  const handleSubmit = () => {
+      if (isCreating) handleAdd();
+      else handleEdit();
   };
 
   const resetForm = () => {
     setEditingId(null);
     setIsCreating(false);
     setName('');
+    setError(null);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-      <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-        <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5">
-          <h2 className="font-bold text-lg text-white">Manage Subjects</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-slate-900 border border-white/10 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
+        
+        {/* Header */}
+        <div className="p-5 border-b border-white/10 flex justify-between items-center bg-slate-900/50">
+          <div>
+            <h2 className="font-bold text-xl text-white">Manage Subjects</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Customize your focus categories</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
             <X size={20} />
           </button>
         </div>
 
-        <div className="overflow-y-auto p-4 space-y-3 flex-1">
+        {/* Error Message */}
+        {error && (
+          <div className="mx-5 mt-5 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-400 text-sm">
+            <AlertTriangle size={16} />
+            {error}
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="overflow-y-auto p-5 space-y-4 flex-1 custom-scrollbar">
+          
+          {/* Create/Edit Form */}
           {isCreating || editingId ? (
-            <div className="bg-white/5 p-4 rounded-xl border border-white/10 animate-in fade-in zoom-in-95 duration-200">
-              <div className="mb-4">
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Subject Name</label>
+            <div className="bg-slate-800/50 p-5 rounded-2xl border border-white/10 space-y-5 animate-in slide-in-from-top-2">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Subject Name</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className={`w-full bg-slate-900/50 border border-slate-700/50 rounded-lg p-2 text-white focus:outline-none focus:border-${accent}-500 focus:bg-slate-900 transition-colors`}
-                  placeholder="e.g. Advanced Calculus"
+                  className={`w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white placeholder:text-slate-600 focus:outline-none focus:border-${accent}-500 focus:ring-1 focus:ring-${accent}-500 transition-all`}
+                  placeholder="e.g. Quantum Physics"
                   autoFocus
                 />
               </div>
-              <div className="mb-6">
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Color Tag</label>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-3">Theme Color</label>
                 <div className="grid grid-cols-6 gap-2 mb-4">
-                  {SUBJECT_COLORS.map((c) => (
+                  {PRESET_THEMES.map((theme) => (
                     <button
-                      key={c}
-                      onClick={() => setColor(c)}
-                      className={`w-8 h-8 rounded-full transition-transform hover:scale-110 ${color === c ? 'ring-2 ring-white scale-110' : ''}`}
-                      style={{ backgroundColor: c }}
-                    />
+                      key={theme.color}
+                      onClick={() => setColor(theme.color)}
+                      className={`w-10 h-10 rounded-full transition-all flex items-center justify-center relative group ${color === theme.color ? 'ring-2 ring-white scale-110' : 'hover:scale-110'}`}
+                      style={{ backgroundColor: theme.color }}
+                      title={theme.name}
+                    >
+                      {color === theme.color && <Check size={16} className="text-white drop-shadow-md" />}
+                    </button>
                   ))}
                 </div>
-                {/* Custom Color Picker */}
-                <div className="flex items-center gap-3 bg-slate-900/50 p-2 rounded-lg border border-white/5">
-                     <div className="p-2 bg-white/5 rounded-full">
+                
+                {/* Custom Color Toggle */}
+                <div className="flex items-center gap-3 bg-slate-900 p-3 rounded-xl border border-white/5">
+                     <div className="p-2 bg-white/5 rounded-lg">
                          <Palette size={16} className="text-slate-400" />
                      </div>
-                     <span className="text-xs text-slate-300 font-medium">Custom Color:</span>
+                     <span className="text-xs text-slate-300 font-medium">Custom Hex:</span>
                      <div className="relative flex-1 flex items-center justify-end">
                          <input 
                             type="color" 
                             value={color.startsWith('#') ? color : '#3b82f6'} 
                             onChange={(e) => setColor(e.target.value)}
-                            className="w-8 h-8 rounded cursor-pointer bg-transparent border-0 p-0"
+                            className="w-8 h-8 rounded cursor-pointer bg-transparent border-0 p-0 opacity-0 absolute inset-0"
                          />
-                         <span className="ml-2 font-mono text-xs text-slate-500 uppercase">{color}</span>
+                         <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded-full border border-white/20" style={{ backgroundColor: color }} />
+                            <span className="font-mono text-xs text-slate-500 uppercase">{color}</span>
+                         </div>
                      </div>
                 </div>
               </div>
-              <div className="flex justify-end gap-2">
-                <button onClick={resetForm} className="px-3 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
+
+              <div className="flex justify-end gap-3 pt-2">
                 <button 
-                    onClick={handleSave} 
-                    className={`px-4 py-2 bg-${accent}-600 hover:bg-${accent}-500 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-lg shadow-${accent}-500/20`}
+                  onClick={resetForm} 
+                  className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
                 >
-                    <Check size={16} /> Save
+                  Cancel
+                </button>
+                <button 
+                    onClick={handleSubmit} 
+                    className={`px-6 py-2.5 bg-${accent}-600 hover:bg-${accent}-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-${accent}-500/20 transition-all active:scale-95`}
+                >
+                    <Check size={16} /> {isCreating ? 'Add Subject' : 'Save Changes'}
                 </button>
               </div>
             </div>
           ) : (
              <button
                 onClick={handleStartCreate}
-                className="w-full py-3 border-2 border-dashed border-white/10 rounded-xl text-slate-400 hover:text-white hover:border-white/20 hover:bg-white/5 transition-all flex items-center justify-center gap-2 mb-4"
+                className="w-full py-4 border border-dashed border-white/10 rounded-2xl text-slate-400 hover:text-white hover:border-white/20 hover:bg-white/5 transition-all flex items-center justify-center gap-2 group"
               >
-                <Plus size={18} /> New Subject
+                <div className={`p-2 bg-${accent}-500/10 rounded-full text-${accent}-400 group-hover:bg-${accent}-500/20 transition-colors`}>
+                  <Plus size={20} />
+                </div>
+                <span className="font-medium">Add New Subject</span>
               </button>
           )}
 
+          {/* Active Subject List */}
           <div className="space-y-2">
-            {subjects.sort((a, b) => (a.isArchived === b.isArchived ? 0 : a.isArchived ? 1 : -1)).map((subject) => {
+            <div className="flex items-center gap-2 px-2 pb-2">
+                <Info size={14} className="text-slate-500" />
+                <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Active Subjects ({activeSubjects.length})</span>
+            </div>
+            
+            {activeSubjects.length === 0 && !isCreating && (
+                <div className="text-center py-8 text-slate-500 text-sm">
+                    No active subjects found. Add one to get started!
+                </div>
+            )}
+
+            {activeSubjects.map((subject) => {
               const isHex = isHexColor(subject.color);
               return (
                 <div 
                     key={subject.id} 
-                    className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${subject.isArchived ? 'bg-slate-900/50 border-white/5 opacity-60' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
+                    className="flex items-center justify-between p-4 bg-slate-800/30 border border-white/5 rounded-2xl hover:bg-slate-800/50 hover:border-white/10 transition-all group"
                 >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                         <div 
-                            className={`w-3 h-3 rounded-full shadow-[0_0_8px_currentColor] ${!isHex ? subject.color : ''}`} 
-                            style={isHex ? { backgroundColor: subject.color, color: subject.color } : {}}
-                        />
-                        <span className={`font-medium ${subject.isArchived ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
-                            {subject.name}
-                        </span>
-                        {subject.isArchived && <span className="text-[10px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded">Archived</span>}
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${!isHex ? subject.color : ''}`} 
+                            style={isHex ? { backgroundColor: subject.color, color: 'white' } : {}}
+                        >
+                            <span className="text-lg font-bold opacity-80">{subject.name[0]?.toUpperCase()}</span>
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-slate-200 group-hover:text-white transition-colors">{subject.name}</h3>
+                            <p className="text-[10px] text-slate-500">
+                                {PRESET_THEMES.find(t => t.color === subject.color)?.name || 'Custom Theme'}
+                            </p>
+                        </div>
                     </div>
                     
                     <div className="flex items-center gap-1">
-                        {!subject.isArchived && (
-                            <button onClick={() => handleStartEdit(subject)} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-                                <Edit2 size={16} />
-                            </button>
-                        )}
                         <button 
-                            onClick={() => handleArchiveToggle(subject)} 
-                            className="p-2 text-slate-400 hover:text-amber-400 hover:bg-white/10 rounded-lg transition-colors"
-                            title={subject.isArchived ? "Restore" : "Archive"}
+                            onClick={() => handleStartEdit(subject)} 
+                            className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                            title="Edit"
                         >
-                            {subject.isArchived ? <RotateCcw size={16} /> : <Archive size={16} />}
+                            <Edit2 size={16} />
                         </button>
-                        {subject.isArchived && (
-                            <button onClick={() => handleDelete(subject.id)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-white/10 rounded-lg transition-colors">
-                                <Trash2 size={16} />
-                            </button>
-                        )}
+                        <button 
+                            onClick={(e) => handleArchiveToggle(subject.id, true, e)} 
+                            className="p-2 text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors"
+                            title="Archive"
+                        >
+                            <Archive size={16} />
+                        </button>
                     </div>
                 </div>
               );
             })}
           </div>
+
+          {/* Archived Subjects Section */}
+          {archivedSubjects.length > 0 && (
+            <div className="pt-4 border-t border-white/5">
+              <button 
+                onClick={() => setShowArchived(!showArchived)}
+                className="flex items-center justify-between w-full px-2 py-2 text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Archive size={14} />
+                  <span className="text-xs font-bold uppercase tracking-wider">Archived Subjects ({archivedSubjects.length})</span>
+                </div>
+                {showArchived ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+
+              {showArchived && (
+                <div className="space-y-2 mt-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                  {archivedSubjects.map((subject) => {
+                    const isHex = isHexColor(subject.color);
+                    return (
+                      <div 
+                          key={subject.id} 
+                          className="flex items-center justify-between p-4 bg-slate-900/40 border border-white/5 rounded-2xl opacity-70 hover:opacity-100 transition-all group"
+                      >
+                          <div className="flex items-center gap-4">
+                              <div 
+                                  className={`w-10 h-10 rounded-xl flex items-center justify-center grayscale ${!isHex ? subject.color : ''}`} 
+                                  style={isHex ? { backgroundColor: subject.color, color: 'white' } : {}}
+                              >
+                                  <span className="text-lg font-bold opacity-80">{subject.name[0]?.toUpperCase()}</span>
+                              </div>
+                              <div>
+                                  <h3 className="font-bold text-slate-400 group-hover:text-white transition-colors">{subject.name}</h3>
+                                  <p className="text-[10px] text-slate-500 italic">Archived</p>
+                              </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-1">
+                              <button 
+                                  onClick={(e) => handleArchiveToggle(subject.id, false, e)} 
+                                  className="p-2 text-slate-400 hover:text-green-400 hover:bg-green-500/10 rounded-lg transition-colors"
+                                  title="Restore"
+                              >
+                                  <RotateCcw size={16} />
+                              </button>
+                              <button 
+                                  onClick={(e) => handleDelete(subject.id, e)} 
+                                  className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                  title="Delete Permanently"
+                              >
+                                  <Trash2 size={16} />
+                              </button>
+                          </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

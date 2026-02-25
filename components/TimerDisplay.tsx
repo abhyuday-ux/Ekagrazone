@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { TimerStatus, TimerMode, isHexColor, CustomSound, TimerDurations, DEFAULT_DURATIONS } from '../types';
+import { TimerStatus, TimerMode, isHexColor, CustomSound, TimerDurations, DEFAULT_DURATIONS, Subject } from '../types';
 import { Play, Pause, Square, Timer, Hourglass, CheckCircle2, Coffee, Armchair, Settings2, Save, Music, Volume2, VolumeX, CloudRain, Waves, Trees, BookOpen, Plus, Trash2, Upload, Link as LinkIcon, X } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { dbService } from '../services/db';
@@ -11,6 +11,7 @@ import { XP_PER_MINUTE } from '../utils/xp';
 
 import { useAuth } from '../contexts/AuthContext';
 import { HeaderAd } from './HeaderAd';
+import { ZenSubjectPanel } from './ZenSubjectPanel';
 
 interface TimerDisplayProps {
   elapsedMs: number;
@@ -27,6 +28,10 @@ interface TimerDisplayProps {
   sidePanel?: React.ReactNode;
   isWallpaperMode?: boolean; 
   onUpgrade?: () => void;
+  isOvertime?: boolean;
+  subjects?: Subject[];
+  currentSubjectId?: string;
+  onSelectSubject?: (id: string) => void;
 }
 
 const FALLBACK_QUOTES = [
@@ -53,7 +58,11 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
   onSetMode,
   sidePanel,
   isWallpaperMode = false,
-  onUpgrade
+  onUpgrade,
+  isOvertime = false,
+  subjects = [],
+  currentSubjectId = '',
+  onSelectSubject = () => {}
 }) => {
   const { hasPremium } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
@@ -170,25 +179,31 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
   // Calculate target based on current mode and custom durations
   const targetDuration = isTimerMode ? (durations[mode as keyof typeof durations] || 25) * 60 * 1000 : 0;
   
-  const remainingMs = Math.max(0, targetDuration - elapsedMs);
+  const remainingMs = targetDuration - elapsedMs;
   const displayMs = isTimerMode ? remainingMs : elapsedMs;
-  const isComplete = isTimerMode && elapsedMs >= targetDuration;
+  const isComplete = isTimerMode && elapsedMs >= targetDuration && mode !== 'pomodoro';
 
   // Potential XP Calc
   const potentialXP = Math.floor(elapsedMs / 60000) * XP_PER_MINUTE;
 
   const formatTime = (ms: number) => {
-    const totalSeconds = Math.ceil(ms / 1000); 
+    const isNegative = ms < 0;
+    const absMs = Math.abs(ms);
+    const totalSeconds = Math.floor(absMs / 1000); 
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
 
     const pad = (n: number) => n.toString().padStart(2, '0');
     
+    let timeStr = "";
     if (hours > 0) {
-      return `${hours}:${pad(minutes)}:${pad(seconds)}`;
+      timeStr = `${hours}:${pad(minutes)}:${pad(seconds)}`;
+    } else {
+      timeStr = `${pad(minutes)}:${pad(seconds)}`;
     }
-    return `${pad(minutes)}:${pad(seconds)}`;
+
+    return isNegative ? `+${timeStr}` : timeStr;
   };
 
   const formatShort = (ms: number) => {
@@ -236,12 +251,19 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
             {!hasPremium && onUpgrade && <HeaderAd onClick={onUpgrade} isZenMode={true} />}
             <div className={`flex items-center gap-6 p-6 bg-black/40 backdrop-blur-xl rounded-full border border-white/10 shadow-2xl animate-in slide-in-from-bottom-8 relative z-10 ${!hasPremium ? 'mt-24 md:mt-36' : ''}`}>
             {/* Time */}
-            <div className="text-6xl font-mono font-bold text-white tabular-nums tracking-tight drop-shadow-lg">
+            <div className={`text-6xl font-mono font-bold tabular-nums tracking-tight drop-shadow-lg ${isOvertime ? 'text-amber-400 animate-pulse' : 'text-white'}`}>
                 {isComplete ? "DONE" : formatTime(displayMs)}
             </div>
             
             {/* Controls */}
             <div className="flex items-center gap-3 border-l border-white/20 pl-6">
+                <ZenSubjectPanel 
+                    subjects={subjects}
+                    selectedSubjectId={currentSubjectId}
+                    onSelectSubject={onSelectSubject}
+                    isTimerRunning={status === 'running'}
+                    className="relative z-50 mr-2"
+                />
                 <div className="text-white/80 text-xs font-bold uppercase tracking-widest mr-2 hidden sm:block">
                      {mode === 'pomodoro' ? 'Focus' : mode === 'stopwatch' ? 'Timer' : 'Break'}
                 </div>
@@ -372,8 +394,10 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                     {/* Digital Time & Stats */}
                     <div className={`flex flex-col items-center z-10 transition-transform duration-500 ${status === 'running' ? 'animate-breathe' : ''}`}>
                         <div 
-                            className={`font-mono font-bold select-none drop-shadow-2xl leading-none tracking-tighter tabular-nums font-feature-settings-tnum transition-all duration-500 text-[18vw] sm:text-[15vmin] md:text-[10vmin] ${isComplete ? 'text-emerald-400 scale-110' : (!theme.isHex ? theme.text : '')}`}
-                            style={theme.isHex && !isComplete ? { color: theme.text } : {}}
+                            className={`font-mono font-bold select-none drop-shadow-2xl leading-none tracking-tighter tabular-nums font-feature-settings-tnum transition-all duration-500 text-[18vw] sm:text-[15vmin] md:text-[10vmin] 
+                            ${isComplete ? 'text-emerald-400 scale-110' : ''}
+                            ${isOvertime ? 'text-amber-400 animate-pulse drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]' : (!theme.isHex ? theme.text : '')}`}
+                            style={theme.isHex && !isComplete && !isOvertime ? { color: theme.text } : {}}
                         >
                             {isComplete ? "DONE" : formatTime(displayMs)}
                         </div>
@@ -383,10 +407,13 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                             <div className="flex flex-col items-center mt-2 md:mt-4 gap-2">
                                 {/* Potential XP Pill */}
                                 {status !== 'idle' && (
-                                    <div className="animate-in slide-in-from-bottom-2 fade-in">
-                                        <div className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-full border border-amber-500/30 text-[10px] font-bold text-amber-300">
+                                    <div className="animate-in slide-in-from-bottom-2 fade-in flex flex-col items-center gap-1">
+                                        <div className={`flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-full border border-amber-500/30 text-[10px] font-bold text-amber-300`}>
                                             <span className="animate-pulse">+ {potentialXP} XP</span>
                                         </div>
+                                        {isOvertime && (
+                                            <span className="text-[10px] font-black text-amber-500 uppercase tracking-tighter animate-bounce">Bonus XP Active</span>
+                                        )}
                                     </div>
                                 )}
 

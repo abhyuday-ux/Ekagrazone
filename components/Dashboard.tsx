@@ -106,7 +106,10 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
   const todaySessions = useMemo(() => sessions.filter(s => s.dateString === todayStr), [sessions, todayStr]);
   const todayDurationMs = useMemo(() => todaySessions.reduce((acc, s) => acc + s.durationMs, 0), [todaySessions]);
   const todayHours = todayDurationMs / 3600000;
-  const progressPercent = Math.min((todayHours / targetHours) * 100, 100);
+  
+  // Use dailyGoal from profile if available, otherwise fallback to targetHours prop or default 6
+  const effectiveTargetHours = userProfile?.dailyGoal || targetHours || 6;
+  const progressPercent = Math.min((todayHours / effectiveTargetHours) * 100, 100);
 
   const yesterdayStr = useMemo(() => {
       const d = new Date();
@@ -175,7 +178,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
       return days;
   }, [sessions, todayStr]);
 
-  const maxWeeklyHours = Math.max(...weeklyTrend.map(d => d.hours), targetHours * 0.5);
+  const maxWeeklyHours = Math.max(...weeklyTrend.map(d => d.hours), effectiveTargetHours * 0.5);
 
   const focusRhythm = useMemo(() => {
       const dist = { morning: 0, afternoon: 0, evening: 0, night: 0 };

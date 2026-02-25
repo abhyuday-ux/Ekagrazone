@@ -448,6 +448,15 @@ class LocalDB {
       await setDoc(userRef, data, { merge: true });
   }
 
+  async updateDailyGoal(hours: number) {
+      if (!this.userId) {
+          localStorage.setItem('ekagrazone_targetHours', hours.toString());
+          return;
+      }
+      const userRef = doc(db, 'user_profiles', this.userId);
+      await setDoc(userRef, { dailyGoal: hours }, { merge: true });
+  }
+
   private async syncToFirestore(collectionName: string, data: any) {
     if (!this.userId || collectionName === STORE_CUSTOM_SOUNDS) return;
     try { await setDoc(doc(db, 'users', this.userId, collectionName, data.id), data); } catch (e) { console.error(`Failed to sync ${collectionName}`, e); }
@@ -593,8 +602,67 @@ class LocalDB {
   }
 
   // --- Basic CRUD for other stores (Simplified for brevity as they follow pattern) ---
-  async getSubjects(): Promise<Subject[]> { return this.getAllFromStore(STORE_SUBJECTS, DEFAULT_SUBJECTS); }
+  async getSubjects(): Promise<Subject[]> { 
+    if (!this.userId) {
+        return this.getAllFromStore(STORE_SUBJECTS, DEFAULT_SUBJECTS);
+    }
+    
+    try {
+        // Try to get from user document first (New Schema: Array in Document)
+        const userDoc = await getDoc(doc(db, 'users', this.userId));
+        if (userDoc.exists() && userDoc.data().subjects) {
+            const subjects = userDoc.data().subjects as Subject[];
+            
+            // Sync to IndexedDB for offline access
+            const localDb = await this.connect();
+            const tx = localDb.transaction(STORE_SUBJECTS, 'readwrite');
+            const store = tx.objectStore(STORE_SUBJECTS);
+            store.clear().onsuccess = () => {
+                subjects.forEach(s => store.put(s));
+            };
+            return subjects;
+        }
+    } catch (e) {
+        console.warn("Error fetching subjects from cloud document:", e);
+    }
+
+    // Fallback to IndexedDB (Old Schema: Subcollection items might be here)
+    return this.getAllFromStore(STORE_SUBJECTS, DEFAULT_SUBJECTS); 
+  }
+
   async saveSubject(item: Subject) { await this.saveToStore(STORE_SUBJECTS, item); }
+
+  async saveSubjects(items: Subject[]) {
+      // 1. Guest Mode: Simple LocalStorage overwrite
+      if (!this.userId) {
+          localStorage.setItem(STORE_SUBJECTS, JSON.stringify(items));
+          return;
+      }
+
+      // 2. Cloud Mode: Save as array in user document (Atomic & Reliable)
+      try {
+          const userDocRef = doc(db, 'users', this.userId);
+          await setDoc(userDocRef, { subjects: items }, { merge: true });
+      } catch (e) {
+          console.error("Failed to save subjects to Firestore document:", e);
+          throw e;
+      }
+
+      // 3. Keep IndexedDB in sync for offline support
+      const dbInstance = await this.connect();
+      return new Promise<void>((resolve, reject) => {
+          const tx = dbInstance.transaction(STORE_SUBJECTS, 'readwrite');
+          const store = tx.objectStore(STORE_SUBJECTS);
+          
+          // Clear and refill to match the array exactly
+          store.clear().onsuccess = () => {
+              items.forEach(item => store.put(item));
+          };
+
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+      });
+  }
   async deleteSubject(id: string) { await this.deleteFromStore(STORE_SUBJECTS, id); }
   
   async getGoalsByDate(dateString: string): Promise<DailyGoal[]> { return this.getByDateFromStore(STORE_GOALS, dateString); }

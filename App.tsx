@@ -21,11 +21,13 @@ import { ExamList } from './components/ExamList';
 import { SocialPanel } from './components/SocialPanel';
 import { UsernameSetup } from './components/UsernameSetup';
 import { LevelUpModal } from './components/LevelUpModal';
+import { SessionSummaryModal } from './components/SessionSummaryModal';
 import { FriendObserver } from './components/FriendObserver';
 import { NotificationCenter } from './components/NotificationCenter';
 import { ChallengeSettings } from './components/ChallengeSettings';
 import { ExamTracker } from './components/ExamTracker/ExamTracker';
 import { EkagraLogo } from './components/EkagraLogo';
+import { ZenSubjectPanel } from './components/ZenSubjectPanel';
 import { useAuth } from './contexts/AuthContext'; 
 import { dbService } from './services/db';
 import { useSound } from './contexts/SoundContext';
@@ -150,7 +152,7 @@ const App: React.FC = () => {
   const [allSessions, setAllSessions] = useState<StudySession[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
-  const [targetHours, setTargetHours] = useState(4);
+  const [targetHours, setTargetHours] = useState(6);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
   const [usernameNeeded, setUsernameNeeded] = useState(false);
@@ -165,6 +167,9 @@ const App: React.FC = () => {
   
   // Level Up State
   const [levelUpData, setLevelUpData] = useState<{ show: boolean; level: number }>({ show: false, level: 1 });
+
+  // Session Summary Modal State
+  const [sessionToSave, setSessionToSave] = useState<StudySession | null>(null);
 
   // Timer Config
   const [timerDurations, setTimerDurations] = useState<TimerDurations>(DEFAULT_DURATIONS);
@@ -245,8 +250,14 @@ const App: React.FC = () => {
         loadTasks();
         loadExams();
         
-        const savedTarget = localStorage.getItem('ekagrazone_targetHours');
-        if (savedTarget) setTargetHours(parseFloat(savedTarget));
+        // Load Daily Goal
+        const profile = await dbService.getUserProfile();
+        if (profile?.dailyGoal) {
+            setTargetHours(profile.dailyGoal);
+        } else {
+            const localGoal = localStorage.getItem('ekagrazone_targetHours');
+            if (localGoal) setTargetHours(parseFloat(localGoal));
+        }
 
         const savedDurations = localStorage.getItem('ekagrazone_timer_durations');
         if (savedDurations) {
@@ -388,6 +399,7 @@ const App: React.FC = () => {
       const val = parseFloat(e.target.value);
       setTargetHours(val);
       localStorage.setItem('ekagrazone_targetHours', val.toString());
+      dbService.updateDailyGoal(val).catch(console.error);
       dbService.syncSettingsToCloud().catch(console.error);
   }, []);
 
@@ -488,7 +500,27 @@ const App: React.FC = () => {
       setTimeout(() => setIsLogoSpinning(false), 700);
   };
 
-  const { elapsedMs, status, mode, currentSubjectId, setSubjectId, setMode, start, pause, stop } = useStopwatch(DEFAULT_SUBJECTS[0].id, handleSessionComplete);
+  const handleSessionSave = async (updatedSession: StudySession) => {
+    const { levelUp, newLevel } = await dbService.saveSession(updatedSession);
+    if (levelUp) {
+        const event = new CustomEvent('ekagra_levelup', { 
+            detail: { level: newLevel } 
+        });
+        window.dispatchEvent(event);
+    }
+    setSessionToSave(null);
+    handleSessionComplete();
+  };
+
+  const { elapsedMs, status, mode, isOvertime, currentSubjectId, setSubjectId, setMode, start, pause, stop } = useStopwatch(DEFAULT_SUBJECTS[0].id, handleSessionComplete, timerDurations);
+  
+  const handleStopRequest = async () => {
+    const session = await stop();
+    if (session) {
+        setSessionToSave(session);
+    }
+  };
+
   const currentSubject = subjects.find(s => s.id === currentSubjectId) || subjects[0];
 
   // Timer Completion Logic (Global)
@@ -919,6 +951,28 @@ const App: React.FC = () => {
                     <div className="space-y-4">
                         <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
                             <div className="flex items-center gap-4">
+                                <div className={`p-2 bg-${accent}-500/10 rounded-xl text-${accent}-400`}><Target size={20} /></div>
+                                <div>
+                                    <span className="font-semibold text-slate-200 block">Daily Study Goal</span>
+                                    <span className="text-xs text-slate-500">Target hours per day</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 bg-slate-900/50 rounded-lg p-1 border border-white/10">
+                                <input 
+                                    type="number" 
+                                    min="1" 
+                                    max="24" 
+                                    step="0.5"
+                                    value={targetHours} 
+                                    onChange={handleTargetHoursChange}
+                                    className="w-16 bg-transparent text-center font-bold text-white focus:outline-none text-sm"
+                                />
+                                <span className="text-xs text-slate-500 pr-2 font-bold">HRS</span>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                            <div className="flex items-center gap-4">
                                 <div className={`p-2 bg-${accent}-500/10 rounded-xl text-${accent}-400`}><Zap size={20} /></div>
                                 <div>
                                     <span className="font-semibold text-slate-200 block">Graphics Quality</span>
@@ -1151,8 +1205,9 @@ const App: React.FC = () => {
 
       {isZenActive && !isSpaceMode && (
           <div className="fixed inset-0 z-[50] animate-in fade-in duration-700 bg-black">
-              {wallpaper && <img src={wallpaper} alt="Zen Background" className="absolute inset-0 w-full h-full object-cover" />}
+              {wallpaper && <img src={wallpaper} alt="Zen Background" className="absolute inset-0 w-full h-full object-cover opacity-80" />}
               <div className="absolute inset-0 bg-black/30" /> 
+              
               <button 
                 onClick={() => setIsZenActive(false)} 
                 className="absolute top-6 right-6 p-2 rounded-full bg-black/20 hover:bg-black/40 text-white/50 hover:text-white transition-all z-[60]"
@@ -1160,21 +1215,25 @@ const App: React.FC = () => {
                 <X size={24} />
               </button>
               <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-end items-center pb-12">
-                  <div className="pointer-events-auto">
+                  <div className="pointer-events-auto flex flex-col items-center">
                     <TimerDisplay 
                         elapsedMs={elapsedMs} 
                         status={status} 
                         mode={mode}
+                        isOvertime={isOvertime}
                         todaySubjectTotal={currentSubjectTodayTotal}
                         subjectColor={currentSubject.color} 
                         onStart={start} 
                         onPause={pause} 
-                        onStop={stop} 
+                        onStop={handleStopRequest} 
                         onSetMode={setMode}
                         durations={timerDurations}
                         onUpdateDurations={handleUpdateDurations}
                         isWallpaperMode={true}
                         onUpgrade={() => setShowPricing(true)}
+                        subjects={subjects}
+                        currentSubjectId={currentSubjectId}
+                        onSelectSubject={setSubjectId}
                     />
                   </div>
               </div>
@@ -1208,16 +1267,20 @@ const App: React.FC = () => {
                         elapsedMs={elapsedMs} 
                         status={status} 
                         mode={mode}
+                        isOvertime={isOvertime}
                         todaySubjectTotal={currentSubjectTodayTotal}
                         subjectColor={currentSubject.color} 
                         onStart={start} 
                         onPause={pause} 
-                        onStop={stop} 
+                        onStop={handleStopRequest} 
                         onSetMode={setMode}
                         durations={timerDurations}
                         onUpdateDurations={handleUpdateDurations}
                         isWallpaperMode={true}
                         onUpgrade={() => setShowPricing(true)}
+                        subjects={subjects}
+                        currentSubjectId={currentSubjectId}
+                        onSelectSubject={setSubjectId}
                     />
                   </div>
                   <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-400 font-mono tracking-widest opacity-60">
@@ -1237,6 +1300,18 @@ const App: React.FC = () => {
       )}
 
       <ConfirmationModal />
+      
+      {/* Session Summary Modal */}
+      <AnimatePresence>
+          {sessionToSave && (
+              <SessionSummaryModal 
+                session={sessionToSave} 
+                subjects={subjects} 
+                onSave={handleSessionSave} 
+                onCancel={() => setSessionToSave(null)} 
+              />
+          )}
+      </AnimatePresence>
       
       {/* Level Up Modal */}
       <AnimatePresence>
@@ -1284,11 +1359,12 @@ const App: React.FC = () => {
                             elapsedMs={elapsedMs} 
                             status={status} 
                             mode={mode}
+                            isOvertime={isOvertime}
                             todaySubjectTotal={currentSubjectTodayTotal}
                             subjectColor={currentSubject.color} 
                             onStart={handleStartRequest} 
                             onPause={pause} 
-                            onStop={stop} 
+                            onStop={handleStopRequest} 
                             onSetMode={setMode}
                             durations={timerDurations}
                             onUpdateDurations={handleUpdateDurations}
@@ -1463,11 +1539,12 @@ const App: React.FC = () => {
                                             elapsedMs={elapsedMs} 
                                             status={status} 
                                             mode={mode}
+                                            isOvertime={isOvertime}
                                             todaySubjectTotal={currentSubjectTodayTotal}
                                             subjectColor={currentSubject.color} 
                                             onStart={handleStartRequest} 
                                             onPause={pause} 
-                                            onStop={stop} 
+                                            onStop={handleStopRequest} 
                                             onSetMode={setMode}
                                             durations={timerDurations}
                                             onUpdateDurations={handleUpdateDurations}

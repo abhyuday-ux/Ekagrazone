@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { EkagraLogo } from './EkagraLogo';
 import { Zap, BarChart2, Timer, Workflow, CheckCircle2, Shield, ArrowRight, Layout, Calendar, CheckSquare, Sparkles } from 'lucide-react';
 import { motion, useScroll, useTransform, Variants } from 'framer-motion';
+import { LandingPricing } from './LandingPricing';
 
 const SHOWCASE_ITEMS = [
   {
@@ -439,6 +440,9 @@ export const LoginPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Pricing Section */}
+      <LandingPricing />
 
       {/* Legal Compliance Footer */}
       <div className="w-full text-center py-8 relative z-10 border-t border-white/5 bg-[#050511]">

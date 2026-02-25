@@ -13,6 +13,7 @@ export interface StudySession {
   endTime: number;
   durationMs: number;
   dateString: string; // ISO date string YYYY-MM-DD for grouping
+  focusScore?: 1 | 2 | 3; // 1: Struggled, 2: Okay, 3: Deep Work
 }
 
 export interface DailyGoal {
@@ -166,6 +167,7 @@ export interface UserProfile {
   challengeTitle?: string;
   challengeStartDate?: string; // ISO Date YYYY-MM-DD
   subscriptionType?: 'monthly' | 'yearly' | 'lifetime';
+  dailyGoal?: number; // Daily study goal in hours
 }
 
 export type FriendStatus = 'pending_sent' | 'pending_received' | 'accepted';
