@@ -96,7 +96,7 @@ export const ReportAlbum: React.FC<ReportAlbumProps> = ({ subjects, onClose }) =
                                         <Calendar size={20} />
                                     </div>
                                     <div className="text-xs font-mono text-slate-500">
-                                        {new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                        {new Date(date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                                     </div>
                                 </div>
 

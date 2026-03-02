@@ -1,0 +1,101 @@
+./components/KanbanBoard.tsx:                            {new Date(task.dateString).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
+./components/Dashboard.tsx:    const hour = new Date().getHours();
+./components/Dashboard.tsx:      const d = new Date();
+./components/Dashboard.tsx:      let current = new Date();
+./components/Dashboard.tsx:      current = new Date();
+./components/Dashboard.tsx:      const now = new Date();
+./components/Dashboard.tsx:          const d = new Date(now);
+./components/Dashboard.tsx:          const h = new Date(s.startTime).getHours();
+./components/Dashboard.tsx:      const start = new Date(userProfile.challengeStartDate);
+./components/Dashboard.tsx:      const now = new Date();
+./components/Dashboard.tsx:                                                    {new Date(s.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+./components/StatsPage.tsx:      const now = new Date();
+./components/StatsPage.tsx:      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+./components/StatsPage.tsx:          const start = new Date(today);
+./components/StatsPage.tsx:          const start = new Date(today);
+./components/StatsPage.tsx:      return { start: new Date(0), end: today };
+./components/StatsPage.tsx:          chartStart = new Date(start);
+./components/StatsPage.tsx:          chartStart = new Date();
+./components/StatsPage.tsx:          const d = new Date(chartStart);
+./components/StatsPage.tsx:          const h = new Date(s.startTime).getHours();
+./components/StatsPage.tsx:        const start = new Date(startStr);
+./components/StatsPage.tsx:        const end = new Date();
+./components/StatsPage.tsx:        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+./components/StatsPage.tsx:    const yesterday = new Date();
+./components/StatsPage.tsx:        let checkDate = new Date();
+./components/StatsPage.tsx:        let checkDate = new Date(yesterday);
+./components/StatsPage.tsx:    const date = new Date(selectedDate);
+./components/StatsPage.tsx:                       <span className="font-mono font-bold text-white">{selectedDate === getLocalDateString() ? 'Today' : new Date(selectedDate).toLocaleDateString(undefined, { weekday: 'short', month: 'long', day: 'numeric'})}</span>
+./components/ExamTracker/TestAttemptCharts.tsx:                        {new Date(attemptTimestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+./components/ExamTracker/TestAttemptCharts.tsx:                                tickFormatter={(ts) => new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+./components/ExamTracker/TestAttemptCharts.tsx:                                tickFormatter={(ts) => new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+./components/ExamTracker/ExamCountdown.tsx:    const sortedExams = [...exams].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+./components/ExamTracker/ExamCountdown.tsx:                        const examDate = new Date(exam.date).getTime();
+./components/ExamTracker/ExamCountdown.tsx:                                            {new Date(exam.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+./components/ExamTracker/MockTestAnalytics.tsx:        const attemptTimestamp = new Date(`${attemptDate}T${attemptTime}`).getTime();
+./components/ExamTracker/MockTestAnalytics.tsx:                setups: allSetups.sort((a, b) => new Date(b?.date || 0).getTime() - new Date(a?.date || 0).getTime()),
+./components/ExamTracker/MockTestAnalytics.tsx:            setups: filteredSetups.sort((a, b) => new Date(b?.date || 0).getTime() - new Date(a?.date || 0).getTime()),
+./components/ExamTracker/MockTestAnalytics.tsx:                                                                Scheduled: {test.date ? new Date(test.date).toLocaleDateString() : 'N/A'}
+./components/ExamTracker/MockTestAnalytics.tsx:                                                                    {latestAttempt.attemptDate ? new Date(latestAttempt.attemptDate).toLocaleDateString() : 'N/A'} {latestAttempt.attemptTime || ''}
+./components/ExamTracker/MockTestAnalytics.tsx:    const [attemptTime, setAttemptTime] = useState(test.attemptTime || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
+./components/ReportAlbum.tsx:                                        {new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+./components/AIAssistant.tsx:      const hour = new Date().getHours();
+./components/AIAssistant.tsx:    setExams(loadedExams.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+./components/AIAssistant.tsx:      setExams(prev => [...prev, exam].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+./components/AIAssistant.tsx:  const daysToNextExam = nextExam ? Math.ceil((new Date(nextExam.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+./components/AIAssistant.tsx:                            const daysLeft = Math.ceil((new Date(exam.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+./components/AIAssistant.tsx:                                        <span>{new Date(exam.date).toLocaleDateString()}</span>
+./components/HeatmapCalendar.tsx:  today = new Date(),
+./components/HeatmapCalendar.tsx:  const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+./components/HeatmapCalendar.tsx:  const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+./components/HeatmapCalendar.tsx:    return new Date(currentDate.getFullYear(), currentDate.getMonth(), dayNum);
+./components/YearlyHeatmap.tsx:      const today = new Date();
+./components/YearlyHeatmap.tsx:          const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+./components/YearlyHeatmap.tsx:          const daysInMonth = new Date(year, monthDate.getMonth() + 1, 0).getDate();
+./components/YearlyHeatmap.tsx:              const date = new Date(year, monthDate.getMonth(), d);
+./components/YearlyHeatmap.tsx:                            const isFuture = date > new Date();
+./components/ExamList.tsx:  const sorted = [...exams].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+./components/ExamList.tsx:            const daysLeft = Math.ceil((new Date(exam.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+./components/ExamList.tsx:                            <Calendar size={10} /> {new Date(exam.date).toLocaleDateString()}
+./components/ExamList.tsx:                                <span className="flex items-center gap-1 ml-2"><Calendar size={12} /> {new Date(exam.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric'})}</span>
+./components/SessionManager.tsx:          const d = new Date(session.startTime);
+./components/SessionManager.tsx:          const d = new Date(session.endTime);
+./components/SessionManager.tsx:      const startDateTime = new Date(`${date}T${startTime}`);
+./components/SessionManager.tsx:      let endDateTime = new Date(`${date}T${endTime}`);
+./components/DailyTimeline.tsx:  const [currentTime, setCurrentTime] = useState(new Date());
+./components/DailyTimeline.tsx:      const interval = setInterval(() => setCurrentTime(new Date()), 60000);
+./components/DailyTimeline.tsx:    ? new Date().toDateString() === new Date(sessions[0].startTime).toDateString()
+./components/DailyTimeline.tsx:                const startDate = new Date(session.startTime);
+./components/DailyTimeline.tsx:                             {new Date(session.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+./components/PlanPage.tsx:  const [now, setNow] = useState(new Date());
+./components/PlanPage.tsx:  const [selectedDate, setSelectedDate] = useState(getLocalDateString(new Date()));
+./components/PlanPage.tsx:  const [calendarMonth, setCalendarMonth] = useState(new Date());
+./components/PlanPage.tsx:          const currentNow = new Date();
+./components/PlanPage.tsx:    .filter(e => new Date(e.date) >= new Date(new Date().setHours(0,0,0,0)))
+./components/PlanPage.tsx:    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+./components/PlanPage.tsx:                            onPrevMonth={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))} 
+./components/PlanPage.tsx:                            onNextMonth={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))} 
+./components/ReportCard.tsx:            const start = new Date(s.startTime);
+./components/ReportCard.tsx:            const end = new Date(s.endTime);
+./components/ReportCard.tsx:            let current = new Date(start);
+./components/ReportCard.tsx:                const nextHour = new Date(current);
+./components/ReportCard.tsx:            ? Math.max(0, new Date(dayStartTime).getHours() - 1) 
+./components/ReportCard.tsx:        const currentHour = new Date().getHours();
+./components/ReportCard.tsx:    const formattedDate = new Date(dateString).toLocaleDateString(undefined, {
+./components/PricingPage.tsx:                subscriptionDate: new Date().toISOString(),
+./components/PricingPage.tsx:                updatedAt: new Date().toISOString()
+./components/HabitsPage.tsx:    let current = new Date();
+./components/HabitsPage.tsx:    current = new Date();
+./components/HabitsPage.tsx:          const d = new Date();
+./components/HabitsPage.tsx:          const d = new Date();
+./components/JournalPage.tsx:                                <span>{new Date(dateString).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</span>
+./components/JournalPage.tsx:                                  {new Date(histEntry.dateString).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric'})}
+./components/HistoryList.tsx:    }).format(new Date(timestamp));
+./components/ChallengeSettings.tsx:        const start = new Date(startDate);
+./components/ChallengeSettings.tsx:        const now = new Date();
+./services/db.ts:    const now = new Date();
+./services/db.ts:        const yesterday = new Date(now);
+./types.ts:export const getLocalDateString = (date: Date = new Date()) => {
+./types.ts:  const d = new Date(date);
+./App.tsx:    const backup = { version: 1, date: new Date().toISOString(), db: dbData, local: localData };
+./App.tsx:                            {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Subject, MockTest, isHexColor } from '../../types';
+import { Subject, MockTest, isHexColor, getLocalDateString } from '../../types';
 import { dbService } from '../../services/db';
 import { useTheme } from '../../contexts/ThemeContext';
 import { MockTestForm } from './MockTestForm';
@@ -95,7 +95,7 @@ export const MockTestAnalytics: React.FC<MockTestAnalyticsProps> = ({ subjects }
         if (filterExamType === 'ALL') {
             return {
                 attempts: allAttempts,
-                setups: allSetups.sort((a, b) => new Date(b?.date || 0).getTime() - new Date(a?.date || 0).getTime()),
+                setups: allSetups.sort((a, b) => new Date((b?.date || 0) + 'T00:00:00').getTime() - new Date((a?.date || 0) + 'T00:00:00').getTime()),
             };
         }
         
@@ -110,7 +110,7 @@ export const MockTestAnalytics: React.FC<MockTestAnalyticsProps> = ({ subjects }
 
         return {
             attempts: filteredAttempts,
-            setups: filteredSetups.sort((a, b) => new Date(b?.date || 0).getTime() - new Date(a?.date || 0).getTime()),
+            setups: filteredSetups.sort((a, b) => new Date((b?.date || 0) + 'T00:00:00').getTime() - new Date((a?.date || 0) + 'T00:00:00').getTime()),
         };
     }, [tests, filterExamType]);
 
@@ -220,7 +220,7 @@ export const MockTestAnalytics: React.FC<MockTestAnalyticsProps> = ({ subjects }
                                                             </div>
                                                             <div className="flex items-center gap-2 text-[10px] text-slate-500 font-bold uppercase tracking-wider">
                                                                 <Calendar size={10} />
-                                                                Scheduled: {test.date ? new Date(test.date).toLocaleDateString() : 'N/A'}
+                                                                Scheduled: {test.date ? new Date(test.date + 'T00:00:00').toLocaleDateString() : 'N/A'}
                                                             </div>
                                                         </div>
                                                         <button 
@@ -251,7 +251,7 @@ export const MockTestAnalytics: React.FC<MockTestAnalyticsProps> = ({ subjects }
                                                             <div className="flex flex-col">
                                                                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Last Attempt</span>
                                                                 <span className="text-slate-200 font-mono">
-                                                                    {latestAttempt.attemptDate ? new Date(latestAttempt.attemptDate).toLocaleDateString() : 'N/A'} {latestAttempt.attemptTime || ''}
+                                                                    {latestAttempt.attemptDate ? new Date(latestAttempt.attemptDate + 'T00:00:00').toLocaleDateString() : 'N/A'} {latestAttempt.attemptTime || ''}
                                                                 </span>
                                                             </div>
                                                         ) : (
@@ -339,7 +339,7 @@ interface ScoreInputModalProps {
 
 const ScoreInputModal: React.FC<ScoreInputModalProps> = ({ test, subjects, onClose, onSave }) => {
     const { accent } = useTheme();
-    const [attemptDate, setAttemptDate] = useState(test.attemptDate || new Date().toISOString().split('T')[0]);
+    const [attemptDate, setAttemptDate] = useState(test.attemptDate || getLocalDateString());
     const [attemptTime, setAttemptTime] = useState(test.attemptTime || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
     const [scores, setScores] = useState<Record<string, number>>(test.subjectScores || {});
 

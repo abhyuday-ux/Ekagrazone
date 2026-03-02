@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Habit, HabitCategory, HabitFrequency } from '../types';
+import { Habit, HabitCategory, HabitFrequency, getLocalDateString } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -22,7 +22,7 @@ export const HabitsPage: React.FC = () => {
   
   const [filter, setFilter] = useState<'all' | HabitCategory>('all');
   
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
 
   useEffect(() => {
     const loadHabits = () => {
@@ -93,12 +93,12 @@ export const HabitsPage: React.FC = () => {
     const sorted = [...dates].sort().reverse();
     let streak = 0;
     let current = new Date();
-    const todayStr = current.toISOString().split('T')[0];
+    const todayStr = getLocalDateString(current);
     
     if (sorted.includes(todayStr)) {
     } else {
         current.setDate(current.getDate() - 1);
-        if (!sorted.includes(current.toISOString().split('T')[0])) {
+        if (!sorted.includes(getLocalDateString(current))) {
             return 0;
         }
     }
@@ -109,7 +109,7 @@ export const HabitsPage: React.FC = () => {
     }
 
     while (true) {
-      const dateStr = current.toISOString().split('T')[0];
+      const dateStr = getLocalDateString(current);
       if (sorted.includes(dateStr)) {
         streak++;
         current.setDate(current.getDate() - 1);
@@ -147,7 +147,7 @@ export const HabitsPage: React.FC = () => {
       for (let i = 0; i < 7; i++) {
           const d = new Date();
           d.setDate(d.getDate() - i);
-          const dStr = d.toISOString().split('T')[0];
+          const dStr = getLocalDateString(d);
           const completedOnDay = habits.filter(h => h.completedDates.includes(dStr)).length;
           totalRate += (completedOnDay / totalHabits);
       }
@@ -159,7 +159,7 @@ export const HabitsPage: React.FC = () => {
       for (let i = 29; i >= 0; i--) {
           const d = new Date();
           d.setDate(d.getDate() - i);
-          const dStr = d.toISOString().split('T')[0];
+          const dStr = getLocalDateString(d);
           const count = habits.filter(h => h.completedDates.includes(dStr)).length;
           const intensity = totalHabits > 0 ? count / totalHabits : 0;
           days.push({ date: dStr, intensity, count });

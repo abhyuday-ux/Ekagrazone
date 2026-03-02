@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { StudySession, Subject, isHexColor } from '../types';
+import { StudySession, Subject, isHexColor, getLocalDateString } from '../types';
 import { BarChart2, TrendingUp, Clock, Activity, Zap, Calendar, ArrowRight, Layout, List, PieChart, AlertTriangle, Layers, Flame, Target, Trophy } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -25,7 +25,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
   const [viewMode, setViewMode] = useState<ViewMode>('overview');
   
   // Daily View State
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
 
   // List Deletion Modal State
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
@@ -122,7 +122,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
           const d = new Date(chartStart);
           d.setDate(chartStart.getDate() + i);
           
-          const dStr = d.toISOString().split('T')[0];
+          const dStr = getLocalDateString(d);
           const daySessions = sessions.filter(s => s.dateString === dStr);
           const val = daySessions.reduce((acc, s) => acc + s.durationMs, 0) / 3600000;
           
@@ -207,10 +207,10 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
     const allDates: string[] = [];
     if (sortedDates.length > 0) {
         const startStr = sortedDates[0] as string;
-        const start = new Date(startStr);
+        const start = new Date(startStr + 'T00:00:00');
         const end = new Date();
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            allDates.push(d.toISOString().split('T')[0]);
+            allDates.push(getLocalDateString(d));
         }
     }
 
@@ -224,20 +224,20 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
     });
 
     // Calculate Current Streak
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const yesterdayStr = getLocalDateString(yesterday);
 
     if (datesWithSessions.has(today)) {
         let checkDate = new Date();
-        while (datesWithSessions.has(checkDate.toISOString().split('T')[0])) {
+        while (datesWithSessions.has(getLocalDateString(checkDate))) {
             current++;
             checkDate.setDate(checkDate.getDate() - 1);
         }
     } else if (datesWithSessions.has(yesterdayStr)) {
         let checkDate = new Date(yesterday);
-        while (datesWithSessions.has(checkDate.toISOString().split('T')[0])) {
+        while (datesWithSessions.has(getLocalDateString(checkDate))) {
             current++;
             checkDate.setDate(checkDate.getDate() - 1);
         }
@@ -247,9 +247,9 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
   }, [sessions]);
 
   const changeDate = (offset: number) => {
-    const date = new Date(selectedDate);
+    const date = new Date(selectedDate + 'T00:00:00');
     date.setDate(date.getDate() + offset);
-    setSelectedDate(date.toISOString().split('T')[0]);
+    setSelectedDate(getLocalDateString(date));
   };
 
   return (
@@ -532,7 +532,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                    <button onClick={() => changeDate(-1)} className="p-2 hover:bg-white/10 rounded-lg"><ArrowRight size={16} className="rotate-180"/></button>
                    <div className="flex items-center gap-2">
                        <Calendar size={16} className={`text-${accent}-400`} />
-                       <span className="font-mono font-bold text-white">{selectedDate === new Date().toISOString().split('T')[0] ? 'Today' : new Date(selectedDate).toLocaleDateString(undefined, { weekday: 'short', month: 'long', day: 'numeric'})}</span>
+                       <span className="font-mono font-bold text-white">{selectedDate === getLocalDateString() ? 'Today' : new Date(selectedDate + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'long', day: 'numeric'})}</span>
                    </div>
                    <button onClick={() => changeDate(1)} className="p-2 hover:bg-white/10 rounded-lg"><ArrowRight size={16}/></button>
                 </div>

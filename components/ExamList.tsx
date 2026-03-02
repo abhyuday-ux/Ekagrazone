@@ -12,7 +12,7 @@ interface ExamListProps {
 
 export const ExamList: React.FC<ExamListProps> = ({ exams, subjects, onDelete, variant = 'default' }) => {
   // sort by date
-  const sorted = [...exams].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const sorted = [...exams].sort((a, b) => new Date(a.date + 'T00:00:00').getTime() - new Date(b.date + 'T00:00:00').getTime());
 
   if (sorted.length === 0) {
       return (
@@ -33,7 +33,7 @@ export const ExamList: React.FC<ExamListProps> = ({ exams, subjects, onDelete, v
             const examSubjects = examSubjectIds.map(id => subjects.find(s => s.id === id)).filter(Boolean) as Subject[];
             const primarySubject = examSubjects[0];
             
-            const daysLeft = Math.ceil((new Date(exam.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+            const daysLeft = Math.ceil((new Date(exam.date + 'T00:00:00').getTime() - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24));
             const isClose = daysLeft <= 3 && daysLeft >= 0;
             const isPast = daysLeft < 0;
 
@@ -62,7 +62,7 @@ export const ExamList: React.FC<ExamListProps> = ({ exams, subjects, onDelete, v
                             <h4 className="text-sm font-semibold text-slate-200 leading-tight truncate">{exam.title}</h4>
                         </div>
                         <div className="flex items-center gap-1 text-[10px] text-slate-500">
-                            <Calendar size={10} /> {new Date(exam.date).toLocaleDateString()}
+                            <Calendar size={10} /> {new Date(exam.date + 'T00:00:00').toLocaleDateString()}
                         </div>
                         {onDelete && (
                             <button 
@@ -94,7 +94,7 @@ export const ExamList: React.FC<ExamListProps> = ({ exams, subjects, onDelete, v
                                         </span>
                                     ))}
                                 </div>
-                                <span className="flex items-center gap-1 ml-2"><Calendar size={12} /> {new Date(exam.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric'})}</span>
+                                <span className="flex items-center gap-1 ml-2"><Calendar size={12} /> {new Date(exam.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric'})}</span>
                             </div>
                         </div>
                     </div>

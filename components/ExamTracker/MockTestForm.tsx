@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Subject, MockTest, isHexColor } from '../../types';
+import { Subject, MockTest, isHexColor, getLocalDateString } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Save, X, Check, AlertCircle } from 'lucide-react';
 
@@ -13,7 +13,7 @@ export const MockTestForm: React.FC<MockTestFormProps> = ({ subjects, onSave, on
     const { accent } = useTheme();
     const [title, setTitle] = useState('');
     const [examType, setExamType] = useState('JEE');
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [date, setDate] = useState(getLocalDateString());
     const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
     const [subjectMaxMarks, setSubjectMaxMarks] = useState<Record<string, number>>({});
 

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { DndContext, DragEndEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, closestCenter, useDroppable } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Task, TaskStatus, TaskPriority, Subject, isHexColor } from '../types';
+import { Task, TaskStatus, TaskPriority, Subject, isHexColor, getLocalDateString } from '../types';
 import { Plus, PlayCircle, Trash2, GripVertical, Calendar, CheckCircle2, AlignLeft, Flag, X, Save, Clock } from 'lucide-react';
 import { dbService } from '../services/db';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,7 +30,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks, subjects, onTas
   const [newTaskSubject, setNewTaskSubject] = useState(subjects[0]?.id || '');
   const [activeTab, setActiveTab] = useState<TaskStatus>('todo');
 
-  const targetDate = selectedDate || new Date().toISOString().split('T')[0];
+  const targetDate = selectedDate || getLocalDateString();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -411,7 +411,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, subject, dragHandleProps, onS
                     {task.dateString && (
                         <span className="text-[10px] text-slate-500 flex items-center gap-1 mt-1">
                             <Calendar size={10} />
-                            {new Date(task.dateString).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
+                            {new Date(task.dateString + 'T00:00:00').toLocaleDateString(undefined, {month:'short', day:'numeric'})}
                         </span>
                     )}
                 </div>

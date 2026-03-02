@@ -1,9 +1,22 @@
 
-import { StudySession, Subject, DEFAULT_SUBJECTS, DailyGoal, Task, Exam, ChatMessage, JournalEntry, DailyNote, CustomSound, UserProfile, Friend, FriendStatus, MockTest } from '../types';
+import { StudySession, Subject, DEFAULT_SUBJECTS, DailyGoal, Task, Exam, ChatMessage, JournalEntry, DailyNote, CustomSound, UserProfile, Friend, FriendStatus, MockTest, getLocalDateString } from '../types';
 import { db, rtdb } from './firebase';
 import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, writeBatch, onSnapshot, Unsubscribe, query, where, updateDoc, increment, limit, orderBy } from 'firebase/firestore';
 import { ref, update as rtdbUpdate, set as rtdbSet, serverTimestamp, remove as rtdbRemove } from 'firebase/database';
 import { XP_PER_MINUTE, getLevelFromXP, getRankInfo } from '../utils/xp';
+
+export const getStudyDate = (userDayStart: number): string => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    
+    if (currentHour < userDayStart) {
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return getLocalDateString(yesterday);
+    }
+    
+    return getLocalDateString(now);
+};
 
 const DB_NAME = 'EkagrazoneDB';
 const DB_VERSION = 10; 
@@ -18,8 +31,10 @@ const STORE_DAILY_NOTES = 'daily_notes';
 const STORE_CUSTOM_SOUNDS = 'custom_sounds';
 const STORE_MOCK_TESTS = 'mock_tests';
 
+
 const LOCAL_STORAGE_KEYS = [
   'ekagrazone_targetHours',
+  'ekagrazone_dayStartHour',
   'ekagrazone_wallpaper',
   'ekagrazone_wallpaper_home',
   'ekagrazone_enableZenMode',
@@ -527,9 +542,25 @@ class LocalDB {
   }
 
   async saveSession(session: StudySession): Promise<{ levelUp: boolean, newLevel: number }> {
-    const db = await this.connect();
+    let dayStartHour = 0;
+    if (this.userId) {
+        try {
+            const settingsDoc = await getDoc(doc(db, 'users', this.userId, 'settings', 'config'));
+            if (settingsDoc.exists()) {
+                dayStartHour = parseInt(settingsDoc.data().ekagrazone_dayStartHour || '0');
+            }
+        } catch (e) {
+            console.warn("Error fetching dayStartHour:", e);
+        }
+    } else {
+        dayStartHour = parseInt(localStorage.getItem('ekagrazone_dayStartHour') || '0');
+    }
+
+    session.dateString = getStudyDate(dayStartHour);
+
+    const dbInstance = await this.connect();
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_SESSIONS, 'readwrite');
+      const transaction = dbInstance.transaction(STORE_SESSIONS, 'readwrite');
       const store = transaction.objectStore(STORE_SESSIONS);
       const request = store.put(session);
       request.onsuccess = async () => {
@@ -917,6 +948,7 @@ class LocalDB {
         customSounds: await this.getCustomSounds()
     };
   }
+
 }
 
 export const dbService = new LocalDB();

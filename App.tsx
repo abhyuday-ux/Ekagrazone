@@ -26,6 +26,7 @@ import { FriendObserver } from './components/FriendObserver';
 import { NotificationCenter } from './components/NotificationCenter';
 import { ChallengeSettings } from './components/ChallengeSettings';
 import { ExamTracker } from './components/ExamTracker/ExamTracker';
+
 import { EkagraLogo } from './components/EkagraLogo';
 import { ZenSubjectPanel } from './components/ZenSubjectPanel';
 import { useAuth } from './contexts/AuthContext'; 
@@ -33,13 +34,15 @@ import { dbService } from './services/db';
 import { useSound } from './contexts/SoundContext';
 import { HeaderAd } from './components/HeaderAd';
 import { usePerformance } from './contexts/PerformanceContext';
-import { StudySession, Subject, DEFAULT_SUBJECTS, Task, Exam, isHexColor, TimerDurations, DEFAULT_DURATIONS, UserProfile } from './types';
-import { Zap, Wifi, WifiOff, RefreshCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Settings, Timer, BarChart3, CalendarDays, Target, Trash2, AlertCircle, PanelLeftClose, PanelLeftOpen, CheckSquare, Palette, Image as ImageIcon, ToggleLeft, ToggleRight, Maximize2, X, BookOpen, Repeat, Home, AlertTriangle, Download, Upload, Database, Layout, Rocket, Globe, RotateCcw, LogOut, HardDrive, LogIn, GraduationCap, Volume2, VolumeX, Play, Pause, Hourglass, Users, Bell, Loader2, ShieldCheck, Lock } from 'lucide-react';
+import { StudySession, Subject, DEFAULT_SUBJECTS, Task, Exam, isHexColor, TimerDurations, DEFAULT_DURATIONS, UserProfile, getLocalDateString } from './types';
+import { Zap, Wifi, WifiOff, RefreshCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Settings, Timer, BarChart3, CalendarDays, Target, Trash2, AlertCircle, PanelLeftClose, PanelLeftOpen, CheckSquare, Palette, Image as ImageIcon, ToggleLeft, ToggleRight, Maximize2, X, BookOpen, Repeat, Home, AlertTriangle, Download, Upload, Database, Layout, Rocket, Globe, RotateCcw, LogOut, HardDrive, LogIn, GraduationCap, Volume2, VolumeX, Play, Pause, Hourglass, Users, Bell, Loader2, ShieldCheck, Lock, Clock, Library } from 'lucide-react';
 import { useTheme, ACCENT_COLORS } from './contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { rtdb, db } from './services/firebase';
 import { ref, set, onDisconnect, serverTimestamp, onValue, update } from 'firebase/database';
 import { doc, getDoc } from 'firebase/firestore';
+import { Routes, Route, Navigate, useLocation, NavLink, useNavigate } from 'react-router-dom';
+import { PrivacyPolicy, Terms } from './components/LegalPages';
 
 // Helper function to extract YouTube video ID
 const getYoutubeId = (url: string) => {
@@ -153,6 +156,7 @@ const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
   const [targetHours, setTargetHours] = useState(6);
+  const [dayStartHour, setDayStartHour] = useState(0);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
   const [usernameNeeded, setUsernameNeeded] = useState(false);
@@ -191,7 +195,13 @@ const App: React.FC = () => {
 
   const { accent, setAccent } = useTheme();
   
-  const [activeTab, setActiveTab] = useState<MobileTab>('dashboard');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const activeTab = useMemo(() => {
+    const path = location.pathname.substring(1);
+    return (path === '' || path === 'dashboard') ? 'dashboard' : path as MobileTab;
+  }, [location]);
+
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSubjectManagerOpen, setIsSubjectManagerOpen] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{ type: 'today' | 'all'; title: string; message: string; } | null>(null);
@@ -199,11 +209,11 @@ const App: React.FC = () => {
   const [isSidePanelCollapsed, setIsSidePanelCollapsed] = useState(false);
   const [sidePanelTab, setSidePanelTab] = useState<'goals' | 'exams'>('goals');
 
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(getLocalDateString());
 
   // Derived Stats for RTDB
   const dailyTotalMs = useMemo(() => {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateString();
       return allSessions.filter(s => s.dateString === today).reduce((acc, curr) => acc + curr.durationMs, 0);
   }, [allSessions]);
 
@@ -276,6 +286,9 @@ const App: React.FC = () => {
 
         const savedZenEnabled = localStorage.getItem('ekagrazone_enableZenMode');
         if (savedZenEnabled) setEnableZenMode(savedZenEnabled === 'true');
+        
+        const savedDayStartHour = localStorage.getItem('ekagrazone_dayStartHour');
+        if (savedDayStartHour) setDayStartHour(parseInt(savedDayStartHour));
         
         const oldZenUrl = localStorage.getItem('ekagrazone_zenWallpaperUrl');
         if (oldZenUrl && !savedWallpaper) {
@@ -403,6 +416,13 @@ const App: React.FC = () => {
       dbService.syncSettingsToCloud().catch(console.error);
   }, []);
 
+  const handleDayStartHourChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+      const val = parseInt(e.target.value);
+      setDayStartHour(val);
+      localStorage.setItem('ekagrazone_dayStartHour', val.toString());
+      dbService.syncSettingsToCloud().catch(console.error);
+  }, []);
+
   const handleZenToggle = useCallback(() => {
       const newState = !enableZenMode;
       setEnableZenMode(newState);
@@ -453,7 +473,7 @@ const App: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ekagrazone_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `ekagrazone_backup_${getLocalDateString()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -478,7 +498,7 @@ const App: React.FC = () => {
       if (!confirmModal) return;
 
       if (confirmModal.type === 'today') {
-          const today = new Date().toISOString().split('T')[0];
+          const today = getLocalDateString();
           await dbService.deleteSessionsByDate(today);
           await dbService.deleteGoalsByDate(today); // Legacy
           await dbService.deleteTasksByDate(today);
@@ -606,13 +626,13 @@ const App: React.FC = () => {
       }
   }, [status, isTimerComplete, mode]);
 
-  const todaySessions = useMemo(() => allSessions.filter(s => s.dateString === new Date().toISOString().split('T')[0]), [allSessions]);
+  const todaySessions = useMemo(() => allSessions.filter(s => s.dateString === getLocalDateString()), [allSessions]);
   const currentSubjectTodayTotal = useMemo(() => {
       return todaySessions.filter(s => s.subjectId === currentSubjectId).reduce((acc, curr) => acc + curr.durationMs, 0);
   }, [todaySessions, currentSubjectId]);
 
   const todaysTasks = useMemo(() => {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateString();
       return tasks.filter(t => t.dateString === today);
   }, [tasks]);
 
@@ -623,6 +643,8 @@ const App: React.FC = () => {
           start();
       }
   }, [enableZenMode, wallpaper, status, isZenActive, start]);
+
+
 
   const handleZenResponse = (shouldEnter: boolean) => {
       setShowZenPrompt(false);
@@ -646,9 +668,13 @@ const App: React.FC = () => {
   }
 
   // 2. Not Logged In & Not Guest -> Login Page
-  if (!currentUser && !isGuest) {
-      return <LoginPage />;
-  }
+  // We'll handle this with Routes now, but for the main app structure, we might want to redirect or show login
+  // However, since we want "/" to be the landing page (LoginPage), we should allow rendering it.
+  // The logic below was forcing LoginPage if not logged in.
+  // With Router, we can let the Routes handle it.
+  // But we need to make sure the main app layout (sidebar etc) is only shown when logged in.
+  
+  const showMainApp = (currentUser || isGuest) && !isVerifying;
 
   // 3. Logged In User Checks
   if (currentUser) {
@@ -973,6 +999,29 @@ const App: React.FC = () => {
 
                         <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
                             <div className="flex items-center gap-4">
+                                <div className={`p-2 bg-${accent}-500/10 rounded-xl text-${accent}-400`}><Clock size={20} /></div>
+                                <div>
+                                    <span className="font-semibold text-slate-200 block">Day Start Time</span>
+                                    <span className="text-xs text-slate-500">When does your new day begin?</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 bg-slate-900/50 rounded-lg p-1 border border-white/10">
+                                <select 
+                                    value={dayStartHour} 
+                                    onChange={handleDayStartHourChange}
+                                    className="bg-transparent text-center font-bold text-white focus:outline-none text-sm p-1"
+                                >
+                                    {Array.from({ length: 24 }, (_, i) => (
+                                        <option key={i} value={i} className="bg-slate-800">
+                                            {i === 0 ? '12:00 AM' : i < 12 ? `${i}:00 AM` : i === 12 ? '12:00 PM' : `${i - 12}:00 PM`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                            <div className="flex items-center gap-4">
                                 <div className={`p-2 bg-${accent}-500/10 rounded-xl text-${accent}-400`}><Zap size={20} /></div>
                                 <div>
                                     <span className="font-semibold text-slate-200 block">Graphics Quality</span>
@@ -1068,15 +1117,16 @@ const App: React.FC = () => {
 
   const DesktopSidebar = () => {
     const tabs = [
-      { id: 'dashboard', label: 'Home', icon: Home },
-      { id: 'timer', label: 'Focus', icon: Timer },
-      { id: 'timeline', label: 'Stats', icon: BarChart3 },
-      { id: 'exams', label: 'Exams', icon: GraduationCap },
-      { id: 'habits', label: 'Habits', icon: Repeat },
-      { id: 'journal', label: 'Journal', icon: BookOpen },
-      { id: 'calendar', label: 'Plan', icon: CalendarDays },
-      { id: 'social', label: 'Arena', icon: Users }, 
-      { id: 'settings', label: 'Settings', icon: Settings },
+      { id: 'dashboard', label: 'Home', icon: Home, path: '/dashboard' },
+      { id: 'timer', label: 'Focus', icon: Timer, path: '/focus' },
+      { id: 'timeline', label: 'Stats', icon: BarChart3, path: '/stats' },
+
+      { id: 'exams', label: 'Exams', icon: GraduationCap, path: '/exams' },
+      { id: 'habits', label: 'Habits', icon: Repeat, path: '/habits' },
+      { id: 'journal', label: 'Journal', icon: BookOpen, path: '/journal' },
+      { id: 'calendar', label: 'Plan', icon: CalendarDays, path: '/plan' },
+      { id: 'social', label: 'Arena', icon: Users, path: '/social' }, 
+      { id: 'settings', label: 'Settings', icon: Settings, path: '/settings' },
     ];
 
     return (
@@ -1094,30 +1144,33 @@ const App: React.FC = () => {
          <div className="flex-1 flex flex-col gap-2 overflow-y-auto no-scrollbar px-3">
             {tabs.map((tab) => {
                 const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
                 
                 return (
-                <button
+                <NavLink
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as MobileTab)}
-                    className={`
+                    to={tab.path}
+                    className={({ isActive }) => `
                         w-full flex items-center gap-4 p-3 rounded-xl transition-all duration-300 group relative
                         ${isActive ? 'bg-white/10 text-white shadow-lg border border-white/5' : 'text-slate-400 hover:text-white hover:bg-white/10'}
                         ${!isActive && 'hover:translate-x-1'}
                     `}
                 >
-                    {isActive && (
-                        <motion.div 
-                            layoutId="sidebar-active"
-                            className={`absolute left-0 w-1 h-6 bg-${accent}-500 rounded-r-full shadow-[0_0_12px_rgba(var(--color-${accent}-500),0.6)]`}
-                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                        />
+                    {({ isActive }) => (
+                        <>
+                            {isActive && (
+                                <motion.div 
+                                    layoutId="sidebar-active"
+                                    className={`absolute left-0 w-1 h-6 bg-${accent}-500 rounded-r-full shadow-[0_0_12px_rgba(var(--color-${accent}-500),0.6)]`}
+                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                />
+                            )}
+                            <div className="flex justify-center xl:w-6 flex-none">
+                                <Icon size={20} className={`transition-transform duration-300 ${isActive ? `scale-110 text-${accent}-400` : 'group-hover:scale-110'}`} />
+                            </div>
+                            <span className="hidden xl:block text-sm font-medium tracking-wide opacity-90">{tab.label}</span>
+                        </>
                     )}
-                    <div className="flex justify-center xl:w-6 flex-none">
-                        <Icon size={20} className={`transition-transform duration-300 ${isActive ? `scale-110 text-${accent}-400` : 'group-hover:scale-110'}`} />
-                    </div>
-                    <span className="hidden xl:block text-sm font-medium tracking-wide opacity-90">{tab.label}</span>
-                </button>
+                </NavLink>
                 )
             })}
          </div>
@@ -1321,7 +1374,16 @@ const App: React.FC = () => {
       </AnimatePresence>
 
       {/* --- Mobile Layout (< md) --- */}
-      <div className={`md:hidden flex flex-col h-[100dvh] relative z-10 ${isZenActive || isSpaceMode ? 'hidden' : ''}`}>
+      <div className={`md:hidden flex flex-col relative z-10 ${isZenActive || isSpaceMode ? 'hidden' : ''} ${showMainApp ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh] overflow-y-auto'}`}>
+        {!showMainApp ? (
+            <Routes>
+                <Route path="/" element={<LoginPage />} />
+                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+        ) : (
+            <>
         {!hasPremium && <HeaderAd onClick={() => setShowPricing(true)} />}
         <div className="flex-none px-4 pt-4 transition-all">
            <Header />
@@ -1330,116 +1392,123 @@ const App: React.FC = () => {
         <main className="flex-1 relative overflow-hidden flex flex-col">
            <AnimatePresence mode="wait">
                <motion.div
-                 key={activeTab}
+                 key={location.pathname}
                  initial={{ opacity: 0, x: 10 }}
                  animate={{ opacity: 1, x: 0 }}
                  exit={{ opacity: 0, x: -10 }}
                  transition={{ duration: 0.2 }}
                  className="flex-1 flex flex-col h-full overflow-hidden"
                >
-                   {activeTab === 'dashboard' && (
-                     <Dashboard 
-                        sessions={allSessions} 
-                        subjects={subjects} 
-                        targetHours={targetHours} 
-                        userName={displayName}
-                        onNavigate={setActiveTab}
-                        tasks={tasks}
-                    />
-                   )}
-
-                   {/* Other mobile tabs... */}
-                   {activeTab === 'timer' && (
-                     <div className="flex-1 flex flex-col px-4 relative overflow-y-auto no-scrollbar">
-                        <div className="flex-none mt-2 mb-2 relative z-10">
-                          <SubjectPicker subjects={subjects} selectedId={currentSubjectId} onSelect={setSubjectId} disabled={status !== 'idle'} variant="horizontal" />
-                        </div>
-                        <div className="flex-1 flex flex-col relative z-10 justify-center items-center pb-24">
-                          <TimerDisplay 
-                            elapsedMs={elapsedMs} 
-                            status={status} 
-                            mode={mode}
-                            isOvertime={isOvertime}
-                            todaySubjectTotal={currentSubjectTodayTotal}
-                            subjectColor={currentSubject.color} 
-                            onStart={handleStartRequest} 
-                            onPause={pause} 
-                            onStop={handleStopRequest} 
-                            onSetMode={setMode}
-                            durations={timerDurations}
-                            onUpdateDurations={handleUpdateDurations}
-                            isWallpaperMode={false}
-                          />
-                          {enableZenMode && wallpaper && status === 'running' && !isZenActive && (
-                              <button onClick={() => setIsZenActive(true)} className={`mt-6 flex items-center gap-2 px-4 py-2 rounded-full bg-${accent}-500/10 text-${accent}-400 border border-${accent}-500/20 text-xs font-semibold hover:bg-${accent}-500/20 transition-all`}>
-                                  <Maximize2 size={14} /> Enter Zen Mode
-                              </button>
-                          )}
-                        </div>
-                        <div className="absolute top-4 right-4 z-20">
-                            <button onClick={() => setActiveTab('calendar')} className="bg-slate-900/60 backdrop-blur border border-white/10 p-2 rounded-full shadow-lg">
-                                <Target size={18} className={`text-${accent}-400`} />
-                            </button>
-                        </div>
-                        <MobileDrawer />
-                     </div>
-                   )}
-
-                   {activeTab === 'timeline' && (
-                     <div className="flex-1 flex flex-col px-4 overflow-y-auto pb-4">
-                        <StatsPage sessions={allSessions} subjects={subjects} onDataUpdate={loadSessions} />
-                     </div>
-                   )}
-
-                   {activeTab === 'exams' && (
-                     <div className="flex-1 flex flex-col px-4 overflow-y-auto pb-4">
-                        <ExamTracker subjects={subjects} exams={exams} onUpdate={loadExams} />
-                     </div>
-                   )}
-
-                   {/* Add Social Panel for Mobile */}
-                   {activeTab === 'social' && (
-                     <div className="flex-1 flex flex-col h-full overflow-hidden">
-                        <SocialPanel />
-                     </div>
-                   )}
-
-                   {activeTab === 'journal' && <div className="flex-1 flex flex-col overflow-hidden"><JournalPage /></div>}
-                   {activeTab === 'habits' && <div className="flex-1 flex flex-col overflow-hidden"><HabitsPage /></div>}
-
-                   {activeTab === 'calendar' && (
-                     <div className="flex-1 px-4 overflow-y-auto pt-4 pb-4">
-                        <PlanPage 
-                            sessions={allSessions}
-                            subjects={subjects}
-                            exams={exams}
-                            tasks={tasks}
-                            onTaskUpdate={loadTasks}
-                            onStartSession={setSubjectId}
-                            targetHours={targetHours}
-                        />
-                     </div>
-                   )}
-                   
-                   {activeTab === 'settings' && (
-                     <div className="flex-1 p-6 overflow-y-auto">
-                       <h2 className="text-xl font-bold mb-6">Settings</h2>
-                       <SettingsContent />
-                       <div className="mt-12 text-center pb-8">
-                         <p className="text-slate-500 text-[10px] font-mono font-medium tracking-wide">Made by Abhyuday</p>
-                       </div>
-                     </div>
-                   )}
+                   <Routes>
+                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                        <Route path="/dashboard" element={
+                            <Dashboard 
+                                sessions={allSessions} 
+                                subjects={subjects} 
+                                targetHours={targetHours} 
+                                userName={displayName}
+                                tasks={tasks}
+                            />
+                        } />
+                        <Route path="/focus" element={
+                            <div className="flex-1 flex flex-col px-4 relative overflow-y-auto no-scrollbar">
+                                <div className="flex-none mt-2 mb-2 relative z-10">
+                                <SubjectPicker subjects={subjects} selectedId={currentSubjectId} onSelect={setSubjectId} disabled={status !== 'idle'} variant="horizontal" />
+                                </div>
+                                <div className="flex-1 flex flex-col relative z-10 justify-center items-center pb-24">
+                                <TimerDisplay 
+                                    elapsedMs={elapsedMs} 
+                                    status={status} 
+                                    mode={mode}
+                                    isOvertime={isOvertime}
+                                    todaySubjectTotal={currentSubjectTodayTotal}
+                                    subjectColor={currentSubject.color} 
+                                    onStart={handleStartRequest} 
+                                    onPause={pause} 
+                                    onStop={handleStopRequest} 
+                                    onSetMode={setMode}
+                                    durations={timerDurations}
+                                    onUpdateDurations={handleUpdateDurations}
+                                    isWallpaperMode={false}
+                                />
+                                {enableZenMode && wallpaper && status === 'running' && !isZenActive && (
+                                    <button onClick={() => setIsZenActive(true)} className={`mt-6 flex items-center gap-2 px-4 py-2 rounded-full bg-${accent}-500/10 text-${accent}-400 border border-${accent}-500/20 text-xs font-semibold hover:bg-${accent}-500/20 transition-all`}>
+                                        <Maximize2 size={14} /> Enter Zen Mode
+                                    </button>
+                                )}
+                                </div>
+                                <div className="absolute top-4 right-4 z-20">
+                                    <NavLink to="/plan" className="bg-slate-900/60 backdrop-blur border border-white/10 p-2 rounded-full shadow-lg block">
+                                        <Target size={18} className={`text-${accent}-400`} />
+                                    </NavLink>
+                                </div>
+                                <MobileDrawer />
+                            </div>
+                        } />
+                        <Route path="/stats" element={
+                            <div className="flex-1 flex flex-col px-4 overflow-y-auto pb-4">
+                                <StatsPage sessions={allSessions} subjects={subjects} onDataUpdate={loadSessions} />
+                            </div>
+                        } />
+                        <Route path="/exams" element={
+                            <div className="flex-1 flex flex-col px-4 overflow-y-auto pb-4">
+                                <ExamTracker subjects={subjects} exams={exams} onUpdate={loadExams} />
+                            </div>
+                        } />
+                        <Route path="/social" element={
+                            <div className="flex-1 flex flex-col h-full overflow-hidden">
+                                <SocialPanel />
+                            </div>
+                        } />
+                        <Route path="/journal" element={<div className="flex-1 flex flex-col overflow-hidden"><JournalPage /></div>} />
+                        <Route path="/habits" element={<div className="flex-1 flex flex-col overflow-hidden"><HabitsPage /></div>} />
+                        <Route path="/plan" element={
+                            <div className="flex-1 px-4 overflow-y-auto pt-4 pb-4">
+                                <PlanPage 
+                                    sessions={allSessions}
+                                    subjects={subjects}
+                                    exams={exams}
+                                    tasks={tasks}
+                                    onTaskUpdate={loadTasks}
+                                    onStartSession={setSubjectId}
+                                    targetHours={targetHours}
+                                />
+                            </div>
+                        } />
+                        <Route path="/settings" element={
+                            <div className="flex-1 p-6 overflow-y-auto">
+                                <h2 className="text-xl font-bold mb-6">Settings</h2>
+                                <SettingsContent />
+                                <div className="mt-12 text-center pb-8">
+                                    <p className="text-slate-500 text-[10px] font-mono font-medium tracking-wide">Made by Abhyuday</p>
+                                </div>
+                            </div>
+                        } />
+                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                   </Routes>
                </motion.div>
            </AnimatePresence>
         </main>
         
-        <MobileNav activeTab={activeTab} setTab={setActiveTab} />
+        <MobileNav />
+            </>
+        )}
       </div>
 
 
       {/* --- Desktop Layout (>= md) --- */}
-      <div className={`hidden md:flex h-screen w-full max-w-[1920px] mx-auto p-4 gap-4 relative z-10 ${isZenActive || isSpaceMode ? 'hidden' : ''}`}>
+      <div className={`hidden md:flex w-full max-w-[1920px] mx-auto relative z-10 ${isZenActive || isSpaceMode ? 'hidden' : ''} ${showMainApp ? 'h-screen p-4 gap-4 overflow-hidden' : 'min-h-screen overflow-y-auto'}`}>
+         {!showMainApp ? (
+            <div className="w-full min-h-screen">
+                <Routes>
+                    <Route path="/" element={<LoginPage />} />
+                    <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                    <Route path="/terms" element={<Terms />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+            </div>
+         ) : (
+            <>
          <DesktopSidebar />
 
          {/* Main Glass Panel */}
@@ -1459,12 +1528,13 @@ const App: React.FC = () => {
                         <motion.h2 
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
-                            key={activeTab}
+                            key={location.pathname}
                             className="text-3xl font-bold text-white tracking-tight flex items-center gap-3"
                         >
                         {activeTab === 'dashboard' && 'Dashboard'}
                         {activeTab === 'timer' && 'Focus Zone'}
                         {activeTab === 'timeline' && 'Analytics'}
+
                         {activeTab === 'exams' && 'Exam Tracker'}
                         {activeTab === 'journal' && 'Daily Journal'}
                         {activeTab === 'habits' && 'Habit Forge'}
@@ -1507,149 +1577,149 @@ const App: React.FC = () => {
                 <div className="flex-1 relative overflow-hidden flex flex-col">
                     <AnimatePresence mode="wait">
                         <motion.div
-                            key={activeTab}
+                            key={location.pathname}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.3 }}
                             className="h-full w-full flex flex-col"
                         >
-                            {activeTab === 'dashboard' && (
-                                <div className="h-full overflow-hidden rounded-[2rem]">
-                                    <Dashboard 
-                                        sessions={allSessions} 
-                                        subjects={subjects} 
-                                        targetHours={targetHours} 
-                                        userName={displayName}
-                                        onNavigate={setActiveTab}
-                                        tasks={tasks}
-                                    />
-                                </div>
-                            )}
-                            
-                            {activeTab === 'timer' && (
-                                <div className="h-full flex flex-col relative overflow-hidden">
-                                    <div className="flex-none py-2 flex justify-center relative z-20">
-                                        <div className="bg-slate-900/30 backdrop-blur-md border border-white/10 rounded-2xl p-2 shadow-xl max-w-[95%]">
-                                            <SubjectPicker subjects={subjects} selectedId={currentSubjectId} onSelect={setSubjectId} disabled={status !== 'idle'} variant="horizontal" />
-                                        </div>
+                            <Routes>
+                                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                                <Route path="/dashboard" element={
+                                    <div className="h-full overflow-hidden rounded-[2rem]">
+                                        <Dashboard 
+                                            sessions={allSessions} 
+                                            subjects={subjects} 
+                                            targetHours={targetHours} 
+                                            userName={displayName}
+                                            tasks={tasks}
+                                        />
                                     </div>
-                                    <div className="flex-1 flex flex-col relative rounded-3xl mt-6 z-10 justify-center items-center">
-                                        <TimerDisplay 
-                                            elapsedMs={elapsedMs} 
-                                            status={status} 
-                                            mode={mode}
-                                            isOvertime={isOvertime}
-                                            todaySubjectTotal={currentSubjectTodayTotal}
-                                            subjectColor={currentSubject.color} 
-                                            onStart={handleStartRequest} 
-                                            onPause={pause} 
-                                            onStop={handleStopRequest} 
-                                            onSetMode={setMode}
-                                            durations={timerDurations}
-                                            onUpdateDurations={handleUpdateDurations}
-                                            isWallpaperMode={false}
-                                            sidePanel={
-                                                <div className={`transition-all duration-500 ease-in-out flex flex-col bg-slate-900/30 backdrop-blur-sm rounded-3xl border border-white/5 overflow-hidden ${isSidePanelCollapsed ? 'w-14' : 'w-80'} h-full hover:bg-slate-900/40`}>
-                                                    <div className="flex-none flex items-center justify-between p-3 border-b border-white/5">
-                                                        {!isSidePanelCollapsed && (
-                                                            <div className="flex bg-slate-900/50 rounded-lg p-0.5 border border-white/5">
-                                                                <button 
-                                                                    onClick={() => setSidePanelTab('goals')}
-                                                                    className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${sidePanelTab === 'goals' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                                                                >
-                                                                    Goals
-                                                                </button>
-                                                                <button 
-                                                                    onClick={() => setSidePanelTab('exams')}
-                                                                    className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${sidePanelTab === 'exams' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                                                                >
-                                                                    Exams
-                                                                </button>
+                                } />
+                                <Route path="/focus" element={
+                                    <div className="h-full flex flex-col relative overflow-hidden">
+                                        <div className="flex-none py-2 flex justify-center relative z-20">
+                                            <div className="bg-slate-900/30 backdrop-blur-md border border-white/10 rounded-2xl p-2 shadow-xl max-w-[95%]">
+                                                <SubjectPicker subjects={subjects} selectedId={currentSubjectId} onSelect={setSubjectId} disabled={status !== 'idle'} variant="horizontal" />
+                                            </div>
+                                        </div>
+                                        <div className="flex-1 flex flex-col relative rounded-3xl mt-6 z-10 justify-center items-center">
+                                            <TimerDisplay 
+                                                elapsedMs={elapsedMs} 
+                                                status={status} 
+                                                mode={mode}
+                                                isOvertime={isOvertime}
+                                                todaySubjectTotal={currentSubjectTodayTotal}
+                                                subjectColor={currentSubject.color} 
+                                                onStart={handleStartRequest} 
+                                                onPause={pause} 
+                                                onStop={handleStopRequest} 
+                                                onSetMode={setMode}
+                                                durations={timerDurations}
+                                                onUpdateDurations={handleUpdateDurations}
+                                                isWallpaperMode={false}
+                                                sidePanel={
+                                                    <div className={`transition-all duration-500 ease-in-out flex flex-col bg-slate-900/30 backdrop-blur-sm rounded-3xl border border-white/5 overflow-hidden ${isSidePanelCollapsed ? 'w-14' : 'w-80'} h-full hover:bg-slate-900/40`}>
+                                                        <div className="flex-none flex items-center justify-between p-3 border-b border-white/5">
+                                                            {!isSidePanelCollapsed && (
+                                                                <div className="flex bg-slate-900/50 rounded-lg p-0.5 border border-white/5">
+                                                                    <button 
+                                                                        onClick={() => setSidePanelTab('goals')}
+                                                                        className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${sidePanelTab === 'goals' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                                                                    >
+                                                                        Goals
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => setSidePanelTab('exams')}
+                                                                        className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${sidePanelTab === 'exams' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                                                                    >
+                                                                        Exams
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                            <button onClick={() => setIsSidePanelCollapsed(!isSidePanelCollapsed)} className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 ml-auto" title={isSidePanelCollapsed ? "Expand" : "Collapse"}>
+                                                                {isSidePanelCollapsed ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+                                                            </button>
+                                                        </div>
+                                                        {!isSidePanelCollapsed ? (
+                                                            <div className="flex-1 overflow-hidden relative">
+                                                                <div className="absolute inset-0 p-4 overflow-y-auto custom-scrollbar">
+                                                                    {sidePanelTab === 'goals' ? (
+                                                                        <GoalChecklist dailyTotalMs={dailyTotalMs} tasks={todaysTasks} onTaskUpdate={loadTasks} selectedDate={getLocalDateString()} targetHours={targetHours} variant="compact" />
+                                                                    ) : (
+                                                                        <div className="space-y-3">
+                                                                            <div className="flex items-center justify-between mb-2">
+                                                                                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2"><GraduationCap size={14}/> Upcoming Exams</span>
+                                                                            </div>
+                                                                            <ExamList exams={exams} subjects={subjects} variant="compact" onDelete={handleDeleteExam} />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex-1 flex flex-col items-center gap-4 pt-4">
+                                                                <button onClick={() => { setSidePanelTab('goals'); setIsSidePanelCollapsed(false); }} className={`p-2 rounded-xl hover:bg-white/10 ${sidePanelTab === 'goals' ? `text-${accent}-400` : 'text-slate-400'}`} title="Goals"><CheckSquare size={20} /></button>
+                                                                <button onClick={() => { setSidePanelTab('exams'); setIsSidePanelCollapsed(false); }} className={`p-2 rounded-xl hover:bg-white/10 ${sidePanelTab === 'exams' ? `text-${accent}-400` : 'text-slate-400'}`} title="Exams"><GraduationCap size={20} /></button>
                                                             </div>
                                                         )}
-                                                        <button onClick={() => setIsSidePanelCollapsed(!isSidePanelCollapsed)} className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 ml-auto" title={isSidePanelCollapsed ? "Expand" : "Collapse"}>
-                                                            {isSidePanelCollapsed ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
-                                                        </button>
                                                     </div>
-                                                    {!isSidePanelCollapsed ? (
-                                                        <div className="flex-1 overflow-hidden relative">
-                                                            <div className="absolute inset-0 p-4 overflow-y-auto custom-scrollbar">
-                                                                {sidePanelTab === 'goals' ? (
-                                                                    <GoalChecklist dailyTotalMs={dailyTotalMs} tasks={todaysTasks} onTaskUpdate={loadTasks} selectedDate={new Date().toISOString().split('T')[0]} targetHours={targetHours} variant="compact" />
-                                                                ) : (
-                                                                    <div className="space-y-3">
-                                                                        <div className="flex items-center justify-between mb-2">
-                                                                            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2"><GraduationCap size={14}/> Upcoming Exams</span>
-                                                                        </div>
-                                                                        <ExamList exams={exams} subjects={subjects} variant="compact" onDelete={handleDeleteExam} />
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex-1 flex flex-col items-center gap-4 pt-4">
-                                                            <button onClick={() => { setSidePanelTab('goals'); setIsSidePanelCollapsed(false); }} className={`p-2 rounded-xl hover:bg-white/10 ${sidePanelTab === 'goals' ? `text-${accent}-400` : 'text-slate-400'}`} title="Goals"><CheckSquare size={20} /></button>
-                                                            <button onClick={() => { setSidePanelTab('exams'); setIsSidePanelCollapsed(false); }} className={`p-2 rounded-xl hover:bg-white/10 ${sidePanelTab === 'exams' ? `text-${accent}-400` : 'text-slate-400'}`} title="Exams"><GraduationCap size={20} /></button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            }
-                                        />
-                                        {enableZenMode && wallpaper && status === 'running' && !isZenActive && (
-                                            <button onClick={() => setIsZenActive(true)} className={`mt-6 flex items-center gap-2 px-4 py-2 rounded-full bg-${accent}-500/10 text-${accent}-400 border border-${accent}-500/20 text-xs font-semibold hover:bg-${accent}-500/20 transition-all`}>
-                                                <Maximize2 size={14} /> Enter Zen Mode
-                                            </button>
-                                        )}
+                                                }
+                                            />
+                                            {enableZenMode && wallpaper && status === 'running' && !isZenActive && (
+                                                <button onClick={() => setIsZenActive(true)} className={`mt-6 flex items-center gap-2 px-4 py-2 rounded-full bg-${accent}-500/10 text-${accent}-400 border border-${accent}-500/20 text-xs font-semibold hover:bg-${accent}-500/20 transition-all`}>
+                                                    <Maximize2 size={14} /> Enter Zen Mode
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            )}
-
-                            {activeTab === 'timeline' && (
-                                <div className="h-full w-full overflow-hidden">
-                                    <StatsPage sessions={allSessions} subjects={subjects} onDataUpdate={loadSessions} />
-                                </div>
-                            )}
-
-                            {activeTab === 'exams' && (
-                                <div className="h-full w-full overflow-y-auto custom-scrollbar rounded-[2rem]">
-                                    <ExamTracker subjects={subjects} exams={exams} onUpdate={loadExams} />
-                                </div>
-                            )}
-
-                            {activeTab === 'social' && (
-                                <div className="h-full w-full overflow-hidden rounded-[2rem]">
-                                    <SocialPanel />
-                                </div>
-                            )}
-
-                            {activeTab === 'journal' && <div className="h-full overflow-hidden rounded-[2rem]"><JournalPage /></div>}
-                            {activeTab === 'habits' && <div className="h-full overflow-hidden rounded-[2rem]"><HabitsPage /></div>}
-
-                            {activeTab === 'calendar' && (
-                                <div className="h-full w-full overflow-hidden">
-                                    <PlanPage 
-                                        sessions={allSessions}
-                                        subjects={subjects}
-                                        exams={exams}
-                                        tasks={tasks}
-                                        onTaskUpdate={loadTasks}
-                                        onStartSession={setSubjectId}
-                                        targetHours={targetHours}
-                                    />
-                                </div>
-                            )}
-
-                            {activeTab === 'settings' && (
-                                <div className="h-full w-full overflow-y-auto custom-scrollbar p-4 md:p-8">
-                                    <SettingsContent />
-                                </div>
-                            )}
+                                } />
+                                <Route path="/stats" element={
+                                    <div className="h-full w-full overflow-hidden">
+                                        <StatsPage sessions={allSessions} subjects={subjects} onDataUpdate={loadSessions} />
+                                    </div>
+                                } />
+                                <Route path="/exams" element={
+                                    <div className="h-full w-full overflow-y-auto custom-scrollbar rounded-[2rem]">
+                                        <ExamTracker subjects={subjects} exams={exams} onUpdate={loadExams} />
+                                    </div>
+                                } />
+                                <Route path="/social" element={
+                                    <div className="h-full w-full overflow-hidden rounded-[2rem]">
+                                        <SocialPanel />
+                                    </div>
+                                } />
+                                <Route path="/journal" element={<div className="h-full overflow-hidden rounded-[2rem]"><JournalPage /></div>} />
+                                <Route path="/habits" element={<div className="h-full overflow-hidden rounded-[2rem]"><HabitsPage /></div>} />
+                                <Route path="/plan" element={
+                                    <div className="h-full w-full overflow-hidden">
+                                        <PlanPage 
+                                            sessions={allSessions}
+                                            subjects={subjects}
+                                            exams={exams}
+                                            tasks={tasks}
+                                            onTaskUpdate={loadTasks}
+                                            onStartSession={setSubjectId}
+                                            targetHours={targetHours}
+                                        />
+                                    </div>
+                                } />
+                                <Route path="/settings" element={
+                                    <div className="h-full w-full overflow-y-auto custom-scrollbar p-4 md:p-8">
+                                        <SettingsContent />
+                                    </div>
+                                } />
+                                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                                <Route path="/terms" element={<Terms />} />
+                                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                            </Routes>
                         </motion.div>
                     </AnimatePresence>
                 </div>
             </div>
          </main>
+         </>
+         )}
       </div>
       <MiniTimer 
           status={status}
@@ -1662,7 +1732,7 @@ const App: React.FC = () => {
           accent={accent}
           currentSubject={currentSubject}
           onToggle={status === 'running' ? pause : handleStartRequest}
-          onActivate={() => setActiveTab('timer')}
+          onActivate={() => navigate('/focus')}
       />
 
        {/* Pricing Modal Overlay */}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { StudySession, Subject, isHexColor, getLocalDateString, UserProfile } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,7 +25,6 @@ interface DashboardProps {
   subjects: Subject[];
   targetHours: number;
   userName?: string;
-  onNavigate: (tab: any) => void;
   tasks: any[];
 }
 
@@ -33,9 +33,9 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
   subjects, 
   targetHours, 
   userName = "Aspirant",
-  onNavigate,
   tasks
 }) => {
+  const navigate = useNavigate();
   const { accent } = useTheme();
   const [timeOfDay, setTimeOfDay] = useState('');
   const [isDayStarted, setIsDayStarted] = useState(false);
@@ -253,8 +253,9 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
 
   const challengeDayNumber = useMemo(() => {
       if (!userProfile?.challengeStartDate) return 1;
-      const start = new Date(userProfile.challengeStartDate);
+      const start = new Date(userProfile.challengeStartDate + 'T00:00:00');
       const now = new Date();
+      now.setHours(0, 0, 0, 0);
       const diffTime = now.getTime() - start.getTime();
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; 
       return Math.max(1, diffDays);
@@ -299,7 +300,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                         <motion.button 
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => onNavigate('calendar')}
+                            onClick={() => navigate('/plan')}
                             className="flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-xs font-bold text-slate-300 transition-all shadow-lg backdrop-blur-sm"
                         >
                             <Calendar size={14} /> 
@@ -380,7 +381,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                                 <motion.button 
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
-                                    onClick={() => !isDayCompleted && onNavigate('timer')}
+                                    onClick={() => !isDayCompleted && navigate('/focus')}
                                     disabled={isDayCompleted}
                                     className={`
                                         flex-1 py-3.5 px-6 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all

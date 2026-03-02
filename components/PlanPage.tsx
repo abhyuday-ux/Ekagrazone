@@ -1,7 +1,7 @@
 
 // ... imports (keep existing)
 import React, { useState, useEffect } from 'react';
-import { StudySession, Subject, Exam, Task } from '../types';
+import { StudySession, Subject, Exam, Task, getLocalDateString } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, GraduationCap, Target, Trophy, Clock, TrendingUp, Plus, X, Save } from 'lucide-react';
@@ -23,13 +23,6 @@ interface PlanPageProps {
 }
 
 type ViewMode = 'calendar' | 'tasks' | 'year';
-
-const getLocalDateString = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 export const PlanPage: React.FC<PlanPageProps> = ({
   sessions,
@@ -89,8 +82,8 @@ export const PlanPage: React.FC<PlanPageProps> = ({
 
   // Upcoming Exams
   const upcomingExams = exams
-    .filter(e => new Date(e.date) >= new Date(new Date().setHours(0,0,0,0)))
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .filter(e => new Date(e.date + 'T00:00:00') >= new Date(new Date().setHours(0,0,0,0)))
+    .sort((a, b) => new Date(a.date + 'T00:00:00').getTime() - new Date(b.date + 'T00:00:00').getTime())
     .slice(0, 4);
 
   const handleAddExam = async () => {

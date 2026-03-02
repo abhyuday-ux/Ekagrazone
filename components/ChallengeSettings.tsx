@@ -41,8 +41,9 @@ export const ChallengeSettings: React.FC = () => {
 
     const challengeDayNumber = useMemo(() => {
         if (!startDate) return 1;
-        const start = new Date(startDate);
+        const start = new Date(startDate + 'T00:00:00');
         const now = new Date();
+        now.setHours(0, 0, 0, 0);
         const diffTime = now.getTime() - start.getTime();
         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; 
         return Math.max(1, diffDays);
@@ -151,7 +152,7 @@ export const ChallengeSettings: React.FC = () => {
                         <div className="flex-1 overflow-x-auto overflow-y-hidden flex items-center justify-center bg-zinc-950/50 p-8 custom-scrollbar">
                             <div className="transform scale-[0.8] md:scale-90 xl:scale-100 transition-transform duration-500 ease-out shadow-2xl rounded-[2rem] border border-white/5">
                                 <ReportCard 
-                                    dateString={new Date().toISOString().split('T')[0]}
+                                    dateString={getLocalDateString()}
                                     sessions={previewSessions}
                                     tasks={previewTasks}
                                     subjects={DEFAULT_SUBJECTS}

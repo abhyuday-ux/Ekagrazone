@@ -193,7 +193,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ subjects, currentSubje
 
   const loadData = async () => {
     const loadedExams = await dbService.getExams();
-    setExams(loadedExams.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+    setExams(loadedExams.sort((a, b) => new Date(a.date + 'T00:00:00').getTime() - new Date(b.date + 'T00:00:00').getTime()));
   };
 
   useEffect(() => {
@@ -386,7 +386,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ subjects, currentSubje
       };
 
       await dbService.saveExam(exam);
-      setExams(prev => [...prev, exam].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+      setExams(prev => [...prev, exam].sort((a, b) => new Date(a.date + 'T00:00:00').getTime() - new Date(b.date + 'T00:00:00').getTime()));
       setShowExamForm(false);
       setNewExamTitle('');
       setNewExamTopics('');
@@ -418,7 +418,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ subjects, currentSubje
   
   // Calculate days to next exam for status bar
   const nextExam = exams.length > 0 ? exams[0] : null;
-  const daysToNextExam = nextExam ? Math.ceil((new Date(nextExam.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+  const daysToNextExam = nextExam ? Math.ceil((new Date(nextExam.date + 'T00:00:00').getTime() - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24)) : null;
 
   // Smart Actions based on Time
   const getSmartActions = () => {
@@ -568,7 +568,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ subjects, currentSubje
                         exams.map(exam => {
                             const subId = exam.subjectIds?.[0] || (exam as any).subjectId;
                             const subject = subjects.find(s => s.id === subId);
-                            const daysLeft = Math.ceil((new Date(exam.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                            const daysLeft = Math.ceil((new Date(exam.date + 'T00:00:00').getTime() - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24));
                             const isClose = daysLeft <= 3 && daysLeft >= 0;
 
                             return (
@@ -588,7 +588,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ subjects, currentSubje
                                     <h4 className="font-semibold text-slate-200 mb-1">{exam.title}</h4>
                                     <div className="flex items-center gap-2 text-xs text-slate-500">
                                         <Calendar size={12} />
-                                        <span>{new Date(exam.date).toLocaleDateString()}</span>
+                                        <span>{new Date(exam.date + 'T00:00:00').toLocaleDateString()}</span>
                                     </div>
                                     <button 
                                         onClick={() => handleDeleteExam(exam.id)}

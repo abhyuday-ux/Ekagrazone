@@ -371,72 +371,43 @@ export const LoginPage: React.FC = () => {
       <div className="w-full max-w-7xl mx-auto px-6 py-16 relative z-10">
         <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-3xl p-8 md:p-12">
           <h2 className="text-3xl font-bold text-white mb-8 text-center">Master Your Deep Work with EkagraZone</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-slate-400">
-            <div className="space-y-3">
-              <h3 className="text-cyan-400 font-bold text-lg flex items-center gap-2">
-                <span className="text-2xl">🏆</span> Gamified Pomodoro Timer
-              </h3>
-              <p className="leading-relaxed text-sm">
-                Transform productivity into a game. Earn XP for every minute of focus, climb the global leaderboard, and unlock achievements. Our <strong>Gamified Pomodoro Timer</strong> makes deep work addictive and rewarding.
-              </p>
-            </div>
-            <div className="space-y-3">
-              <h3 className="text-cyan-400 font-bold text-lg flex items-center gap-2">
-                <span className="text-2xl">🧠</span> Scientific Focus
-              </h3>
-              <p className="leading-relaxed text-sm">
-                Leverage the power of the <strong>25/5 minute interval system</strong>. Based on circadian rhythm research, EkagraZone optimizes your brain performance by balancing intense focus sprints with restorative breaks.
-              </p>
-            </div>
-            <div className="space-y-3">
-              <h3 className="text-cyan-400 font-bold text-lg flex items-center gap-2">
-                <span className="text-2xl">⚔️</span> Productivity Arena
-              </h3>
-              <p className="leading-relaxed text-sm">
-                Step into the <strong>Productivity Arena</strong>. Compete with friends in real-time, track your daily focus stats, and visualize your consistency with advanced heatmaps and analytics.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+          <div className="prose prose-invert max-w-none text-slate-400">
+            <h3 className="text-cyan-400 font-bold text-xl mb-4">Section 1: The Science of Focus</h3>
+            <p className="mb-6 leading-relaxed">
+              In the high-stakes world of competitive exams like JEE Main 2026 preparation and NEET, maintaining intense concentration is not just an advantage; it's a necessity. The human brain is not designed for continuous, unbroken focus over many hours. This is where the science of focus comes into play, specifically through techniques that leverage our natural cognitive rhythms. The Pomodoro Technique is a prime example of this scientific approach to studying.
+            </p>
+            <p className="mb-6 leading-relaxed">
+              The Pomodoro Technique involves breaking work into intervals, traditionally 25 minutes in length, separated by short breaks (usually 5 minutes). These 25/5 intervals are perfect for high-intensity exams because they align with the brain's ultradian rhythms. During the 25-minute sprint, you engage in deep, undistracted work, maximizing cognitive load and retention. The subsequent 5-minute break allows the brain to consolidate information, rest, and reset, preventing the rapid onset of mental fatigue. Using a dedicated NEET focus timer or Pomodoro for students ensures you adhere strictly to these intervals, maximizing study efficiency without burning out.
+            </p>
 
-      {/* Why EkagraZone Section */}
-      <div className="w-full max-w-7xl mx-auto px-6 pb-16 relative z-10">
-        <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-3xl p-8 md:p-12">
-          <h2 className="text-3xl font-bold text-white mb-8 text-center">Why EkagraZone?</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-slate-400">
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
-              <h4 className="text-cyan-400 font-bold mb-2">Focus Timer</h4>
-              <p className="text-xs leading-relaxed">Customizable Pomodoro timer to break work into manageable intervals.</p>
-            </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
-              <h4 className="text-cyan-400 font-bold mb-2">Productivity Tracker</h4>
-              <p className="text-xs leading-relaxed">Detailed analytics to visualize your productivity patterns and improvements.</p>
-            </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
-              <h4 className="text-cyan-400 font-bold mb-2">Study Aid</h4>
-              <p className="text-xs leading-relaxed">Perfect for students needing structured study sessions and break management.</p>
-            </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
-              <h4 className="text-cyan-400 font-bold mb-2">Flow State</h4>
-              <p className="text-xs leading-relaxed">Immersive environments and sounds to help you enter and maintain flow state.</p>
-            </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
-              <h4 className="text-cyan-400 font-bold mb-2">Gamification</h4>
-              <p className="text-xs leading-relaxed">Earn XP, level up, and compete on leaderboards to make work fun.</p>
-            </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
-              <h4 className="text-cyan-400 font-bold mb-2">Habit Building</h4>
-              <p className="text-xs leading-relaxed">Track daily habits and build streaks to form long-lasting positive routines.</p>
-            </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
-              <h4 className="text-cyan-400 font-bold mb-2">Mindfulness</h4>
-              <p className="text-xs leading-relaxed">Integrated journaling and reflection tools to support your mental well-being.</p>
-            </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
-              <h4 className="text-cyan-400 font-bold mb-2">Community</h4>
-              <p className="text-xs leading-relaxed">Join a global community of focused individuals and stay motivated together.</p>
-            </div>
+            <h3 className="text-cyan-400 font-bold text-xl mb-4">Section 2: Gamified Productivity</h3>
+            <p className="mb-6 leading-relaxed">
+              Studying for major exams can often feel like an endless, grueling marathon. To combat this, EkagraZone introduces the concept of Gamified Education. By applying game-design elements and principles in non-game contexts, we transform the mundane task of studying into an engaging and rewarding experience. Gamified productivity is a powerful tool to maintain long-term motivation and prevent student burnout.
+            </p>
+            <p className="mb-6 leading-relaxed">
+              One of the core features of this approach is the implementation of live leaderboards. Seeing your progress compared to peers fosters a healthy sense of competition and community, driving you to push just a little harder. Furthermore, 'Subject Mastery' tracking provides a visual representation of your competence in different areas. Instead of feeling overwhelmed by a massive syllabus, you can see your skills leveling up in real-time, much like a character in a role-playing game. This tangible sense of progression is crucial for sustaining the effort required for rigorous exam preparation.
+            </p>
+
+            <h3 className="text-cyan-400 font-bold text-xl mb-4">Section 3: Digital Minimalism</h3>
+            <p className="mb-6 leading-relaxed">
+              In an era of constant notifications and endless scrolling, digital distractions are the greatest enemy of deep work. Digital minimalism is the philosophy of intentionally curating your digital environment to prioritize focus and intentionality. EkagraZone embraces this philosophy wholeheartedly through its 'Zen Mode'.
+            </p>
+            <p className="mb-6 leading-relaxed">
+              The 'Zen Mode' philosophy is about stripping away the non-essential. When you enter Zen Mode, the interface simplifies, hiding complex menus, notifications, and any visual clutter that might pull your attention away from the task at hand. By reducing screen clutter, EkagraZone creates a digital sanctuary for your mind. This minimalist approach minimizes cognitive load, allowing you to channel 100% of your mental energy into your studies. It's not just about blocking distractions; it's about creating an environment that actively promotes and sustains deep, uninterrupted focus.
+            </p>
+
+            <h3 className="text-cyan-400 font-bold text-xl mb-4">Section 4: Why EkagraZone?</h3>
+            <p className="mb-6 leading-relaxed">
+              EkagraZone is more than just a simple timer; it is a comprehensive Study tracker India designed specifically for the needs of ambitious students. Let's break down the core features that make EkagraZone the ultimate productivity companion:
+            </p>
+            <ul className="list-disc pl-6 mb-6 space-y-2">
+              <li><strong>Live Leaderboard:</strong> Connect with a community of focused learners. The live leaderboard adds a layer of social motivation, turning solitary study sessions into a shared journey towards excellence.</li>
+              <li><strong>Modular Syllabus:</strong> Break down your massive curriculum into manageable, bite-sized modules. Track your progress granularly, ensuring no topic is left behind and providing a clear roadmap to mastery.</li>
+              <li><strong>Overtime Timer:</strong> Sometimes you hit a state of flow and don't want to stop when the timer rings. The Overtime Timer seamlessly tracks those extra minutes of deep work, ensuring every second of your effort is recorded and rewarded.</li>
+            </ul>
+            <p className="leading-relaxed">
+              By combining the science of focus, gamified productivity, and digital minimalism, EkagraZone provides the perfect ecosystem for achieving your highest academic goals.
+            </p>
           </div>
         </div>
       </div>
@@ -445,16 +416,22 @@ export const LoginPage: React.FC = () => {
       <LandingPricing />
 
       {/* Legal Compliance Footer */}
-      <div className="w-full text-center py-8 relative z-10 border-t border-white/5 bg-[#050511]">
-          <div className="flex flex-col items-center gap-4">
-              <div className="flex items-center gap-6 text-xs text-slate-500 font-medium">
-                  <button onClick={() => setShowPrivacy(true)} className="hover:text-cyan-400 transition-colors">Privacy Policy</button>
-                  <span className="text-slate-700">•</span>
-                  <button onClick={() => setShowTerms(true)} className="hover:text-cyan-400 transition-colors">Terms of Service</button>
-              </div>
-              <p className="text-[10px] text-slate-700 font-mono mt-2">© 2024 EKAGRAZONE. DESIGNED & BUILT BY ABHYUDAY.</p>
+      <footer className="w-full bg-[#050511] border-t border-white/5 py-12 relative z-10">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col items-center gap-6">
+          <div className="flex flex-wrap justify-center gap-6 text-sm font-medium text-slate-400">
+            <button onClick={() => setShowPrivacy(true)} className="hover:text-cyan-400 transition-colors">Privacy Policy</button>
+            <button onClick={() => setShowTerms(true)} className="hover:text-cyan-400 transition-colors">Terms of Service</button>
+            <a href="#" className="hover:text-cyan-400 transition-colors">About Us</a>
+            <a href="#" className="hover:text-cyan-400 transition-colors">Contact</a>
           </div>
-      </div>
+          <p className="text-xs text-slate-600 text-center max-w-2xl leading-relaxed">
+            EkagraZone is dedicated to helping students achieve deep focus. We use Google AdSense and Firebase to provide a secure and ad-supported experience.
+          </p>
+          <p className="text-[10px] text-slate-700 font-mono mt-4">
+            © {new Date().getFullYear()} EKAGRAZONE. DESIGNED & BUILT BY ABHYUDAY.
+          </p>
+        </div>
+      </footer>
 
       {/* Privacy Policy Modal */}
       {showPrivacy && (

@@ -56,7 +56,7 @@ export const ExamCountdown: React.FC<ExamCountdownProps> = ({ subjects, exams, o
     };
 
     // Sort by date
-    const sortedExams = [...exams].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const sortedExams = [...exams].sort((a, b) => new Date(a.date + 'T00:00:00').getTime() - new Date(b.date + 'T00:00:00').getTime());
 
     return (
         <div className="space-y-6">
@@ -159,8 +159,8 @@ export const ExamCountdown: React.FC<ExamCountdownProps> = ({ subjects, exams, o
                     </div>
                 ) : (
                     sortedExams.map(exam => {
-                        const now = Date.now();
-                        const examDate = new Date(exam.date).getTime();
+                        const now = new Date().setHours(0,0,0,0);
+                        const examDate = new Date(exam.date + 'T00:00:00').getTime();
                         const createdDate = exam.createdAt || (examDate - (30 * 24 * 60 * 60 * 1000)); // Fallback to 30 days before if no createdAt
                         
                         const totalDuration = examDate - createdDate;
@@ -190,7 +190,7 @@ export const ExamCountdown: React.FC<ExamCountdownProps> = ({ subjects, exams, o
                                         <h4 className="text-lg font-bold text-white mb-1">{exam.title}</h4>
                                         <div className="flex items-center gap-2 text-xs text-slate-400">
                                             <Calendar size={12} />
-                                            {new Date(exam.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                            {new Date(exam.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                                         </div>
                                     </div>
                                     <div className={`px-3 py-1.5 rounded-lg font-bold text-xs uppercase tracking-wider

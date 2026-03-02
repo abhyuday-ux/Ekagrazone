@@ -44,42 +44,64 @@ const HourlyChart = React.memo(({ data, subjects, isHighQuality }: { data: any[]
     </div>
 ));
 
-const SubjectPieChart = React.memo(({ data, subjects, isHighQuality }: { data: any[], subjects: Subject[], isHighQuality: boolean }) => (
-    <div className="flex-1 w-full min-h-[200px] relative">
-        <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-                <Pie
-                    data={data}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={40}
-                    outerRadius={70}
-                    paddingAngle={5}
-                    dataKey="value"
-                    stroke="none"
-                    isAnimationActive={isHighQuality}
-                >
-                    {data.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                </Pie>
-                {isHighQuality && (
-                    <Tooltip 
-                        contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }}
-                        itemStyle={{ color: '#e4e4e7', fontSize: '12px' }}
-                    />
-                )}
-            </PieChart>
-        </ResponsiveContainer>
-        {/* Center Text */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="text-center">
-                <div className="text-xs font-bold text-white">{subjects.length}</div>
-                <div className="text-[8px] text-zinc-500 uppercase">Subs</div>
+const SubjectPieChart = React.memo(({ data, subjects, isHighQuality }: { data: any[], subjects: Subject[], isHighQuality: boolean }) => {
+    const total = useMemo(() => data.reduce((acc, item) => acc + item.value, 0), [data]);
+
+    return (
+        <div className="flex flex-col w-full h-full">
+            <div className="flex-1 w-full min-h-[150px] relative">
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie
+                            data={data}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={40}
+                            outerRadius={70}
+                            paddingAngle={5}
+                            dataKey="value"
+                            stroke="none"
+                            isAnimationActive={isHighQuality}
+                        >
+                            {data.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                        </Pie>
+                        {isHighQuality && (
+                            <Tooltip 
+                                contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }}
+                                itemStyle={{ color: '#e4e4e7', fontSize: '12px' }}
+                            />
+                        )}
+                    </PieChart>
+                </ResponsiveContainer>
+                {/* Center Text */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="text-center">
+                        <div className="text-xs font-bold text-white">{data.length}</div>
+                        <div className="text-[8px] text-zinc-500 uppercase">Active</div>
+                    </div>
+                </div>
+            </div>
+            
+            {/* Legend */}
+            <div className="mt-4 space-y-2 px-2">
+                {data.map((item, index) => {
+                    const percentage = total > 0 ? Math.round((item.value / total) * 100) : 0;
+                    return (
+                        <div key={index} className="flex items-center justify-between text-[10px]">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)]" style={{ backgroundColor: item.color, boxShadow: `0 0 5px ${item.color}40` }}></div>
+                                <span className="text-zinc-300 font-medium truncate max-w-[100px]">{item.name}</span>
+                            </div>
+                            <span className="font-mono text-zinc-500 font-bold">{percentage}%</span>
+                        </div>
+                    );
+                })}
             </div>
         </div>
-    </div>
-));
+    );
+});
 
 interface ReportCardProps {
     dateString: string;
@@ -276,7 +298,7 @@ export const ReportCard = React.memo<ReportCardProps>(({
         return data;
     }, [sessions, subjects]);
 
-    const formattedDate = new Date(dateString).toLocaleDateString(undefined, {
+    const formattedDate = new Date(dateString + 'T00:00:00').toLocaleDateString(undefined, {
         weekday: 'long',
         month: 'long',
         day: 'numeric'

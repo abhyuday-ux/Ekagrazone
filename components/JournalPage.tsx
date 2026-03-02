@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { JournalEntry } from '../types';
+import { JournalEntry, getLocalDateString } from '../types';
 import { dbService } from '../services/db';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -23,7 +23,7 @@ const MOODS = [
 
 export const JournalPage: React.FC = () => {
   const { accent } = useTheme();
-  const [dateString, setDateString] = useState(new Date().toISOString().split('T')[0]);
+  const [dateString, setDateString] = useState(getLocalDateString());
   const [activeTab, setActiveTab] = useState<'daily' | 'notes' | 'history'>('daily');
   
   // Journal Data State
@@ -246,7 +246,7 @@ export const JournalPage: React.FC = () => {
                             />
                             <div className="flex items-center gap-2 text-xs font-medium text-slate-400 group-hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5 group-hover:border-white/10">
                                 <Calendar size={14} />
-                                <span>{new Date(dateString).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</span>
+                                <span>{new Date(dateString + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</span>
                                 <ChevronDown size={12} className="opacity-50" />
                             </div>
                         </div>
@@ -443,7 +443,7 @@ export const JournalPage: React.FC = () => {
                           <div className="flex justify-between items-start mb-4">
                               <span className="text-sm font-bold text-white flex items-center gap-2">
                                   <Calendar size={14} className={`text-${accent}-400`}/> 
-                                  {new Date(histEntry.dateString).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric'})}
+                                  {new Date(histEntry.dateString + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric'})}
                               </span>
                               <span className="text-2xl">{MOODS.find(m => m.id === histEntry.mood)?.icon || '😶'}</span>
                           </div>

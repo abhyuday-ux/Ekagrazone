@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { StudySession } from '../types';
+import { StudySession, getLocalDateString } from '../types';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface HeatmapCalendarProps {
@@ -51,13 +51,6 @@ export const HeatmapCalendar: React.FC<HeatmapCalendarProps> = ({
     if (hours < 3) return 'bg-orange-700/60 text-orange-100 border-orange-700/50';
     if (hours < 6) return 'bg-orange-600 text-white border-orange-500/50 shadow-[0_0_10px_rgba(234,88,12,0.2)]';
     return 'bg-orange-500 text-white border-orange-400 font-bold shadow-[0_0_15px_rgba(249,115,22,0.3)]';
-  };
-
-  const getLocalDateString = (d: Date) => {
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
   };
 
   const todayStr = getLocalDateString(today);

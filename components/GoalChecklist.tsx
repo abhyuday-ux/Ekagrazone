@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { CheckCircle2, Circle, Target, Plus, Trash2, Clock, PlayCircle } from 'lucide-react';
-import { Task, TaskStatus } from '../types';
+import { Task, TaskStatus, getLocalDateString } from '../types';
 import { dbService } from '../services/db';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -28,7 +28,7 @@ export const GoalChecklist: React.FC<GoalChecklistProps> = ({
   const currentHours = dailyTotalMs / (1000 * 60 * 60);
   const progressPercent = Math.min((currentHours / targetHours) * 100, 100);
   const isTimeGoalMet = currentHours >= targetHours;
-  const isToday = selectedDate === new Date().toISOString().split('T')[0];
+  const isToday = selectedDate === getLocalDateString();
 
   const handleAddTask = async (e: React.FormEvent) => {
       e.preventDefault();
