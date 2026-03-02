@@ -6,6 +6,8 @@ import { Zap, BarChart2, Timer, Workflow, CheckCircle2, Shield, ArrowRight, Layo
 import { motion, useScroll, useTransform, Variants } from 'framer-motion';
 import { LandingPricing } from './LandingPricing';
 
+import { SEOContent } from './SEOContent';
+
 const SHOWCASE_ITEMS = [
   {
     title: "Command Center",
@@ -368,49 +370,7 @@ export const LoginPage: React.FC = () => {
       </div>
       
       {/* SEO Content Section */}
-      <div className="w-full max-w-7xl mx-auto px-6 py-16 relative z-10">
-        <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-3xl p-8 md:p-12">
-          <h2 className="text-3xl font-bold text-white mb-8 text-center">Master Your Deep Work with EkagraZone</h2>
-          <div className="prose prose-invert max-w-none text-slate-400">
-            <h3 className="text-cyan-400 font-bold text-xl mb-4">Section 1: The Science of Focus</h3>
-            <p className="mb-6 leading-relaxed">
-              In the high-stakes world of competitive exams like JEE Main 2026 preparation and NEET, maintaining intense concentration is not just an advantage; it's a necessity. The human brain is not designed for continuous, unbroken focus over many hours. This is where the science of focus comes into play, specifically through techniques that leverage our natural cognitive rhythms. The Pomodoro Technique is a prime example of this scientific approach to studying.
-            </p>
-            <p className="mb-6 leading-relaxed">
-              The Pomodoro Technique involves breaking work into intervals, traditionally 25 minutes in length, separated by short breaks (usually 5 minutes). These 25/5 intervals are perfect for high-intensity exams because they align with the brain's ultradian rhythms. During the 25-minute sprint, you engage in deep, undistracted work, maximizing cognitive load and retention. The subsequent 5-minute break allows the brain to consolidate information, rest, and reset, preventing the rapid onset of mental fatigue. Using a dedicated NEET focus timer or Pomodoro for students ensures you adhere strictly to these intervals, maximizing study efficiency without burning out.
-            </p>
-
-            <h3 className="text-cyan-400 font-bold text-xl mb-4">Section 2: Gamified Productivity</h3>
-            <p className="mb-6 leading-relaxed">
-              Studying for major exams can often feel like an endless, grueling marathon. To combat this, EkagraZone introduces the concept of Gamified Education. By applying game-design elements and principles in non-game contexts, we transform the mundane task of studying into an engaging and rewarding experience. Gamified productivity is a powerful tool to maintain long-term motivation and prevent student burnout.
-            </p>
-            <p className="mb-6 leading-relaxed">
-              One of the core features of this approach is the implementation of live leaderboards. Seeing your progress compared to peers fosters a healthy sense of competition and community, driving you to push just a little harder. Furthermore, 'Subject Mastery' tracking provides a visual representation of your competence in different areas. Instead of feeling overwhelmed by a massive syllabus, you can see your skills leveling up in real-time, much like a character in a role-playing game. This tangible sense of progression is crucial for sustaining the effort required for rigorous exam preparation.
-            </p>
-
-            <h3 className="text-cyan-400 font-bold text-xl mb-4">Section 3: Digital Minimalism</h3>
-            <p className="mb-6 leading-relaxed">
-              In an era of constant notifications and endless scrolling, digital distractions are the greatest enemy of deep work. Digital minimalism is the philosophy of intentionally curating your digital environment to prioritize focus and intentionality. EkagraZone embraces this philosophy wholeheartedly through its 'Zen Mode'.
-            </p>
-            <p className="mb-6 leading-relaxed">
-              The 'Zen Mode' philosophy is about stripping away the non-essential. When you enter Zen Mode, the interface simplifies, hiding complex menus, notifications, and any visual clutter that might pull your attention away from the task at hand. By reducing screen clutter, EkagraZone creates a digital sanctuary for your mind. This minimalist approach minimizes cognitive load, allowing you to channel 100% of your mental energy into your studies. It's not just about blocking distractions; it's about creating an environment that actively promotes and sustains deep, uninterrupted focus.
-            </p>
-
-            <h3 className="text-cyan-400 font-bold text-xl mb-4">Section 4: Why EkagraZone?</h3>
-            <p className="mb-6 leading-relaxed">
-              EkagraZone is more than just a simple timer; it is a comprehensive Study tracker India designed specifically for the needs of ambitious students. Let's break down the core features that make EkagraZone the ultimate productivity companion:
-            </p>
-            <ul className="list-disc pl-6 mb-6 space-y-2">
-              <li><strong>Live Leaderboard:</strong> Connect with a community of focused learners. The live leaderboard adds a layer of social motivation, turning solitary study sessions into a shared journey towards excellence.</li>
-              <li><strong>Modular Syllabus:</strong> Break down your massive curriculum into manageable, bite-sized modules. Track your progress granularly, ensuring no topic is left behind and providing a clear roadmap to mastery.</li>
-              <li><strong>Overtime Timer:</strong> Sometimes you hit a state of flow and don't want to stop when the timer rings. The Overtime Timer seamlessly tracks those extra minutes of deep work, ensuring every second of your effort is recorded and rewarded.</li>
-            </ul>
-            <p className="leading-relaxed">
-              By combining the science of focus, gamified productivity, and digital minimalism, EkagraZone provides the perfect ecosystem for achieving your highest academic goals.
-            </p>
-          </div>
-        </div>
-      </div>
+      <SEOContent />
 
       {/* Pricing Section */}
       <LandingPricing />

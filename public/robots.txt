@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://ekagrazone.web.app/sitemap.xml
