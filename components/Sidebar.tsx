@@ -54,7 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
            </div>
        </div>
        
-       <div className="flex-1 flex flex-col gap-2 overflow-y-auto px-3">
+       <div className="flex-1 flex flex-col gap-2 overflow-y-auto no-scrollbar px-3">
           {tabs.map((tab) => {
               const Icon = tab.icon;
               
