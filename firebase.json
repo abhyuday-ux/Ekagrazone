@@ -6,10 +6,9 @@
       "**/.*",
       "**/node_modules/**"
     ],
-    "cleanUrls": true,
     "rewrites": [
       {
-        "source": "**",
+        "source": "!**/*.@(xml|txt|html|json)",
         "destination": "/index.html"
       }
     ],
@@ -38,24 +37,6 @@
           {
             "key": "Content-Type",
             "value": "application/xml"
-          }
-        ]
-      },
-      {
-        "source": "/robots.txt",
-        "headers": [
-          {
-            "key": "Content-Type",
-            "value": "text/plain"
-          }
-        ]
-      },
-      {
-        "source": "/ads.txt",
-        "headers": [
-          {
-            "key": "Content-Type",
-            "value": "text/plain"
           }
         ]
       }
