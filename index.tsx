@@ -7,7 +7,6 @@ import { AuthProvider } from './contexts/AuthContext';
 import { SoundProvider } from './contexts/SoundContext';
 import { PerformanceProvider } from './contexts/PerformanceContext';
 import { registerSW } from 'virtual:pwa-register';
-import { BrowserRouter } from 'react-router-dom';
 
 const updateSW = registerSW({
   onNeedRefresh() {
@@ -25,16 +24,14 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <ThemeProvider>
-          <PerformanceProvider>
-            <SoundProvider>
-              <App />
-            </SoundProvider>
-          </PerformanceProvider>
-        </ThemeProvider>
-      </AuthProvider>
-    </BrowserRouter>
+    <AuthProvider>
+      <ThemeProvider>
+        <PerformanceProvider>
+          <SoundProvider>
+            <App />
+          </SoundProvider>
+        </PerformanceProvider>
+      </ThemeProvider>
+    </AuthProvider>
   </React.StrictMode>
 );
