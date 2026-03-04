@@ -1,5 +1,5 @@
 
-import { StudySession, Subject, DEFAULT_SUBJECTS, DailyGoal, Task, Exam, ChatMessage, JournalEntry, DailyNote, CustomSound, UserProfile, Friend, FriendStatus, MockTest, getLocalDateString } from '../src/types';
+import { StudySession, Subject, DEFAULT_SUBJECTS, DailyGoal, Task, Exam, ChatMessage, JournalEntry, DailyNote, CustomSound, UserProfile, Friend, FriendStatus, MockTest, getLocalDateString } from '../types';
 import { db, rtdb } from './firebase';
 import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, writeBatch, onSnapshot, Unsubscribe, query, where, updateDoc, increment, limit, orderBy } from 'firebase/firestore';
 import { ref, update as rtdbUpdate, set as rtdbSet, serverTimestamp, remove as rtdbRemove } from 'firebase/database';
@@ -949,50 +949,6 @@ class LocalDB {
     };
   }
 
-  async exportData(): Promise<string> {
-      const data = await this.createBackup();
-      return JSON.stringify(data, null, 2);
-  }
-
-  async importData(jsonString: string): Promise<boolean> {
-      try {
-          const data = JSON.parse(jsonString);
-          if (!data.sessions) return false;
-
-          // Import Sessions
-          if (Array.isArray(data.sessions)) {
-              for (const s of data.sessions) await this.saveSession(s);
-          }
-          // Import Subjects
-          if (Array.isArray(data.subjects)) {
-              await this.saveSubjects(data.subjects);
-          }
-          // Import Tasks
-          if (Array.isArray(data.tasks)) {
-              for (const t of data.tasks) await this.saveTask(t);
-          }
-          // Import Exams
-          if (Array.isArray(data.exams)) {
-              for (const e of data.exams) await this.saveExam(e);
-          }
-          
-          return true;
-      } catch (e) {
-          console.error("Import failed", e);
-          return false;
-      }
-  }
-
-  async clearTodaySessions(): Promise<void> {
-      const today = getLocalDateString();
-      await this.deleteSessionsByDate(today);
-      await this.deleteTasksByDate(today);
-      await this.deleteGoalsByDate(today);
-  }
-
-  async clearAllData(): Promise<void> {
-      await this.factoryReset();
-  }
 }
 
 export const dbService = new LocalDB();

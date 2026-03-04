@@ -1,24 +1,36 @@
 
 import React, { useEffect, useState } from 'react';
-import { isHexColor, CustomSound, TimerDurations, DEFAULT_DURATIONS, Subject } from '../types';
+import { TimerStatus, TimerMode, isHexColor, CustomSound, TimerDurations, DEFAULT_DURATIONS, Subject } from '../types';
 import { Play, Pause, Square, Timer, Hourglass, CheckCircle2, Coffee, Armchair, Settings2, Save, Music, Volume2, VolumeX, CloudRain, Waves, Trees, BookOpen, Plus, Trash2, Upload, Link as LinkIcon, X } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
-import { useSound } from '../contexts/SoundContext';
+import { dbService } from '../services/db';
+import { useSound, SoundType } from '../contexts/SoundContext';
 import { usePerformance } from '../contexts/PerformanceContext';
-import { useTimer, useTimerTime } from '../contexts/TimerContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import { XP_PER_MINUTE } from '../utils/xp';
+
 import { useAuth } from '../contexts/AuthContext';
 import { HeaderAd } from './HeaderAd';
 import { ZenSubjectPanel } from './ZenSubjectPanel';
-import { XP_PER_MINUTE } from '../utils/xp';
 
 interface TimerDisplayProps {
+  elapsedMs: number;
+  status: TimerStatus;
+  mode: TimerMode;
   subjectColor: string;
   todaySubjectTotal: number;
+  durations: TimerDurations;
   onUpdateDurations: (newDurations: TimerDurations) => void;
+  onStart: () => void;
+  onPause: () => void;
+  onStop: () => void;
+  onSetMode: (mode: TimerMode) => void;
   sidePanel?: React.ReactNode;
   isWallpaperMode?: boolean; 
   onUpgrade?: () => void;
+  isOvertime?: boolean;
   subjects?: Subject[];
+  currentSubjectId?: string;
   onSelectSubject?: (id: string) => void;
 }
 
@@ -33,29 +45,25 @@ const FALLBACK_QUOTES = [
 ];
 
 export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
+  elapsedMs,
+  status,
+  mode,
   subjectColor,
   todaySubjectTotal,
+  durations,
   onUpdateDurations,
+  onStart,
+  onPause,
+  onStop,
+  onSetMode,
   sidePanel,
   isWallpaperMode = false,
   onUpgrade,
+  isOvertime = false,
   subjects = [],
+  currentSubjectId = '',
   onSelectSubject = () => {}
 }) => {
-  const { 
-    status, 
-    mode, 
-    isOvertime, 
-    currentSubjectId, 
-    start: onStart, 
-    pause: onPause, 
-    stop: onStop, 
-    setMode: onSetMode,
-    timerDurations: durations
-  } = useTimer();
-  const { elapsedMs } = useTimerTime();
-  
-
   const { hasPremium } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [showSoundMenu, setShowSoundMenu] = useState(false);
@@ -219,9 +227,9 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
       
       // Legacy Class fallback
       return { 
-          bg: typeof subjectColor === 'string' ? subjectColor : '#64748b', 
-          text: typeof subjectColor === 'string' ? subjectColor.replace('bg-', 'text-') : 'text-slate-500', 
-          stroke: typeof subjectColor === 'string' ? subjectColor.replace('bg-', 'text-') : 'text-slate-500', 
+          bg: subjectColor, 
+          text: subjectColor.replace('bg-', 'text-'), 
+          stroke: subjectColor.replace('bg-', 'text-'), 
           isHex: false 
       };
   };
@@ -444,14 +452,14 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                         disabled={status !== 'idle' || isEditing}
                         className={`flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-[10px] md:text-xs font-bold transition-all duration-300 ${mode === 'stopwatch' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
                     >
-                        <Timer size={14} className={mode === 'stopwatch' ? `text-${typeof accent === 'string' ? accent : 'cyan'}-400` : ''} /> Stopwatch
+                        <Timer size={14} className={mode === 'stopwatch' ? `text-${accent}-400` : ''} /> Stopwatch
                     </button>
                     <button 
                         onClick={() => onSetMode('pomodoro')} 
                         disabled={status !== 'idle' || isEditing}
                         className={`flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-[10px] md:text-xs font-bold transition-all duration-300 ${isTimerMode ? 'bg-white/10 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
                     >
-                        <Hourglass size={14} className={isTimerMode ? `text-${typeof accent === 'string' ? accent : 'cyan'}-400` : ''} /> Timer
+                        <Hourglass size={14} className={isTimerMode ? `text-${accent}-400` : ''} /> Timer
                     </button>
                 </div>
 
@@ -462,7 +470,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                             <button 
                                 onClick={() => onSetMode('pomodoro')}
                                 disabled={status !== 'idle' || isEditing}
-                                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-semibold border transition-all ${mode === 'pomodoro' ? `bg-${typeof accent === 'string' ? accent : 'cyan'}-500/20 border-${typeof accent === 'string' ? accent : 'cyan'}-500/30 text-${typeof accent === 'string' ? accent : 'cyan'}-300` : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+                                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-semibold border transition-all ${mode === 'pomodoro' ? `bg-${accent}-500/20 border-${accent}-500/30 text-${accent}-300` : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                             >
                                 Focus ({durations.pomodoro}m)
                             </button>
@@ -487,7 +495,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                              <button 
                                 onClick={() => { setIsEditing(!isEditing); setShowSoundMenu(false); }}
                                 disabled={status !== 'idle'}
-                                className={`text-[10px] flex items-center gap-1 hover:text-white transition-colors ${isEditing ? `text-${typeof accent === 'string' ? accent : 'cyan'}-400` : 'text-slate-600'}`}
+                                className={`text-[10px] flex items-center gap-1 hover:text-white transition-colors ${isEditing ? `text-${accent}-400` : 'text-slate-600'}`}
                              >
                                  <Settings2 size={12} /> {isEditing ? 'Cancel Editing' : 'Customize Sessions'}
                              </button>
@@ -504,7 +512,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                                 <span className="text-sm text-slate-300">Focus</span>
                                 <input 
                                     type="number" 
-                                    className={`w-16 bg-slate-900 border border-slate-700 rounded-lg p-1 text-center text-sm text-white focus:border-${typeof accent === 'string' ? accent : 'cyan'}-500 outline-none`}
+                                    className={`w-16 bg-slate-900 border border-slate-700 rounded-lg p-1 text-center text-sm text-white focus:border-${accent}-500 outline-none`}
                                     value={editDurations.pomodoro}
                                     onChange={(e) => setEditDurations({...editDurations, pomodoro: Math.max(1, parseInt(e.target.value) || 0)})}
                                 />
@@ -513,7 +521,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                                 <span className="text-sm text-slate-300">Short Break</span>
                                 <input 
                                     type="number" 
-                                    className={`w-16 bg-slate-900 border border-slate-700 rounded-lg p-1 text-center text-sm text-white focus:border-${typeof accent === 'string' ? accent : 'cyan'}-500 outline-none`}
+                                    className={`w-16 bg-slate-900 border border-slate-700 rounded-lg p-1 text-center text-sm text-white focus:border-${accent}-500 outline-none`}
                                     value={editDurations['short-break']}
                                     onChange={(e) => setEditDurations({...editDurations, 'short-break': Math.max(1, parseInt(e.target.value) || 0)})}
                                 />
@@ -522,7 +530,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                                 <span className="text-sm text-slate-300">Long Break</span>
                                 <input 
                                     type="number" 
-                                    className={`w-16 bg-slate-900 border border-slate-700 rounded-lg p-1 text-center text-sm text-white focus:border-${typeof accent === 'string' ? accent : 'cyan'}-500 outline-none`}
+                                    className={`w-16 bg-slate-900 border border-slate-700 rounded-lg p-1 text-center text-sm text-white focus:border-${accent}-500 outline-none`}
                                     value={editDurations['long-break']}
                                     onChange={(e) => setEditDurations({...editDurations, 'long-break': Math.max(1, parseInt(e.target.value) || 0)})}
                                 />
@@ -530,7 +538,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                         </div>
                         <div className="flex gap-2">
                              <button onClick={handleResetDurations} className="flex-1 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 text-xs font-semibold">Reset</button>
-                             <button onClick={handleSaveDurations} className={`flex-1 py-2 bg-${typeof accent === 'string' ? accent : 'cyan'}-600 hover:bg-${typeof accent === 'string' ? accent : 'cyan'}-500 rounded-lg text-white text-xs font-semibold flex items-center justify-center gap-1`}>
+                             <button onClick={handleSaveDurations} className={`flex-1 py-2 bg-${accent}-600 hover:bg-${accent}-500 rounded-lg text-white text-xs font-semibold flex items-center justify-center gap-1`}>
                                  <Save size={12} /> Save
                              </button>
                         </div>

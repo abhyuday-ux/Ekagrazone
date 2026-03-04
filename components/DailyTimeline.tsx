@@ -8,7 +8,7 @@ interface DailyTimelineProps {
   className?: string;
 }
 
-export const DailyTimeline: React.FC<DailyTimelineProps> = React.memo(({ 
+export const DailyTimeline: React.FC<DailyTimelineProps> = ({ 
     sessions, 
     subjects, 
     className = "h-[600px]",
@@ -111,7 +111,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = React.memo(({
                       {/* Inner Content (visible if tall enough) */}
                       {safeHeight > 2 && (
                           <div className="px-2 py-0.5 text-[10px] font-bold text-white truncate drop-shadow-md">
-                              {typeof subject?.name === 'string' ? subject.name : 'Unknown'}
+                              {subject?.name}
                           </div>
                       )}
                       
@@ -119,7 +119,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = React.memo(({
                       <div className="opacity-0 hover:opacity-100 absolute left-full ml-2 top-0 bg-slate-900 border border-white/10 text-xs p-2 rounded-lg z-50 whitespace-nowrap pointer-events-none shadow-xl">
                         <div className="font-bold text-slate-200 flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${!isHex ? subjectColor : ''}`} style={isHex ? {backgroundColor: subjectColor} : {}} />
-                            {typeof subject?.name === 'string' ? subject.name : 'Unknown'}
+                            {subject?.name}
                         </div>
                         <div className="text-slate-400 mt-1 font-mono">
                              {startDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 
@@ -150,4 +150,4 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = React.memo(({
         </div>
     </div>
   );
-});
+};

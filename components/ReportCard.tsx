@@ -91,8 +91,8 @@ const SubjectPieChart = React.memo(({ data, subjects, isHighQuality }: { data: a
                     return (
                         <div key={index} className="flex items-center justify-between text-[10px]">
                             <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)]" style={{ backgroundColor: typeof item.color === 'string' ? item.color : '#64748b', boxShadow: `0 0 5px ${typeof item.color === 'string' ? item.color : '#64748b'}40` }}></div>
-                                <span className="text-zinc-300 font-medium truncate max-w-[100px]">{typeof item.name === 'string' ? item.name : 'Unknown'}</span>
+                                <div className="w-2 h-2 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)]" style={{ backgroundColor: item.color, boxShadow: `0 0 5px ${item.color}40` }}></div>
+                                <span className="text-zinc-300 font-medium truncate max-w-[100px]">{item.name}</span>
                             </div>
                             <span className="font-mono text-zinc-500 font-bold">{percentage}%</span>
                         </div>
@@ -336,11 +336,11 @@ export const ReportCard = React.memo<ReportCardProps>(({
                         
                         {/* LEFT SECTION: Notes & Reflections */}
                         <div className="lg:w-1/3 p-8 border-r border-white/10 flex flex-col bg-zinc-950 relative">
-                            <div className={`absolute top-0 left-0 w-1 h-full bg-${typeof accent === 'string' ? accent : 'cyan'}-500/50`}></div>
+                            <div className={`absolute top-0 left-0 w-1 h-full bg-${accent}-500/50`}></div>
                             
                             <div className="mb-8">
-                                <h2 className={`text-3xl font-black tracking-tighter text-${typeof accent === 'string' ? accent : 'cyan'}-500 mb-1 uppercase leading-none`}>
-                                    {typeof challengeTitle === 'string' ? challengeTitle : "MAINS GRIND DAY"} <span className="text-white">[{challengeDayNumber}]</span>
+                                <h2 className={`text-3xl font-black tracking-tighter text-${accent}-500 mb-1 uppercase leading-none`}>
+                                    {challengeTitle} <span className="text-white">[{challengeDayNumber}]</span>
                                 </h2>
                                 <div className="text-xs font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-2 mt-2">
                                     <Calendar size={12} /> {formattedDate}
@@ -357,12 +357,12 @@ export const ReportCard = React.memo<ReportCardProps>(({
                                         if (subTasks.length === 0) return null;
                                         return (
                                             <div key={sub.id}>
-                                                <div className="text-sm font-bold mb-1" style={{ color: typeof sub.color === 'string' ? sub.color : '#64748b' }}>{typeof sub.name === 'string' ? sub.name : 'Unknown'}</div>
+                                                <div className="text-sm font-bold mb-1" style={{ color: sub.color }}>{sub.name}</div>
                                                 <ul className="space-y-1">
                                                     {subTasks.map(t => (
                                                         <li key={t.id} className="text-xs text-zinc-400 flex items-start gap-2">
                                                             <span className="mt-1 text-zinc-600">&rarr;</span>
-                                                            <span>{typeof t.title === 'string' ? t.title : 'Task'}</span>
+                                                            <span>{t.title}</span>
                                                         </li>
                                                     ))}
                                                 </ul>
@@ -384,7 +384,7 @@ export const ReportCard = React.memo<ReportCardProps>(({
                                         <button 
                                             onClick={handleSave}
                                             disabled={isSaving}
-                                            className={`text-[10px] px-2 py-1 rounded bg-${typeof accent === 'string' ? accent : 'cyan'}-500/10 text-${typeof accent === 'string' ? accent : 'cyan'}-400 hover:bg-${typeof accent === 'string' ? accent : 'cyan'}-500/20 transition-colors uppercase font-bold`}
+                                            className={`text-[10px] px-2 py-1 rounded bg-${accent}-500/10 text-${accent}-400 hover:bg-${accent}-500/20 transition-colors uppercase font-bold`}
                                         >
                                             {isSaving ? 'Saving...' : 'Save Note'}
                                         </button>
@@ -403,10 +403,10 @@ export const ReportCard = React.memo<ReportCardProps>(({
                         {/* RIGHT SECTION: Precision Analytics */}
                         <div className="lg:w-2/3 p-8 bg-black relative overflow-hidden flex flex-col">
                             {isHighQuality && (
-                                <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-${typeof accent === 'string' ? accent : 'cyan'}-500/5 rounded-full blur-[100px] pointer-events-none`}></div>
+                                <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-${accent}-500/5 rounded-full blur-[100px] pointer-events-none`}></div>
                             )}
 
-                            <div className={`relative z-10 flex-1 border border-${typeof accent === 'string' ? accent : 'cyan'}-500/30 rounded-3xl p-6 bg-zinc-950/50 backdrop-blur-sm shadow-[0_0_30px_-10px_rgba(var(--color-${typeof accent === 'string' ? accent : 'cyan'}-500),0.15)] flex flex-col gap-6`}>
+                            <div className={`relative z-10 flex-1 border border-${accent}-500/30 rounded-3xl p-6 bg-zinc-950/50 backdrop-blur-sm shadow-[0_0_30px_-10px_rgba(var(--color-${accent}-500),0.15)] flex flex-col gap-6`}>
                                 
                                 <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-b border-white/5 pb-6">
                                     <div className="text-center md:text-left">
@@ -416,13 +416,13 @@ export const ReportCard = React.memo<ReportCardProps>(({
                                             <span className="text-2xl text-zinc-600 font-light">:</span>
                                             {String(totalMinutes).padStart(2, '0')}
                                             <span className="text-2xl text-zinc-600 font-light">:</span>
-                                            <span className={`text-3xl text-${typeof accent === 'string' ? accent : 'cyan'}-500`}>{String(totalSeconds).padStart(2, '0')}</span>
+                                            <span className={`text-3xl text-${accent}-500`}>{String(totalSeconds).padStart(2, '0')}</span>
                                         </div>
                                     </div>
 
                                     <div className="flex gap-4">
                                         <div className="text-center px-4 py-2 bg-white/5 rounded-xl border border-white/5">
-                                            <div className={`text-xl font-bold text-${typeof accent === 'string' ? accent : 'cyan'}-400`}>{taskCompletionRate}%</div>
+                                            <div className={`text-xl font-bold text-${accent}-400`}>{taskCompletionRate}%</div>
                                             <div className="text-[9px] text-zinc-500 uppercase font-bold">Efficiency</div>
                                         </div>
                                         <div className="text-center px-4 py-2 bg-white/5 rounded-xl border border-white/5">
@@ -430,7 +430,7 @@ export const ReportCard = React.memo<ReportCardProps>(({
                                             <div className="text-[9px] text-zinc-500 uppercase font-bold">Tasks</div>
                                         </div>
                                         <div className="text-center px-4 py-2 bg-white/5 rounded-xl border border-white/5">
-                                            <div className="text-xl font-bold text-blue-400">{topSubject && typeof topSubject.name === 'string' ? topSubject.name.substring(0, 3).toUpperCase() : '-'}</div>
+                                            <div className="text-xl font-bold text-blue-400">{topSubject ? topSubject.name.substring(0, 3).toUpperCase() : '-'}</div>
                                             <div className="text-[9px] text-zinc-500 uppercase font-bold">Top Sub</div>
                                         </div>
                                     </div>
@@ -450,7 +450,7 @@ export const ReportCard = React.memo<ReportCardProps>(({
 
                                 <div className="border-t border-white/5 pt-4 flex items-center justify-between text-[10px] text-zinc-500 font-mono">
                                     <div>
-                                        STATUS: <span className={`text-${typeof accent === 'string' ? accent : 'cyan'}-400`}>ONLINE</span>
+                                        STATUS: <span className={`text-${accent}-400`}>ONLINE</span>
                                     </div>
                                     <div>
                                         DEEP WORK RATIO: <span className="text-white">{(totalHours > 4 ? 'HIGH' : totalHours > 2 ? 'MED' : 'LOW')}</span>

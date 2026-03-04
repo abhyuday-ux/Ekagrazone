@@ -696,6 +696,7 @@ const App: React.FC = () => {
       
       // Premium Check for Non-Guest Users
       // VIPs (isAuthorized) bypass this check
+      const { hasPremium } = useAuth();
       if (!currentUser.isAnonymous && !hasPremium && !isAuthorized) {
           return <PricingPage />;
       }

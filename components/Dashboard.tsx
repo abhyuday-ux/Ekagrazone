@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { StudySession, Subject, isHexColor, getLocalDateString, UserProfile } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -25,6 +24,7 @@ interface DashboardProps {
   subjects: Subject[];
   targetHours: number;
   userName?: string;
+  onNavigate: (tab: any) => void;
   tasks: any[];
 }
 
@@ -33,15 +33,11 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
   subjects, 
   targetHours, 
   userName = "Aspirant",
+  onNavigate,
   tasks
 }) => {
-  const navigate = useNavigate();
   const { accent } = useTheme();
   const [timeOfDay, setTimeOfDay] = useState('');
-  const safeUserName = typeof userName === 'string' ? userName : 'Aspirant';
-  // User Profile State for XP/Level
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const safeChallengeTitle = typeof userProfile?.challengeTitle === 'string' ? userProfile.challengeTitle : "MAINS GRIND DAY";
   const [isDayStarted, setIsDayStarted] = useState(false);
   const [dayStartTime, setDayStartTime] = useState<number | null>(null);
   const [isDayCompleted, setIsDayCompleted] = useState(false);
@@ -49,6 +45,9 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
   const [showReportAlbum, setShowReportAlbum] = useState(false);
   const [reportConfetti, setReportConfetti] = useState(false);
   const [isConfirmingCompleteDay, setIsConfirmingCompleteDay] = useState(false);
+  
+  // User Profile State for XP/Level
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   // Use local date string to fix timezone bugs
   const todayStr = getLocalDateString();
@@ -276,15 +275,15 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                     <div>
                         <div className="flex items-center gap-2 mb-1.5 opacity-80 cursor-pointer hover:opacity-100 transition-opacity" onClick={handleUpdateChallenge} title="Click to edit challenge">
                             <span className="flex h-2 w-2 relative">
-                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-${typeof accent === 'string' ? accent : 'cyan'}-400 opacity-75`}></span>
-                                <span className={`relative inline-flex rounded-full h-2 w-2 bg-${typeof accent === 'string' ? accent : 'cyan'}-500`}></span>
+                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-${accent}-400 opacity-75`}></span>
+                                <span className={`relative inline-flex rounded-full h-2 w-2 bg-${accent}-500`}></span>
                             </span>
                             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                                {safeChallengeTitle} [{challengeDayNumber}]
+                                {userProfile?.challengeTitle || "MAINS GRIND DAY"} [{challengeDayNumber}]
                             </span>
                         </div>
                         <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-tight">
-                            Good {timeOfDay}, <span className={`text-transparent bg-clip-text bg-gradient-to-r from-${typeof accent === 'string' ? accent : 'cyan'}-400 to-purple-400`}>{safeUserName}</span>
+                            Good {timeOfDay}, <span className={`text-transparent bg-clip-text bg-gradient-to-r from-${accent}-400 to-purple-400`}>{userName}</span>
                         </h1>
                     </div>
                     
@@ -301,7 +300,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                         <motion.button 
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => navigate('/plan')}
+                            onClick={() => onNavigate('calendar')}
                             className="flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-xs font-bold text-slate-300 transition-all shadow-lg backdrop-blur-sm"
                         >
                             <Calendar size={14} /> 
@@ -319,7 +318,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                     variants={itemVariants}
                     className="col-span-1 sm:col-span-2 bg-gradient-to-br from-slate-900 to-slate-950 border border-white/10 rounded-[2rem] p-6 lg:p-8 relative overflow-hidden group shadow-2xl flex flex-col justify-between min-h-[240px]"
                 >
-                    <div className={`absolute top-0 right-0 p-40 bg-${typeof accent === 'string' ? accent : 'cyan'}-500/10 rounded-full blur-[100px] -mr-20 -mt-20 transition-opacity opacity-50 group-hover:opacity-80 duration-1000`} />
+                    <div className={`absolute top-0 right-0 p-40 bg-${accent}-500/10 rounded-full blur-[100px] -mr-20 -mt-20 transition-opacity opacity-50 group-hover:opacity-80 duration-1000`} />
                     <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10"></div>
                     
                     <div className="relative z-10 flex justify-between items-start">
@@ -353,7 +352,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                                         initial={{ width: 0 }}
                                         animate={{ width: `${levelData.progressPercent}%` }}
                                         transition={{ duration: 1.5, ease: "easeOut" }}
-                                        className={`h-full bg-gradient-to-r from-${typeof accent === 'string' ? accent : 'cyan'}-600 to-${typeof accent === 'string' ? accent : 'cyan'}-400 relative overflow-hidden`}
+                                        className={`h-full bg-gradient-to-r from-${accent}-600 to-${accent}-400 relative overflow-hidden`}
                                     >
                                         <div className="absolute inset-0 bg-white/20 animate-[pulse_2s_infinite]" />
                                         {/* Sparkles */}
@@ -382,13 +381,13 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                                 <motion.button 
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
-                                    onClick={() => !isDayCompleted && navigate('/focus')}
+                                    onClick={() => !isDayCompleted && onNavigate('timer')}
                                     disabled={isDayCompleted}
                                     className={`
                                         flex-1 py-3.5 px-6 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all
                                         ${isDayCompleted 
                                             ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/5' 
-                                            : `bg-gradient-to-r from-${typeof accent === 'string' ? accent : 'cyan'}-600 to-${typeof accent === 'string' ? accent : 'cyan'}-500 hover:from-${typeof accent === 'string' ? accent : 'cyan'}-500 hover:to-${typeof accent === 'string' ? accent : 'cyan'}-400 text-white shadow-lg shadow-${typeof accent === 'string' ? accent : 'cyan'}-500/25 border border-${typeof accent === 'string' ? accent : 'cyan'}-400/20`}
+                                            : `bg-gradient-to-r from-${accent}-600 to-${accent}-500 hover:from-${accent}-500 hover:to-${accent}-400 text-white shadow-lg shadow-${accent}-500/25 border border-${accent}-400/20`}
                                     `}
                                 >
                                     <Zap size={18} fill="currentColor" /> {isDayCompleted ? 'Day Complete' : 'Earn XP'}
@@ -473,7 +472,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                 >
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-2">
-                            <Activity size={16} className={`text-${typeof accent === 'string' ? accent : 'cyan'}-400`} />
+                            <Activity size={16} className={`text-${accent}-400`} />
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Weekly Trend</span>
                         </div>
                     </div>
@@ -485,7 +484,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                                         initial={{ height: 0 }}
                                         animate={{ height: `${(d.hours / (maxWeeklyHours || 1)) * 100}%` }}
                                         transition={{ duration: 1, ease: "easeOut", delay: i * 0.05 }}
-                                        className={`w-full rounded-t-lg transition-all duration-300 relative group-hover:opacity-90 ${d.isToday ? `bg-${typeof accent === 'string' ? accent : 'cyan'}-500 shadow-[0_0_15px_rgba(var(--color-${typeof accent === 'string' ? accent : 'cyan'}-500),0.3)]` : 'bg-slate-700'}`}
+                                        className={`w-full rounded-t-lg transition-all duration-300 relative group-hover:opacity-90 ${d.isToday ? `bg-${accent}-500 shadow-[0_0_15px_rgba(var(--color-${accent}-500),0.3)]` : 'bg-slate-700'}`}
                                         style={{ minHeight: '4px' }}
                                     />
                                 </div>
@@ -551,7 +550,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                                                 style={isHex ? { backgroundColor: sub?.color, color: sub?.color } : {}} 
                                             />
                                             <div className="flex flex-col min-w-0">
-                                                <span className="text-[10px] font-bold text-slate-300 truncate">{typeof sub?.name === 'string' ? sub.name : 'Unknown'}</span>
+                                                <span className="text-[10px] font-bold text-slate-300 truncate">{sub?.name}</span>
                                                 <span className="text-[9px] text-slate-500">
                                                     {new Date(s.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                                 </span>

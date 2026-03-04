@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ActiveTimerState, TimerStatus, TimerMode, getLocalDateString } from '../src/types';
+import { ActiveTimerState, TimerStatus, TimerMode, getLocalDateString } from '../types';
 import { saveActiveState, loadActiveState, clearActiveState, calculateElapsed } from '../services/timerState';
 import { dbService } from '../services/db';
 

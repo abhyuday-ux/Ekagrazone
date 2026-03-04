@@ -20,7 +20,7 @@ const PRESET_THEMES = [
   { name: 'Lit Yellow', color: '#eab308' },
 ];
 
-export const SubjectManager: React.FC<SubjectManagerProps> = React.memo(({ subjects: initialSubjects, onUpdate, onClose }) => {
+export const SubjectManager: React.FC<SubjectManagerProps> = ({ subjects: initialSubjects, onUpdate, onClose }) => {
   const [subjects, setSubjects] = useState<Subject[]>(initialSubjects);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -204,7 +204,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = React.memo(({ subje
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className={`w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white placeholder:text-slate-600 focus:outline-none focus:border-${typeof accent === 'string' ? accent : 'cyan'}-500 focus:ring-1 focus:ring-${typeof accent === 'string' ? accent : 'cyan'}-500 transition-all`}
+                  className={`w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white placeholder:text-slate-600 focus:outline-none focus:border-${accent}-500 focus:ring-1 focus:ring-${accent}-500 transition-all`}
                   placeholder="e.g. Quantum Physics"
                   autoFocus
                 />
@@ -256,7 +256,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = React.memo(({ subje
                 </button>
                 <button 
                     onClick={handleSubmit} 
-                    className={`px-6 py-2.5 bg-${typeof accent === 'string' ? accent : 'cyan'}-600 hover:bg-${typeof accent === 'string' ? accent : 'cyan'}-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-${typeof accent === 'string' ? accent : 'cyan'}-500/20 transition-all active:scale-95`}
+                    className={`px-6 py-2.5 bg-${accent}-600 hover:bg-${accent}-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-${accent}-500/20 transition-all active:scale-95`}
                 >
                     <Check size={16} /> {isCreating ? 'Add Subject' : 'Save Changes'}
                 </button>
@@ -267,7 +267,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = React.memo(({ subje
                 onClick={handleStartCreate}
                 className="w-full py-4 border border-dashed border-white/10 rounded-2xl text-slate-400 hover:text-white hover:border-white/20 hover:bg-white/5 transition-all flex items-center justify-center gap-2 group"
               >
-                <div className={`p-2 bg-${typeof accent === 'string' ? accent : 'cyan'}-500/10 rounded-full text-${typeof accent === 'string' ? accent : 'cyan'}-400 group-hover:bg-${typeof accent === 'string' ? accent : 'cyan'}-500/20 transition-colors`}>
+                <div className={`p-2 bg-${accent}-500/10 rounded-full text-${accent}-400 group-hover:bg-${accent}-500/20 transition-colors`}>
                   <Plus size={20} />
                 </div>
                 <span className="font-medium">Add New Subject</span>
@@ -296,13 +296,13 @@ export const SubjectManager: React.FC<SubjectManagerProps> = React.memo(({ subje
                 >
                     <div className="flex items-center gap-4">
                         <div 
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${!isHex && typeof subject.color === 'string' ? subject.color : ''}`} 
-                            style={isHex ? { backgroundColor: typeof subject.color === 'string' ? subject.color : '#3b82f6', color: 'white' } : {}}
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${!isHex ? subject.color : ''}`} 
+                            style={isHex ? { backgroundColor: subject.color, color: 'white' } : {}}
                         >
-                            <span className="text-lg font-bold opacity-80">{typeof subject.name === 'string' ? subject.name[0]?.toUpperCase() : '?'}</span>
+                            <span className="text-lg font-bold opacity-80">{subject.name[0]?.toUpperCase()}</span>
                         </div>
                         <div>
-                            <h3 className="font-bold text-slate-200 group-hover:text-white transition-colors">{typeof subject.name === 'string' ? subject.name : 'Unknown'}</h3>
+                            <h3 className="font-bold text-slate-200 group-hover:text-white transition-colors">{subject.name}</h3>
                             <p className="text-[10px] text-slate-500">
                                 {PRESET_THEMES.find(t => t.color === subject.color)?.name || 'Custom Theme'}
                             </p>
@@ -355,13 +355,13 @@ export const SubjectManager: React.FC<SubjectManagerProps> = React.memo(({ subje
                       >
                           <div className="flex items-center gap-4">
                               <div 
-                                  className={`w-10 h-10 rounded-xl flex items-center justify-center grayscale ${!isHex && typeof subject.color === 'string' ? subject.color : ''}`} 
+                                  className={`w-10 h-10 rounded-xl flex items-center justify-center grayscale ${!isHex ? subject.color : ''}`} 
                                   style={isHex ? { backgroundColor: subject.color, color: 'white' } : {}}
                               >
-                                  <span className="text-lg font-bold opacity-80">{typeof subject.name === 'string' ? subject.name[0]?.toUpperCase() : '?'}</span>
+                                  <span className="text-lg font-bold opacity-80">{subject.name[0]?.toUpperCase()}</span>
                               </div>
                               <div>
-                                  <h3 className="font-bold text-slate-400 group-hover:text-white transition-colors">{typeof subject.name === 'string' ? subject.name : 'Unknown'}</h3>
+                                  <h3 className="font-bold text-slate-400 group-hover:text-white transition-colors">{subject.name}</h3>
                                   <p className="text-[10px] text-slate-500 italic">Archived</p>
                               </div>
                           </div>
@@ -393,4 +393,4 @@ export const SubjectManager: React.FC<SubjectManagerProps> = React.memo(({ subje
       </div>
     </div>
   );
-});
+};

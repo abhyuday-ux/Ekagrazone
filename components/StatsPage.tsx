@@ -260,13 +260,13 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
             <div className="bg-slate-900/50 p-1 rounded-xl border border-white/10 flex gap-1">
                 <button 
                     onClick={() => setViewMode('overview')}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${viewMode === 'overview' ? `bg-${typeof accent === 'string' ? accent : 'cyan'}-600 text-white shadow-lg` : 'text-slate-400 hover:text-white'}`}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${viewMode === 'overview' ? `bg-${accent}-600 text-white shadow-lg` : 'text-slate-400 hover:text-white'}`}
                 >
                     <Activity size={14} /> Insights
                 </button>
                 <button 
                     onClick={() => setViewMode('daily')}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${viewMode === 'daily' ? `bg-${typeof accent === 'string' ? accent : 'cyan'}-600 text-white shadow-lg` : 'text-slate-400 hover:text-white'}`}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${viewMode === 'daily' ? `bg-${accent}-600 text-white shadow-lg` : 'text-slate-400 hover:text-white'}`}
                 >
                     <List size={14} /> Daily Log
                 </button>
@@ -299,12 +299,12 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                 {/* 1. Key Metrics Cards */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-slate-900/40 border border-white/5 p-5 rounded-2xl relative overflow-hidden group">
-                        <div className={`absolute top-0 right-0 p-8 bg-${typeof accent === 'string' ? accent : 'cyan'}-500/10 rounded-full blur-xl -mr-4 -mt-4 transition-opacity group-hover:opacity-100 opacity-50`} />
+                        <div className={`absolute top-0 right-0 p-8 bg-${accent}-500/10 rounded-full blur-xl -mr-4 -mt-4 transition-opacity group-hover:opacity-100 opacity-50`} />
                         <div className="relative z-10">
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Focus</p>
                             <h3 className="text-2xl font-mono font-bold text-white">{totalHours.toFixed(1)}<span className="text-sm text-slate-500 ml-1">h</span></h3>
                         </div>
-                        <Clock className={`absolute bottom-4 right-4 text-${typeof accent === 'string' ? accent : 'cyan'}-500/20`} size={32} />
+                        <Clock className={`absolute bottom-4 right-4 text-${accent}-500/20`} size={32} />
                     </div>
                     
                     <div className="bg-slate-900/40 border border-white/5 p-5 rounded-2xl relative overflow-hidden group">
@@ -340,7 +340,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                     <div className="xl:col-span-3 bg-slate-900/40 border border-white/5 rounded-3xl p-6 flex flex-col overflow-hidden">
                         <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center gap-2">
-                                <div className={`p-2 bg-${typeof accent === 'string' ? accent : 'cyan'}-500/20 rounded-lg text-${typeof accent === 'string' ? accent : 'cyan'}-400`}>
+                                <div className={`p-2 bg-${accent}-500/20 rounded-lg text-${accent}-400`}>
                                     <Calendar size={18} />
                                 </div>
                                 <h3 className="font-bold text-slate-200">Consistency Grid</h3>
@@ -417,7 +417,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                                         initial={{ height: 0 }}
                                         animate={{ height: `${Math.max(5, h.percent)}%` }}
                                         transition={{ duration: 0.6, delay: 0.2 + (i * 0.02) }}
-                                        className={`w-full rounded-t-sm transition-all duration-300 ${h.percent > 0 ? `bg-gradient-to-t from-${typeof accent === 'string' ? accent : 'cyan'}-600/50 to-${typeof accent === 'string' ? accent : 'cyan'}-400` : 'bg-slate-800/30'}`}
+                                        className={`w-full rounded-t-sm transition-all duration-300 ${h.percent > 0 ? `bg-gradient-to-t from-${accent}-600/50 to-${accent}-400` : 'bg-slate-800/30'}`}
                                     />
                                     {/* Hover info */}
                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-20">
@@ -531,7 +531,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                 <div className="flex items-center justify-between mb-4 bg-white/5 backdrop-blur-md border border-white/5 p-3 rounded-xl flex-none">
                    <button onClick={() => changeDate(-1)} className="p-2 hover:bg-white/10 rounded-lg"><ArrowRight size={16} className="rotate-180"/></button>
                    <div className="flex items-center gap-2">
-                       <Calendar size={16} className={`text-${typeof accent === 'string' ? accent : 'cyan'}-400`} />
+                       <Calendar size={16} className={`text-${accent}-400`} />
                        <span className="font-mono font-bold text-white">{selectedDate === getLocalDateString() ? 'Today' : new Date(selectedDate + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'long', day: 'numeric'})}</span>
                    </div>
                    <button onClick={() => changeDate(1)} className="p-2 hover:bg-white/10 rounded-lg"><ArrowRight size={16}/></button>

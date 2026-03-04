@@ -11,7 +11,7 @@ interface SubjectPickerProps {
   variant?: 'horizontal' | 'vertical';
 }
 
-export const SubjectPicker: React.FC<SubjectPickerProps> = React.memo(({ 
+export const SubjectPicker: React.FC<SubjectPickerProps> = ({ 
   subjects, 
   selectedId, 
   onSelect, 
@@ -45,16 +45,16 @@ export const SubjectPicker: React.FC<SubjectPickerProps> = React.memo(({
                 <div 
                     className={`
                         w-8 h-8 rounded-lg flex items-center justify-center transition-all shadow-inner
-                        ${!isHex && typeof subject.color === 'string' ? subject.color : 'bg-white/10'}
+                        ${!isHex ? subject.color : 'bg-white/10'}
                         ${isSelected && !isHex ? '' : 'group-hover:bg-white/20'}
                     `}
-                    style={isHex ? { backgroundColor: typeof subject.color === 'string' ? subject.color : '#3b82f6' } : {}}
+                    style={isHex ? { backgroundColor: subject.color } : {}}
                 >
                     <BookOpen size={16} className="text-white mix-blend-overlay" />
                 </div>
                 <div className="flex-1">
                     <span className={`font-semibold text-sm block ${isSelected ? 'text-white' : 'text-slate-300'}`}>
-                        {typeof subject.name === 'string' ? subject.name : 'Unknown'}
+                        {subject.name}
                     </span>
                 </div>
                 {isSelected && <Check size={16} className="text-emerald-400" />}
@@ -89,15 +89,15 @@ export const SubjectPicker: React.FC<SubjectPickerProps> = React.memo(({
               `}
               style={
                   isHex && isSelected 
-                  ? { backgroundColor: typeof subject.color === 'string' ? subject.color : '#3b82f6', boxShadow: `0 10px 15px -3px ${typeof subject.color === 'string' ? subject.color : '#3b82f6'}4D` } 
+                  ? { backgroundColor: subject.color, boxShadow: `0 10px 15px -3px ${subject.color}4D` } 
                   : {}
               }
             >
               <span 
-                className={`w-2 h-2 rounded-full ${isSelected ? 'bg-white' : ''} ${!isHex && !isSelected && typeof subject.color === 'string' ? subject.color : ''}`} 
-                style={!isSelected && isHex ? { backgroundColor: typeof subject.color === 'string' ? subject.color : '#3b82f6' } : {}}
+                className={`w-2 h-2 rounded-full ${isSelected ? 'bg-white' : ''} ${!isHex && !isSelected ? subject.color : ''}`} 
+                style={!isSelected && isHex ? { backgroundColor: subject.color } : {}}
               />
-              <span className="font-semibold text-sm">{typeof subject.name === 'string' ? subject.name : 'Unknown'}</span>
+              <span className="font-semibold text-sm">{subject.name}</span>
               {isSelected && <Check size={14} className="ml-1" />}
             </button>
           );
@@ -105,4 +105,4 @@ export const SubjectPicker: React.FC<SubjectPickerProps> = React.memo(({
       </div>
     </div>
   );
-});
+};
