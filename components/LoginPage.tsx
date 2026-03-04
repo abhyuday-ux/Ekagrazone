@@ -5,6 +5,9 @@ import { EkagraLogo } from './EkagraLogo';
 import { Zap, BarChart2, Timer, Workflow, CheckCircle2, Shield, ArrowRight, Layout, Calendar, CheckSquare, Sparkles } from 'lucide-react';
 import { motion, useScroll, useTransform, Variants } from 'framer-motion';
 import { LandingPricing } from './LandingPricing';
+import { ContainerScroll } from './ContainerScroll';
+import { Footer } from './Footer';
+import { ScienceSection } from './ScienceSection';
 
 const SHOWCASE_ITEMS = [
   {
@@ -115,6 +118,9 @@ export const LoginPage: React.FC = () => {
               <span className="flex items-center gap-1.5"><Shield size={14} className="text-emerald-400"/> Private by Design</span>
           </div>
       </motion.nav>
+
+      {/* 3D Container Scroll Section */}
+      <ContainerScroll />
 
       {/* Main Hero Content */}
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center relative z-10 py-12 lg:py-20">
@@ -441,20 +447,32 @@ export const LoginPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Science & Methodology Section */}
+      <ScienceSection />
+
       {/* Pricing Section */}
       <LandingPricing />
 
-      {/* Legal Compliance Footer */}
-      <div className="w-full text-center py-8 relative z-10 border-t border-white/5 bg-[#050511]">
-          <div className="flex flex-col items-center gap-4">
-              <div className="flex items-center gap-6 text-xs text-slate-500 font-medium">
-                  <button onClick={() => setShowPrivacy(true)} className="hover:text-cyan-400 transition-colors">Privacy Policy</button>
-                  <span className="text-slate-700">•</span>
-                  <button onClick={() => setShowTerms(true)} className="hover:text-cyan-400 transition-colors">Terms of Service</button>
+      {/* Trust Signal: Privacy by Design */}
+      <div className="w-full max-w-7xl mx-auto px-6 pb-24 relative z-10">
+          <div className="flex flex-col items-center text-center space-y-6 max-w-3xl mx-auto bg-slate-900/40 border border-emerald-500/20 rounded-3xl p-8 md:p-12 backdrop-blur-sm">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-widest">
+                  <Shield size={12} /> Privacy by Design
               </div>
-              <p className="text-[10px] text-slate-700 font-mono mt-2">© 2024 EKAGRAZONE. DESIGNED & BUILT BY ABHYUDAY.</p>
+              <h3 className="text-2xl md:text-3xl font-bold text-white">Your Focus, Protected.</h3>
+              <p className="text-slate-400 leading-relaxed text-lg">
+                  We believe your study habits are personal. Your data is encrypted and stored securely via Firebase. 
+                  We never sell your study habits, session data, or personal information to third parties. 
+                  EkagraZone is built to be a safe haven for your mind.
+              </p>
           </div>
       </div>
+
+      {/* Footer */}
+      <Footer 
+          onOpenPrivacy={() => setShowPrivacy(true)} 
+          onOpenTerms={() => setShowTerms(true)} 
+      />
 
       {/* Privacy Policy Modal */}
       {showPrivacy && (

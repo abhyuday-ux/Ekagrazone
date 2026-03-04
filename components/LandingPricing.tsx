@@ -289,6 +289,27 @@ export const LandingPricing: React.FC = () => {
                         answer="Yes! The basic EkagraZone experience—including the focus timer, basic analytics, and local task management—is always free. We believe everyone should have access to tools that help them focus." 
                     />
                 </div>
+
+                {/* Support Section */}
+                <div className="mt-12 p-8 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 flex flex-col md:flex-row items-center justify-between gap-6 backdrop-blur-sm">
+                    <div className="text-center md:text-left space-y-2">
+                        <h4 className="text-white font-bold text-xl flex items-center justify-center md:justify-start gap-2">
+                            <HelpCircle size={20} className="text-indigo-400" /> Still have questions?
+                        </h4>
+                        <p className="text-slate-400 text-sm max-w-md">
+                            Our support team is ready to help you optimize your workflow. Reach out directly.
+                        </p>
+                        <div className="text-xs font-mono text-indigo-300/70 bg-indigo-900/30 px-3 py-1 rounded-full inline-block">
+                            ekagrazone.help@gmail.com
+                        </div>
+                    </div>
+                    <a 
+                        href="mailto:ekagrazone.help@gmail.com"
+                        className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/20 hover:scale-105 active:scale-95"
+                    >
+                        Contact Support <ArrowRight size={18} />
+                    </a>
+                </div>
             </div>
         </section>
     );
