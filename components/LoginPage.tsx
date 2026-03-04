@@ -404,6 +404,11 @@ export const LoginPage: React.FC = () => {
       <div className="w-full max-w-7xl mx-auto px-6 pb-16 relative z-10">
         <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-3xl p-8 md:p-12">
           <h2 className="text-3xl font-bold text-white mb-8 text-center">Why EkagraZone?</h2>
+          <div className="mb-10 text-slate-300 text-center max-w-4xl mx-auto leading-relaxed">
+            <p>
+              In a world full of distractions, EkagraZone is your sanctuary for deep work. We didn't just build another timer; we crafted an entire operating system for your productivity. By combining scientifically proven focus techniques like the Pomodoro method with gamification, immersive environments, and detailed analytics, EkagraZone transforms the way you work and study. Whether you are a student preparing for crucial exams, a developer writing complex code, or a creative professional seeking the elusive flow state, EkagraZone provides the tools, the environment, and the motivation to help you achieve your goals faster and with less burnout. Choose EkagraZone because your time is your most valuable asset, and we help you invest it wisely.
+            </p>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-slate-400">
             <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
               <h4 className="text-cyan-400 font-bold mb-2">Focus Timer</h4>
@@ -441,6 +446,101 @@ export const LoginPage: React.FC = () => {
         </div>
       </div>
 
+      {/* How it Works Section */}
+      <div className="w-full max-w-7xl mx-auto px-6 pb-16 relative z-10">
+        <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-3xl p-8 md:p-12">
+          <h2 className="text-3xl font-bold text-white mb-12 text-center">How It Works</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+            {/* Connecting Line for Desktop */}
+            <div className="hidden md:block absolute top-12 left-[16.66%] right-[16.66%] h-0.5 bg-gradient-to-r from-cyan-500/20 via-emerald-500/20 to-amber-500/20 z-0"></div>
+            
+            <div className="relative z-10 flex flex-col items-center text-center gap-4">
+              <div className="w-24 h-24 rounded-full bg-slate-900 border-2 border-cyan-500/50 flex items-center justify-center shadow-[0_0_30px_rgba(6,182,212,0.2)]">
+                <span className="text-3xl font-bold text-cyan-400">1</span>
+              </div>
+              <h3 className="text-xl font-bold text-white mt-2">Set Your Intentions</h3>
+              <p className="text-slate-400 text-sm leading-relaxed max-w-xs">
+                Start your day by defining your tasks and setting a daily focus goal. Choose the subjects or projects you need to tackle.
+              </p>
+            </div>
+
+            <div className="relative z-10 flex flex-col items-center text-center gap-4">
+              <div className="w-24 h-24 rounded-full bg-slate-900 border-2 border-emerald-500/50 flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                <span className="text-3xl font-bold text-emerald-400">2</span>
+              </div>
+              <h3 className="text-xl font-bold text-white mt-2">Enter the Zone</h3>
+              <p className="text-slate-400 text-sm leading-relaxed max-w-xs">
+                Launch the focus timer, optionally activate Zen Mode for an immersive background, and dive into deep, distraction-free work.
+              </p>
+            </div>
+
+            <div className="relative z-10 flex flex-col items-center text-center gap-4">
+              <div className="w-24 h-24 rounded-full bg-slate-900 border-2 border-amber-500/50 flex items-center justify-center shadow-[0_0_30px_rgba(245,158,11,0.2)]">
+                <span className="text-3xl font-bold text-amber-400">3</span>
+              </div>
+              <h3 className="text-xl font-bold text-white mt-2">Track & Level Up</h3>
+              <p className="text-slate-400 text-sm leading-relaxed max-w-xs">
+                Review your analytics, earn XP for your focused time, build your daily streaks, and watch your productivity rank climb.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Detailed App Overview Section */}
+      <div className="w-full max-w-7xl mx-auto px-6 pb-16 relative z-10">
+        <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-3xl p-8 md:p-12">
+          <h2 className="text-3xl font-bold text-white mb-12 text-center">Detailed App Overview</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+            
+            <div className="flex flex-col gap-4">
+              <div className="w-full h-48 bg-slate-800/50 rounded-2xl border border-white/5 flex items-center justify-center overflow-hidden relative group">
+                 <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                 <Layout size={48} className="text-cyan-400/50 group-hover:text-cyan-400 transition-colors group-hover:scale-110 transform duration-300" />
+              </div>
+              <h3 className="text-xl font-bold text-cyan-400">Intuitive Dashboard</h3>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                The central hub of EkagraZone provides a comprehensive overview of your daily progress. Track your active study sessions, view your daily goals, and monitor your overall productivity score at a glance. The clean, minimalist interface ensures you stay focused on what matters most.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <div className="w-full h-48 bg-slate-800/50 rounded-2xl border border-white/5 flex items-center justify-center overflow-hidden relative group">
+                 <div className="absolute inset-0 bg-gradient-to-bl from-emerald-500/10 to-transparent opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                 <Timer size={48} className="text-emerald-400/50 group-hover:text-emerald-400 transition-colors group-hover:scale-110 transform duration-300" />
+              </div>
+              <h3 className="text-xl font-bold text-emerald-400">Advanced Focus Timer</h3>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                Our customizable Pomodoro timer goes beyond basic countdowns. Set specific intervals for deep work and breaks, choose from various ambient sounds to enhance concentration, and seamlessly track time spent on different subjects or tasks.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <div className="w-full h-48 bg-slate-800/50 rounded-2xl border border-white/5 flex items-center justify-center overflow-hidden relative group">
+                 <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/10 to-transparent opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                 <BarChart2 size={48} className="text-amber-400/50 group-hover:text-amber-400 transition-colors group-hover:scale-110 transform duration-300" />
+              </div>
+              <h3 className="text-xl font-bold text-amber-400">Comprehensive Analytics</h3>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                Dive deep into your productivity patterns with our advanced analytics engine. Visualize your focus hours over time, identify your most productive days, and analyze subject-specific performance to optimize your study or work schedule.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <div className="w-full h-48 bg-slate-800/50 rounded-2xl border border-white/5 flex items-center justify-center overflow-hidden relative group">
+                 <div className="absolute inset-0 bg-gradient-to-tl from-pink-500/10 to-transparent opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                 <CheckSquare size={48} className="text-pink-400/50 group-hover:text-pink-400 transition-colors group-hover:scale-110 transform duration-300" />
+              </div>
+              <h3 className="text-xl font-bold text-pink-400">Task & Goal Management</h3>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                Break down large projects into manageable tasks. Set daily, weekly, and long-term goals, and track your progress as you check them off. The integrated task manager ensures nothing falls through the cracks during your focus sessions.
+              </p>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
       {/* Pricing Section */}
       <LandingPricing />
 
@@ -451,6 +551,8 @@ export const LoginPage: React.FC = () => {
                   <button onClick={() => setShowPrivacy(true)} className="hover:text-cyan-400 transition-colors">Privacy Policy</button>
                   <span className="text-slate-700">•</span>
                   <button onClick={() => setShowTerms(true)} className="hover:text-cyan-400 transition-colors">Terms of Service</button>
+                  <span className="text-slate-700">•</span>
+                  <a href="mailto:ekagrazone.help@gmail.com" className="hover:text-cyan-400 transition-colors">Help & Support: ekagrazone.help@gmail.com</a>
               </div>
               <p className="text-[10px] text-slate-700 font-mono mt-2">© 2024 EKAGRAZONE. DESIGNED & BUILT BY ABHYUDAY.</p>
           </div>

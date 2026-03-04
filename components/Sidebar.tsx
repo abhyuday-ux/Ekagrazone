@@ -19,7 +19,7 @@ interface SidebarProps {
   onClearAll: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({
+export const Sidebar = React.memo<SidebarProps>(({
   isLogoSpinning,
   triggerLogoSpin,
   onSignOut,
@@ -48,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
            <div className="flex items-center gap-3 cursor-pointer select-none" onClick={triggerLogoSpin}>
               <EkagraLogo 
                   className={`w-10 h-10 text-${accent}-500 shadow-lg shadow-${accent}-500/20 flex-none transition-transform`}
-                  style={{ animation: isLogoSpinning ? 'spin 0.7s ease-in-out' : 'none' }}
+                  style={{ animation: isLogoSpinning ? 'spin 0.7s ease-in-out' : 'none', color: `var(--color-${accent}-500)` }}
               />
               <h1 className="hidden xl:block font-bold text-lg tracking-tight text-white">EKAGRAZONE</h1>
            </div>
@@ -73,12 +73,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           {isActive && (
                               <motion.div 
                                   layoutId="sidebar-active"
-                                  className={`absolute left-0 w-1 h-6 bg-${accent}-500 rounded-r-full shadow-[0_0_12px_rgba(var(--color-${accent}-500),0.6)]`}
+                                  className={`absolute left-0 w-1 h-6 bg-${accent}-500 rounded-r-full`}
+                                  style={{ boxShadow: `0 0 12px rgba(var(--color-${accent}-500), 0.6)` }}
                                   transition={{ type: "spring", stiffness: 300, damping: 30 }}
                               />
                           )}
                           <div className="flex justify-center xl:w-6 flex-none">
-                              <Icon size={20} className={`transition-transform duration-300 ${isActive ? `scale-110 text-${accent}-400` : 'group-hover:scale-110'}`} />
+                              <Icon size={20} className={`transition-transform duration-300 ${isActive ? `scale-110 text-${accent}-400` : 'group-hover:scale-110'}`} style={isActive ? { color: `var(--color-${accent}-400)` } : {}} />
                           </div>
                           <span className="hidden xl:block text-sm font-medium tracking-wide opacity-90">{tab.label}</span>
                       </>
@@ -93,7 +94,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
            {isPlaying && (
                <div className="mb-4 bg-slate-900/50 p-2.5 rounded-xl border border-white/5 flex items-center justify-between shadow-lg">
                    <div className="flex items-center gap-2">
-                       <div className={`p-1.5 rounded-lg bg-${accent}-500/20 text-${accent}-400 animate-pulse`}>
+                       <div className={`p-1.5 rounded-lg bg-${accent}-500/20 text-${accent}-400 animate-pulse`} style={{ backgroundColor: `rgba(var(--color-${accent}-500), 0.2)`, color: `var(--color-${accent}-400)` }}>
                            <Volume2 size={14} />
                        </div>
                        <div className="flex flex-col">
@@ -138,4 +139,4 @@ export const Sidebar: React.FC<SidebarProps> = ({
        </div>
     </nav>
   );
-};
+});

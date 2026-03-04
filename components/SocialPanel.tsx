@@ -27,6 +27,8 @@ const FriendRow: React.FC<{
 }> = ({ profile, rank, isMe, onClick, showStatus = true, subtitle }) => {
     const [status, setStatus] = useState<{ isOnline: boolean; isFocusing: boolean }>({ isOnline: false, isFocusing: false });
     const rankInfo = getRankInfo(profile.level || 1);
+    const safeDisplayName = typeof profile.displayName === 'string' ? profile.displayName : 'Unknown';
+    const firstChar = safeDisplayName[0] || 'U';
 
     useEffect(() => {
         if (!showStatus || profile.uid.startsWith('mock-')) return;
@@ -84,11 +86,11 @@ const FriendRow: React.FC<{
                         ) : null}
                     </div>
 
-                    {profile.photoURL ? (
-                        <img src={profile.photoURL} className={`w-10 h-10 rounded-full object-cover bg-slate-800 relative z-10 border-2 ${status.isFocusing ? 'border-cyan-500/50' : 'border-transparent'}`} alt={profile.displayName} />
+                    {profile.photoURL && profile.photoURL.trim() !== '' ? (
+                        <img src={profile.photoURL} className={`w-10 h-10 rounded-full object-cover bg-slate-800 relative z-10 border-2 ${status.isFocusing ? 'border-cyan-500/50' : 'border-transparent'}`} alt={safeDisplayName} />
                     ) : (
                         <div className={`w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-400 relative z-10 border-2 ${status.isFocusing ? 'border-cyan-500/50' : 'border-transparent'}`}>
-                            {profile.displayName?.[0]}
+                            {firstChar}
                         </div>
                     )}
                 </div>
@@ -96,7 +98,7 @@ const FriendRow: React.FC<{
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                         <h4 className={`font-bold text-sm truncate ${isMe ? 'text-white' : 'text-slate-300'}`}>
-                            {profile.displayName || 'Unknown'}
+                            {safeDisplayName}
                         </h4>
                         {isMe && <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded font-medium border border-indigo-500/20">YOU</span>}
                         {profile.subscriptionType === 'yearly' && (
@@ -293,13 +295,13 @@ export const SocialPanel: React.FC = () => {
                 <div className="flex bg-slate-800/50 p-1 rounded-xl border border-white/5">
                     <button 
                         onClick={() => setActiveTab('global')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'global' ? `bg-${accent}-600 text-white shadow-lg` : 'text-slate-400 hover:text-white'}`}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'global' ? `bg-${typeof accent === 'string' ? accent : 'cyan'}-600 text-white shadow-lg` : 'text-slate-400 hover:text-white'}`}
                     >
                         <Globe size={14} /> Global Arena
                     </button>
                     <button 
                         onClick={() => setActiveTab('friends')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'friends' ? `bg-${accent}-600 text-white shadow-lg` : 'text-slate-400 hover:text-white'}`}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'friends' ? `bg-${typeof accent === 'string' ? accent : 'cyan'}-600 text-white shadow-lg` : 'text-slate-400 hover:text-white'}`}
                     >
                         <Users size={14} /> Friends
                     </button>
@@ -344,14 +346,14 @@ export const SocialPanel: React.FC = () => {
                             </button>
                             
                             <div className="w-full max-w-md bg-slate-800/50 border border-white/10 rounded-3xl p-8 text-center relative overflow-hidden">
-                                <div className={`absolute top-0 inset-x-0 h-1 bg-${accent}-500 opacity-50`} />
+                                <div className={`absolute top-0 inset-x-0 h-1 bg-${typeof accent === 'string' ? accent : 'cyan'}-500 opacity-50`} />
                                 
                                 <div className="w-24 h-24 mx-auto rounded-full bg-slate-700 p-1 border-4 border-slate-600 shadow-xl mb-4 relative">
-                                    {selectedUser.photoURL ? (
-                                        <img src={selectedUser.photoURL} className="w-full h-full rounded-full object-cover" alt={selectedUser.displayName} />
+                                    {typeof selectedUser.photoURL === 'string' && selectedUser.photoURL.trim() !== '' ? (
+                                        <img src={selectedUser.photoURL} className="w-full h-full rounded-full object-cover" alt={typeof selectedUser.displayName === 'string' ? selectedUser.displayName : 'User'} />
                                     ) : (
                                         <div className="w-full h-full rounded-full bg-slate-600 flex items-center justify-center text-2xl font-bold text-slate-300">
-                                            {selectedUser.displayName?.[0]}
+                                            {(typeof selectedUser.displayName === 'string' ? selectedUser.displayName : 'U')[0]}
                                         </div>
                                     )}
                                     {selectedUser.subscriptionType === 'yearly' && (
@@ -362,10 +364,10 @@ export const SocialPanel: React.FC = () => {
                                 </div>
                                 
                                 <h3 className="text-2xl font-bold text-white mb-1 flex items-center justify-center gap-2">
-                                    {selectedUser.displayName}
+                                    {typeof selectedUser.displayName === 'string' ? selectedUser.displayName : 'User'}
                                     {selectedUser.subscriptionType === 'yearly' && <Crown size={16} className="text-amber-400" fill="currentColor" />}
                                 </h3>
-                                <p className="text-slate-400 text-sm font-mono mb-6">@{selectedUser.username || 'user'}</p>
+                                <p className="text-slate-400 text-sm font-mono mb-6">@{typeof selectedUser.username === 'string' ? selectedUser.username : 'user'}</p>
                                 
                                 <div className="grid grid-cols-2 gap-4 text-left">
                                     <div className="bg-slate-900/50 p-4 rounded-xl border border-white/5">
@@ -489,10 +491,10 @@ export const SocialPanel: React.FC = () => {
                                         <div className="flex items-center justify-between bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-xl animate-in fade-in slide-in-from-top-2">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold text-slate-300">
-                                                    {searchResult.displayName?.[0]}
+                                                    {(typeof searchResult.displayName === 'string' ? searchResult.displayName : 'U')[0]}
                                                 </div>
                                                 <div>
-                                                    <div className="font-bold text-white text-sm">{searchResult.displayName}</div>
+                                                    <div className="font-bold text-white text-sm">{typeof searchResult.displayName === 'string' ? searchResult.displayName : 'User'}</div>
                                                     <div className="text-[10px] text-indigo-300">Lvl {searchResult.level || 1}</div>
                                                 </div>
                                             </div>
@@ -521,9 +523,9 @@ export const SocialPanel: React.FC = () => {
                                                 <div key={req.uid} className="flex items-center justify-between bg-slate-800/50 p-3 rounded-xl border border-white/5">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold">
-                                                            {req.profile?.displayName?.[0]}
+                                                            {(typeof req.profile?.displayName === 'string' ? req.profile.displayName : 'U')[0]}
                                                         </div>
-                                                        <span className="text-sm font-bold text-slate-200">{req.profile?.displayName}</span>
+                                                        <span className="text-sm font-bold text-slate-200">{typeof req.profile?.displayName === 'string' ? req.profile.displayName : 'User'}</span>
                                                     </div>
                                                     <button 
                                                         onClick={() => handleAcceptFriend(req.uid)}

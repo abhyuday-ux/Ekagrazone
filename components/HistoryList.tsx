@@ -89,7 +89,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({
                     style={isHex ? { backgroundColor: color, color: color } : {}}
                 />
                 <div>
-                  <h3 className="font-semibold text-slate-200">{subject?.name || 'Unknown'}</h3>
+                  <h3 className="font-semibold text-slate-200">{typeof subject?.name === 'string' ? subject.name : 'Unknown'}</h3>
                   <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
                     <Clock size={12} />
                     <span>{formatTime(session.startTime)} - {formatTime(session.endTime)}</span>

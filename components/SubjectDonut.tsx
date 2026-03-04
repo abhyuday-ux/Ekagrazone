@@ -7,7 +7,7 @@ interface SubjectDonutProps {
   className?: string;
 }
 
-export const SubjectDonut: React.FC<SubjectDonutProps> = ({ sessions, subjects, className = '' }) => {
+export const SubjectDonut: React.FC<SubjectDonutProps> = React.memo(({ sessions, subjects, className = '' }) => {
   const totalMs = sessions.reduce((acc, s) => acc + s.durationMs, 0);
 
   // Group by subject
@@ -21,8 +21,8 @@ export const SubjectDonut: React.FC<SubjectDonutProps> = ({ sessions, subjects, 
       const subject = subjects.find(s => s.id === id);
       return {
         id,
-        name: subject?.name || 'Unknown',
-        color: subject?.color || '#64748b',
+        name: typeof subject?.name === 'string' ? subject.name : 'Unknown',
+        color: typeof subject?.color === 'string' ? subject.color : '#64748b',
         value: ms,
         percentage: totalMs ? (ms / totalMs) * 100 : 0
       };
@@ -55,7 +55,7 @@ export const SubjectDonut: React.FC<SubjectDonutProps> = ({ sessions, subjects, 
             cumulativePercent += segment.percentage;
             
             const isHex = isHexColor(segment.color);
-            const colorClass = !isHex ? segment.color.replace('bg-', 'text-') : '';
+            const colorClass = !isHex && typeof segment.color === 'string' ? segment.color.replace('bg-', 'text-') : '';
 
             return (
               <circle
@@ -97,7 +97,7 @@ export const SubjectDonut: React.FC<SubjectDonutProps> = ({ sessions, subjects, 
                             className={`w-2.5 h-2.5 rounded-full ${!isHex ? segment.color : ''}`}
                             style={isHex ? { backgroundColor: segment.color } : {}}
                           />
-                          <span className="text-slate-300 font-medium truncate max-w-[120px]">{segment.name}</span>
+                          <span className="text-slate-300 font-medium truncate max-w-[120px]">{typeof segment.name === 'string' ? segment.name : 'Unknown'}</span>
                       </div>
                       <span className="text-slate-400 font-mono">{segment.percentage.toFixed(1)}%</span>
                   </div>
@@ -106,4 +106,4 @@ export const SubjectDonut: React.FC<SubjectDonutProps> = ({ sessions, subjects, 
       </div>
     </div>
   );
-};
+});
