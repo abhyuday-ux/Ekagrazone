@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { TimerStatus, TimerMode, isHexColor, CustomSound, TimerDurations, DEFAULT_DURATIONS, Subject } from '../types';
-import { Play, Pause, Square, Timer, Hourglass, CheckCircle2, Coffee, Armchair, Settings2, Save, Music, Volume2, VolumeX, CloudRain, Waves, Trees, BookOpen, Plus, Trash2, Upload, Link as LinkIcon, X } from 'lucide-react';
+import { Play, Pause, Square, Timer, Hourglass, CheckCircle2, Coffee, Armchair, Settings2, Save, Music, Volume2, VolumeX, CloudRain, Waves, Trees, BookOpen, Plus, Trash2, Upload, Link as LinkIcon, X, Sun } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { dbService } from '../services/db';
 import { useSound, SoundType } from '../contexts/SoundContext';
@@ -84,6 +84,64 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
   const { isHighQuality } = usePerformance();
   const { currentSound, isPlaying, volume, allSounds, playSound, setVolume, togglePlay, addCustomSound, removeCustomSound } = useSound();
   
+  // --- WAKE LOCK LOGIC ---
+  const [wakeLock, setWakeLock] = useState<any>(null);
+  const [isWakeLockActive, setIsWakeLockActive] = useState(false);
+
+  const requestWakeLock = async () => {
+    if ('wakeLock' in navigator) {
+      try {
+        const lock = await (navigator as any).wakeLock.request('screen');
+        setWakeLock(lock);
+        setIsWakeLockActive(true);
+        
+        lock.addEventListener('release', () => {
+          setIsWakeLockActive(false);
+          setWakeLock(null);
+        });
+      } catch (err: any) {
+        // Silently fail for NotAllowedError (common in iframes/background tabs)
+        if (err.name !== 'NotAllowedError') {
+          console.error(`Wake Lock Error: ${err.name}, ${err.message}`);
+        }
+      }
+    }
+  };
+
+  const releaseWakeLock = async () => {
+    if (wakeLock) {
+      try {
+        await wakeLock.release();
+        setWakeLock(null);
+        setIsWakeLockActive(false);
+      } catch (err: any) {
+        console.error(`${err.name}, ${err.message}`);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && status === 'running') {
+        requestWakeLock();
+      }
+    };
+
+    if (status === 'running') {
+      requestWakeLock();
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    } else {
+      releaseWakeLock();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    return () => {
+      releaseWakeLock();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [status]);
+  // -----------------------
+  
   // Sync edit state when props change
   useEffect(() => {
       setEditDurations(durations);
@@ -143,6 +201,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
       };
 
       await addCustomSound(newSound);
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Custom sound added.", state: "Happy" } }));
       
       // Reset
       setNewSoundName('');
@@ -264,8 +323,9 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                     isTimerRunning={status === 'running'}
                     className="relative z-50 mr-2"
                 />
-                <div className="text-white/80 text-xs font-bold uppercase tracking-widest mr-2 hidden sm:block">
+                <div className="text-white/80 text-xs font-bold uppercase tracking-widest mr-2 hidden sm:flex items-center gap-2">
                      {mode === 'pomodoro' ? 'Focus' : mode === 'stopwatch' ? 'Timer' : 'Break'}
+                     {isWakeLockActive && <Sun size={12} className="text-amber-400 animate-pulse" />}
                 </div>
                 {status === 'running' ? (
                      <button onClick={onPause} className="p-3 bg-white text-black rounded-full hover:scale-110 transition-transform shadow-lg">
@@ -338,7 +398,8 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
             <div className="relative w-full flex flex-col items-center justify-center order-1 md:order-2 md:justify-self-center flex-1 min-h-0">
                 
                 {/* Visualization Container - fluid max width for mobile */}
-                <div className="relative w-full aspect-square max-w-[260px] sm:max-w-[320px] md:max-w-[50vmin] flex items-center justify-center">
+                <div id="timer-circle" className="relative w-full aspect-square max-w-[260px] sm:max-w-[320px] md:max-w-[50vmin] flex items-center justify-center">
+                    
                     {/* Animated Background Blob */}
                     {isHighQuality && (
                         <>
@@ -423,6 +484,11 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                                         style={theme.isHex ? { backgroundColor: theme.bg, boxShadow: `0 0 5px ${theme.bg}` } : {}}
                                     />
                                     <span>Today: {formatShort(todaySubjectTotal + (status !== 'idle' ? elapsedMs : 0))}</span>
+                                    {isWakeLockActive && (
+                                        <div className="flex items-center gap-1 ml-2 pl-2 border-l border-white/10 text-amber-400/80" title="Screen Wake Lock Active">
+                                            <Sun size={10} className="animate-pulse" />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ) : (
@@ -446,7 +512,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
             <div className="flex flex-col items-center md:items-end gap-6 md:gap-8 order-2 md:order-3 w-full max-w-xs md:justify-self-end flex-none pb-4 md:pb-0">
                 
                 {/* Top Level Mode Switcher */}
-                <div className="flex bg-slate-900/60 backdrop-blur-xl rounded-full p-1 border border-white/10 shadow-2xl transition-transform duration-300 hover:scale-105">
+                <div id="timer-modes" className="flex bg-slate-900/60 backdrop-blur-xl rounded-full p-1 border border-white/10 shadow-2xl transition-transform duration-300 hover:scale-105">
                     <button 
                         onClick={() => onSetMode('stopwatch')}
                         disabled={status !== 'idle' || isEditing}
@@ -690,7 +756,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                     </div>
                 ) : (
                     // MAIN CONTROLS
-                    <div className="flex gap-4 items-center h-20 md:h-24">
+                    <div id="timer-controls" className="flex gap-4 items-center h-20 md:h-24">
                         {status === 'running' ? (
                             <div key="pause-btn" className="animate-enter">
                                 <button 

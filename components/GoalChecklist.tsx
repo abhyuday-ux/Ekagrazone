@@ -49,6 +49,7 @@ export const GoalChecklist: React.FC<GoalChecklistProps> = ({
       await dbService.saveTask(newTask);
       setNewTaskText('');
       onTaskUpdate();
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Task added. Let's crush it!", state: "Focus" } }));
   };
 
   const toggleTask = async (task: Task) => {
@@ -56,11 +57,15 @@ export const GoalChecklist: React.FC<GoalChecklistProps> = ({
       const newStatus: TaskStatus = task.status === 'done' ? 'todo' : 'done';
       await dbService.saveTask({ ...task, status: newStatus, updatedAt: Date.now() });
       onTaskUpdate();
+      if (newStatus === 'done') {
+          window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Task completed! Great job.", state: "Happy" } }));
+      }
   };
 
   const deleteTask = async (id: string) => {
       await dbService.deleteTask(id);
       onTaskUpdate();
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Task deleted.", state: "Alert" } }));
   };
 
   // Sort: Done items at bottom, then by order/creation
@@ -185,7 +190,7 @@ export const GoalChecklist: React.FC<GoalChecklistProps> = ({
                                     <span className={`text-sm transition-all ${isCompleted ? 'text-emerald-200/50 line-through' : 'text-slate-300'}`}>
                                         {task.title}
                                     </span>
-                                    {task.status === 'in-progress' && !isCompleted && (
+                                    {(task.status === 'doing' || task.status === 'in-progress' as any) && !isCompleted && (
                                         <span className="text-[10px] text-amber-400 flex items-center gap-1 font-bold uppercase tracking-wider mt-0.5">
                                             <Clock size={10} /> In Progress
                                         </span>

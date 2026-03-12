@@ -183,6 +183,7 @@ export const ReportCard = React.memo<ReportCardProps>(({
             dayStartTime: dayStartTime || undefined
         });
         setTimeout(() => setIsSaving(false), 500);
+        window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Note saved.", state: "Happy" } }));
     };
 
     const handleDownload = async () => {
@@ -193,8 +194,10 @@ export const ReportCard = React.memo<ReportCardProps>(({
                 link.download = `ekagra-report-${dateString}.png`;
                 link.href = dataUrl;
                 link.click();
+                window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Report card downloaded!", state: "Happy" } }));
             } catch (err) {
                 console.error('Failed to download report card', err);
+                window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Failed to download report card.", state: "Alert" } }));
             }
         }
     };

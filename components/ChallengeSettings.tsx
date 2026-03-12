@@ -37,6 +37,7 @@ export const ChallengeSettings: React.FC = () => {
         // Refresh profile to ensure sync
         await loadProfile();
         setIsSaving(false);
+        window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Challenge settings saved!", state: "Happy" } }));
     };
 
     const challengeDayNumber = useMemo(() => {

@@ -92,6 +92,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
       setDayStartTime(now);
       localStorage.setItem(`ekagra_started_${todayStr}`, 'true');
       localStorage.setItem(`ekagra_startTime_${todayStr}`, now.toString());
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Day started! Let's get to work.", state: "Focus" } }));
   }, [todayStr]);
 
   const handleCompleteDay = useCallback(() => {
@@ -99,6 +100,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
       localStorage.setItem(`omni_completed_${todayStr}`, 'true');
       setReportConfetti(true);
       setShowReportCard(true);
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Day completed! Great job today.", state: "Happy" } }));
   }, [todayStr]);
 
   // --- Calculations ---
@@ -247,6 +249,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
               // Refresh profile
               const profile = await dbService.getUserProfile();
               setUserProfile(profile);
+              window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Challenge updated! Let's crush it.", state: "Focus" } }));
           }
       }
   }, [userProfile]);
@@ -315,6 +318,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                 
                 {/* Hero Card / XP Rank Card */}
                 <motion.div 
+                    id="daily-goals"
                     variants={itemVariants}
                     className="col-span-1 sm:col-span-2 bg-gradient-to-br from-slate-900 to-slate-950 border border-white/10 rounded-[2rem] p-6 lg:p-8 relative overflow-hidden group shadow-2xl flex flex-col justify-between min-h-[240px]"
                 >
@@ -366,7 +370,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                         </div>
                     </div>
 
-                    <div className="relative z-10 mt-4 flex items-center gap-3">
+                    <div id="timer-display" className="relative z-10 mt-4 flex items-center gap-3">
                         {!isDayStarted ? (
                             <motion.button 
                                 whileHover={{ scale: 1.02 }}

@@ -35,10 +35,12 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({ activeGroup, onJoinGroup, 
             return;
         }
         setIsJoining(true);
+        window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: `Joining ${group.name}...`, state: "Thinking" } }));
         // Simulate API call delay
         setTimeout(() => {
             onJoinGroup(group.id, userName);
             setIsJoining(false);
+            window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: `Joined ${group.name}. Let's study together!`, state: "Happy" } }));
         }, 500);
     };
 

@@ -10,6 +10,7 @@ export const PremiumLock: React.FC = () => {
 
     const handleUpgrade = () => {
         // Placeholder for payment integration
+        window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Redirecting to payment gateway...", state: "Thinking" } }));
         alert("Redirecting to payment gateway...");
         // In a real app, this would redirect to Stripe/LemonSqueezy checkout
         // window.location.href = 'https://buy.stripe.com/...';

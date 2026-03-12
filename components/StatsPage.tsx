@@ -337,7 +337,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
 
                 {/* 2. Consistency Grid & Stats */}
                 <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-                    <div className="xl:col-span-3 bg-slate-900/40 border border-white/5 rounded-3xl p-6 flex flex-col overflow-hidden">
+                    <div id="stats-heatmap" className="xl:col-span-3 bg-slate-900/40 border border-white/5 rounded-3xl p-6 flex flex-col overflow-hidden">
                         <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center gap-2">
                                 <div className={`p-2 bg-${accent}-500/20 rounded-lg text-${accent}-400`}>

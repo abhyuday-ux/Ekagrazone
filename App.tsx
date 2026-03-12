@@ -26,6 +26,7 @@ import { FriendObserver } from './components/FriendObserver';
 import { NotificationCenter } from './components/NotificationCenter';
 import { ChallengeSettings } from './components/ChallengeSettings';
 import { ExamTracker } from './components/ExamTracker/ExamTracker';
+import { Companion } from './components/Companion';
 
 import { EkagraLogo } from './components/EkagraLogo';
 import { ZenSubjectPanel } from './components/ZenSubjectPanel';
@@ -35,7 +36,7 @@ import { useSound } from './contexts/SoundContext';
 import { HeaderAd } from './components/HeaderAd';
 import { usePerformance } from './contexts/PerformanceContext';
 import { StudySession, Subject, DEFAULT_SUBJECTS, Task, Exam, isHexColor, TimerDurations, DEFAULT_DURATIONS, UserProfile, getLocalDateString } from './types';
-import { Zap, Wifi, WifiOff, RefreshCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Settings, Timer, BarChart3, CalendarDays, Target, Trash2, AlertCircle, PanelLeftClose, PanelLeftOpen, CheckSquare, Palette, Image as ImageIcon, ToggleLeft, ToggleRight, Maximize2, X, BookOpen, Repeat, Home, AlertTriangle, Download, Upload, Database, Layout, Rocket, Globe, RotateCcw, LogOut, HardDrive, LogIn, GraduationCap, Volume2, VolumeX, Play, Pause, Hourglass, Users, Bell, Loader2, ShieldCheck, Lock, Clock, Library } from 'lucide-react';
+import { Zap, Wifi, WifiOff, RefreshCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Settings, Timer, BarChart3, CalendarDays, Target, Trash2, AlertCircle, PanelLeftClose, PanelLeftOpen, CheckSquare, Palette, Image as ImageIcon, ToggleLeft, ToggleRight, Maximize2, X, BookOpen, Repeat, Home, AlertTriangle, Download, Upload, Database, Layout, Rocket, Globe, RotateCcw, LogOut, HardDrive, LogIn, GraduationCap, Volume2, VolumeX, Play, Pause, Hourglass, Users, Bell, Loader2, ShieldCheck, Lock, Clock, Library, HelpCircle } from 'lucide-react';
 import { useTheme, ACCENT_COLORS } from './contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { rtdb, db } from './services/firebase';
@@ -58,6 +59,11 @@ const WALLPAPERS = [
   { id: 'lofi', label: 'Lofi Room', url: 'https://images.unsplash.com/photo-1555680202-c86f0e12f086?auto=format&fit=crop&w=2000&q=80' },
   { id: 'abstract', label: 'Dark Abstract', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=2000&q=80' },
 ];
+
+const resetTours = () => {
+  localStorage.removeItem('ekagra_global_tour_completed');
+  window.location.reload();
+};
 
 const formatMiniTime = (ms: number) => {
     const totalSeconds = Math.ceil(ms / 1000);
@@ -190,6 +196,9 @@ const App: React.FC = () => {
   // Animation State
   const [isLogoSpinning, setIsLogoSpinning] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
+  
+  // Companion State
+  const [isRockyEnabled, setIsRockyEnabled] = useState(true);
 
   const { accent, setAccent } = useTheme();
   
@@ -281,6 +290,9 @@ const App: React.FC = () => {
         
         const savedDayStartHour = localStorage.getItem('ekagrazone_dayStartHour');
         if (savedDayStartHour) setDayStartHour(parseInt(savedDayStartHour));
+        
+        const savedRockyEnabled = localStorage.getItem('ekagrazone_rockyEnabled');
+        if (savedRockyEnabled) setIsRockyEnabled(savedRockyEnabled === 'true');
         
         const oldZenUrl = localStorage.getItem('ekagrazone_zenWallpaperUrl');
         if (oldZenUrl && !savedWallpaper) {
@@ -387,6 +399,7 @@ const App: React.FC = () => {
       if(confirm("Delete this exam?")) {
           await dbService.deleteExam(id);
           loadExams();
+          window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Exam deleted.", state: "Alert" } }));
       }
   };
 
@@ -398,6 +411,7 @@ const App: React.FC = () => {
       setTimerDurations(newDurations);
       localStorage.setItem('ekagrazone_timer_durations', JSON.stringify(newDurations));
       dbService.syncSettingsToCloud().catch(console.error);
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Timer durations updated.", state: "Happy" } }));
   }, []);
 
   const handleTargetHoursChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -406,6 +420,7 @@ const App: React.FC = () => {
       localStorage.setItem('ekagrazone_targetHours', val.toString());
       dbService.updateDailyGoal(val).catch(console.error);
       dbService.syncSettingsToCloud().catch(console.error);
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: `Daily goal set to ${val} hours. You can do it!`, state: "Focus" } }));
   }, []);
 
   const handleDayStartHourChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -413,6 +428,7 @@ const App: React.FC = () => {
       setDayStartHour(val);
       localStorage.setItem('ekagrazone_dayStartHour', val.toString());
       dbService.syncSettingsToCloud().catch(console.error);
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: `Day starts at ${val}:00 now.`, state: "Happy" } }));
   }, []);
 
   const handleZenToggle = useCallback(() => {
@@ -420,12 +436,14 @@ const App: React.FC = () => {
       setEnableZenMode(newState);
       localStorage.setItem('ekagrazone_enableZenMode', String(newState));
       dbService.syncSettingsToCloud().catch(console.error);
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: newState ? "Zen mode enabled." : "Zen mode disabled.", state: "Alert" } }));
   }, [enableZenMode]);
 
   const handleWallpaperChange = useCallback((url: string) => {
       setWallpaper(url);
       localStorage.setItem('ekagrazone_wallpaper', url);
       dbService.syncSettingsToCloud().catch(console.error);
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Wallpaper updated. Looking good!", state: "Happy" } }));
   }, []);
 
   const handleShowWallpaperToggle = useCallback(() => {
@@ -433,25 +451,42 @@ const App: React.FC = () => {
       setShowWallpaperOnHome(newVal);
       localStorage.setItem('ekagrazone_wallpaper_home', String(newVal));
       dbService.syncSettingsToCloud().catch(console.error);
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: newVal ? "Wallpaper shown on home screen." : "Wallpaper hidden on home screen.", state: "Alert" } }));
   }, [showWallpaperOnHome]);
+
+  const handleRockyToggle = useCallback(() => {
+      const newVal = !isRockyEnabled;
+      setIsRockyEnabled(newVal);
+      localStorage.setItem('ekagrazone_rockyEnabled', String(newVal));
+      dbService.syncSettingsToCloud().catch(console.error);
+      if (newVal) {
+          window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "I'm back! Ready to help.", state: "Happy" } }));
+      }
+  }, [isRockyEnabled]);
 
   const handleAccentChange = useCallback((newAccent: string) => {
       setAccent(newAccent as any);
       setTimeout(() => dbService.syncSettingsToCloud().catch(console.error), 100);
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Accent color changed.", state: "Happy" } }));
   }, [setAccent]);
 
   const handleSync = useCallback(async () => {
     if (!isOnline || isGuest) return;
     setIsSyncing(true);
+    window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Syncing data with cloud...", state: "Thinking" } }));
     await dbService.pullFromFirestore();
     await loadSessions();
     await loadTasks();
     await loadExams();
     await refreshSubjects();
-    setTimeout(() => { setIsSyncing(false); }, 800);
+    setTimeout(() => { 
+        setIsSyncing(false); 
+        window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Sync complete! All systems updated.", state: "Happy" } }));
+    }, 800);
   }, [isOnline, isGuest]);
 
   const handleExport = async () => {
+    window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Exporting your data...", state: "Thinking" } }));
     const dbData = await dbService.createBackup();
     const localData: Record<string, string | null> = {};
     for (let i = 0; i < localStorage.length; i++) {
@@ -468,6 +503,7 @@ const App: React.FC = () => {
     a.download = `ekagrazone_backup_${getLocalDateString()}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Data exported successfully!", state: "Happy" } }));
   };
 
   const requestClearToday = () => {
@@ -490,6 +526,7 @@ const App: React.FC = () => {
       if (!confirmModal) return;
 
       if (confirmModal.type === 'today') {
+          window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Clearing today's progress...", state: "Thinking" } }));
           const today = getLocalDateString();
           await dbService.deleteSessionsByDate(today);
           await dbService.deleteGoalsByDate(today); // Legacy
@@ -497,6 +534,7 @@ const App: React.FC = () => {
           await dbService.deleteJournalByDate(today);
           await loadSessions();
           await loadTasks();
+          window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Today's progress cleared.", state: "Alert" } }));
       } else if (confirmModal.type === 'all') {
           await dbService.factoryReset();
           localStorage.clear();
@@ -519,6 +557,9 @@ const App: React.FC = () => {
             detail: { level: newLevel } 
         });
         window.dispatchEvent(event);
+        window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: `Amaze! You reached level ${newLevel}!`, state: "Amaze" } }));
+    } else {
+        window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Session saved. Good work!", state: "Happy" } }));
     }
     setSessionToSave(null);
     handleSessionComplete();
@@ -527,11 +568,17 @@ const App: React.FC = () => {
   const { elapsedMs, status, mode, isOvertime, currentSubjectId, setSubjectId, setMode, start, pause, stop } = useStopwatch(DEFAULT_SUBJECTS[0].id, handleSessionComplete, timerDurations);
   
   const handleStopRequest = async () => {
+    window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Session stopped.", state: "Idle" } }));
     const session = await stop();
     if (session) {
         setSessionToSave(session);
     }
   };
+
+  const handlePauseRequest = useCallback(() => {
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Timer paused.", state: "Question" } }));
+      pause();
+  }, [pause]);
 
   const currentSubject = subjects.find(s => s.id === currentSubjectId) || subjects[0];
 
@@ -596,10 +643,15 @@ const App: React.FC = () => {
   // but crucially status change triggers immediate update with correct start time.
 
   useEffect(() => {
+      // Dispatch timer status for Rocky
+      window.dispatchEvent(new CustomEvent('rocky-timer-status', { detail: { status } }));
+
       // If timer becomes complete while running, notify
       if (status === 'running' && isTimerComplete && !notifiedRef.current) {
           notifiedRef.current = true;
           
+          window.dispatchEvent(new CustomEvent('rocky-fist-bump'));
+
           const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
           audio.volume = 0.5;
           audio.play().catch(() => {});
@@ -632,14 +684,14 @@ const App: React.FC = () => {
       if (enableZenMode && wallpaper && status === 'idle' && !isZenActive) {
           setShowZenPrompt(true);
       } else {
+          window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Focus mode engaged.", state: "Focus" } }));
           start();
       }
   }, [enableZenMode, wallpaper, status, isZenActive, start]);
 
-
-
   const handleZenResponse = (shouldEnter: boolean) => {
       setShowZenPrompt(false);
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Entering Zen mode.", state: "Focus" } }));
       start(); 
       if (shouldEnter) setIsZenActive(true);
   };
@@ -696,7 +748,6 @@ const App: React.FC = () => {
       
       // Premium Check for Non-Guest Users
       // VIPs (isAuthorized) bypass this check
-      const { hasPremium } = useAuth();
       if (!currentUser.isAnonymous && !hasPremium && !isAuthorized) {
           return <PricingPage />;
       }
@@ -849,7 +900,7 @@ const App: React.FC = () => {
   };
 
   const SettingsContent = () => (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto w-full">
+    <div id="settings-container" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto w-full">
         {/* Profile Card */}
         <div className="p-8 bg-gradient-to-br from-slate-800 to-slate-900/80 backdrop-blur-xl rounded-3xl border border-white/10 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl relative overflow-hidden group">
              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
@@ -1038,12 +1089,36 @@ const App: React.FC = () => {
                             </button>
                         </div>
 
+                        <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                            <div className="flex items-center gap-4">
+                                <div className={`p-2 bg-${accent}-500/10 rounded-xl text-${accent}-400`}><Users size={20} /></div>
+                                <div>
+                                    <span className="font-semibold text-slate-200 block">Rocky Companion</span>
+                                    <span className="text-xs text-slate-500">Enable or disable your AI friend</span>
+                                </div>
+                            </div>
+                            <button onClick={handleRockyToggle} className={`transition-colors ${isRockyEnabled ? `text-${accent}-400` : 'text-slate-600 hover:text-slate-400'}`}>
+                                {isRockyEnabled ? <ToggleRight size={36} /> : <ToggleLeft size={36} />}
+                            </button>
+                        </div>
+
                         <button onClick={() => setIsSubjectManagerOpen(true)} className="w-full flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors group">
                             <div className="flex items-center gap-4">
                                 <div className={`p-2 bg-${accent}-500/10 rounded-xl text-${accent}-400 group-hover:bg-${accent}-500/20 transition-colors`}><BookOpen size={20} /></div>
                                 <div>
                                     <span className="font-semibold text-slate-200 block text-left">Manage Subjects</span>
                                     <span className="text-xs text-slate-500 block text-left">Edit names and colors</span>
+                                </div>
+                            </div>
+                            <ChevronRight size={20} className="text-slate-500 group-hover:text-white transition-colors" />
+                        </button>
+
+                        <button id="reset-tutorials-btn" onClick={resetTours} className="w-full flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors group">
+                            <div className="flex items-center gap-4">
+                                <div className={`p-2 bg-${accent}-500/10 rounded-xl text-${accent}-400 group-hover:bg-${accent}-500/20 transition-colors`}><HelpCircle size={20} /></div>
+                                <div>
+                                    <span className="font-semibold text-slate-200 block text-left">Reset Tutorials</span>
+                                    <span className="text-xs text-slate-500 block text-left">Show all app guides again</span>
                                 </div>
                             </div>
                             <ChevronRight size={20} className="text-slate-500 group-hover:text-white transition-colors" />
@@ -1137,7 +1212,7 @@ const App: React.FC = () => {
                 return (
                 <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as MobileTab)}
+                    onClick={() => handleTabChange(tab.id as MobileTab)}
                     className={`
                         w-full flex items-center gap-4 p-3 rounded-xl transition-all duration-300 group relative
                         ${isActive ? 'bg-white/10 text-white shadow-lg border border-white/5' : 'text-slate-400 hover:text-white hover:bg-white/10'}
@@ -1198,11 +1273,29 @@ const App: React.FC = () => {
     );
   };
 
+  const handleTabChange = (tabId: MobileTab) => {
+      setActiveTab(tabId);
+      const tabMessages: Record<string, {text: string, state: string}> = {
+          'timer': { text: "Ready to focus.", state: "Focus" },
+          'dashboard': { text: "Analyzing your progress.", state: "Thinking" },
+          'journal': { text: "Time for reflection.", state: "Happy" },
+          'habits': { text: "Reviewing daily habits.", state: "Alert" },
+          'calendar': { text: "Checking the schedule.", state: "Thinking" },
+          'plan': { text: "Planning phase initiated.", state: "Focus" },
+          'stats': { text: "Crunching the numbers.", state: "Amaze" },
+          'exams': { text: "Exam preparation mode.", state: "Alert" }
+      };
+      if (tabMessages[tabId]) {
+          window.dispatchEvent(new CustomEvent('rocky-speak', { detail: tabMessages[tabId] }));
+      }
+  };
+
   return (
     <div className="min-h-screen bg-[#0f172a] text-slate-100 font-sans overflow-hidden selection:bg-cyan-500/30 relative">
       
       {/* Friend Milestone Observer - Always render but handle user inside */}
       <FriendObserver />
+      {isRockyEnabled && <Companion activeTab={activeTab} onNavigate={(tab) => handleTabChange(tab as any)} />}
       
       {/* Notification Center - Always render */}
       <NotificationCenter isOpen={isNotificationOpen} onClose={() => setIsNotificationOpen(false)} />
@@ -1262,7 +1355,7 @@ const App: React.FC = () => {
                         todaySubjectTotal={currentSubjectTodayTotal}
                         subjectColor={currentSubject.color} 
                         onStart={start} 
-                        onPause={pause} 
+                        onPause={handlePauseRequest} 
                         onStop={handleStopRequest} 
                         onSetMode={setMode}
                         durations={timerDurations}
@@ -1309,7 +1402,7 @@ const App: React.FC = () => {
                         todaySubjectTotal={currentSubjectTodayTotal}
                         subjectColor={currentSubject.color} 
                         onStart={start} 
-                        onPause={pause} 
+                        onPause={handlePauseRequest} 
                         onStop={handleStopRequest} 
                         onSetMode={setMode}
                         durations={timerDurations}
@@ -1401,7 +1494,7 @@ const App: React.FC = () => {
                             todaySubjectTotal={currentSubjectTodayTotal}
                             subjectColor={currentSubject.color} 
                             onStart={handleStartRequest} 
-                            onPause={pause} 
+                            onPause={handlePauseRequest} 
                             onStop={handleStopRequest} 
                             onSetMode={setMode}
                             durations={timerDurations}
@@ -1415,7 +1508,7 @@ const App: React.FC = () => {
                           )}
                         </div>
                         <div className="absolute top-4 right-4 z-20">
-                            <button onClick={() => setActiveTab('calendar')} className="bg-slate-900/60 backdrop-blur border border-white/10 p-2 rounded-full shadow-lg">
+                            <button onClick={() => handleTabChange('calendar')} className="bg-slate-900/60 backdrop-blur border border-white/10 p-2 rounded-full shadow-lg">
                                 <Target size={18} className={`text-${accent}-400`} />
                             </button>
                         </div>
@@ -1474,7 +1567,7 @@ const App: React.FC = () => {
            </AnimatePresence>
         </main>
         
-        <MobileNav activeTab={activeTab} setTab={setActiveTab} />
+        <MobileNav activeTab={activeTab} setTab={handleTabChange} />
       </div>
 
 
@@ -1584,7 +1677,7 @@ const App: React.FC = () => {
                                             todaySubjectTotal={currentSubjectTodayTotal}
                                             subjectColor={currentSubject.color} 
                                             onStart={handleStartRequest} 
-                                            onPause={pause} 
+                                            onPause={handlePauseRequest} 
                                             onStop={handleStopRequest} 
                                             onSetMode={setMode}
                                             durations={timerDurations}
@@ -1704,8 +1797,8 @@ const App: React.FC = () => {
           isTimerMode={isTimerMode}
           accent={accent}
           currentSubject={currentSubject}
-          onToggle={status === 'running' ? pause : handleStartRequest}
-          onActivate={() => setActiveTab('timer')}
+          onToggle={status === 'running' ? handlePauseRequest : handleStartRequest}
+          onActivate={() => handleTabChange('timer')}
       />
 
        {/* Pricing Modal Overlay */}

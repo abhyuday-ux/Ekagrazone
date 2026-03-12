@@ -1,10 +1,31 @@
-
-import React, { useState } from 'react';
-import { DndContext, DragEndEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, closestCenter, useDroppable } from '@dnd-kit/core';
-import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { Task, TaskStatus, TaskPriority, Subject, isHexColor, getLocalDateString } from '../types';
-import { Plus, PlayCircle, Trash2, GripVertical, Calendar, CheckCircle2, AlignLeft, Flag, X, Save, Clock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Task, TaskStatus, Subject, isHexColor, getLocalDateString, TaskPriority } from '../types';
+import { 
+  CheckCircle2, 
+  Circle, 
+  Clock, 
+  ListTodo, 
+  Plus, 
+  Trash2, 
+  Archive,
+  RotateCcw,
+  Play,
+  Pencil,
+  X,
+  Save
+} from 'lucide-react';
+import { db, auth } from '../services/firebase';
+import { 
+  doc, 
+  updateDoc, 
+  deleteDoc, 
+  setDoc,
+  collection, 
+  writeBatch,
+  query,
+  onSnapshot
+} from 'firebase/firestore';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import { dbService } from '../services/db';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -16,578 +37,559 @@ interface KanbanBoardProps {
   selectedDate?: string;
 }
 
-const COLUMNS: { id: TaskStatus; title: string; color: string }[] = [
-  { id: 'todo', title: 'To Do', color: 'bg-slate-500' },
-  { id: 'in-progress', title: 'In Progress', color: 'bg-amber-500' },
-  { id: 'done', title: 'Done', color: 'bg-emerald-500' },
+const COLUMNS: { id: TaskStatus; label: string; icon: React.ElementType; color: string }[] = [
+  { id: 'backlog', label: 'Backlog', icon: ListTodo, color: 'slate' },
+  { id: 'todo', label: 'To Do', icon: Circle, color: 'indigo' },
+  { id: 'doing', label: 'Doing', icon: Clock, color: 'violet' },
+  { id: 'done', label: 'Done', icon: CheckCircle2, color: 'emerald' },
 ];
 
-export const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks, subjects, onTaskUpdate, onStartSession, selectedDate }) => {
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [isAdding, setIsAdding] = useState<TaskStatus | null>(null);
+export const KanbanBoard: React.FC<KanbanBoardProps> = ({ 
+  tasks: initialTasks, 
+  subjects, 
+  onTaskUpdate,
+  onStartSession,
+  selectedDate
+}) => {
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [user, setUser] = useState<User | null>(auth.currentUser);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
+  
+  // Add Task State
+  const [isAddingTask, setIsAddingTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskSubject, setNewTaskSubject] = useState(subjects[0]?.id || '');
-  const [activeTab, setActiveTab] = useState<TaskStatus>('todo');
 
-  const targetDate = selectedDate || getLocalDateString();
+  // Edit Task State
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
-  );
+  // Auth & Realtime Listener
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return () => unsubscribeAuth();
+  }, []);
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveId(null);
-    if (!over) return;
-
-    const activeId = active.id as string;
-    const overId = over.id as string;
-    const activeTask = tasks.find(t => t.id === activeId);
-    if (!activeTask) return;
-
-    let newStatus: TaskStatus = activeTask.status;
-    const columnIds = COLUMNS.map(c => c.id);
-    
-    if (columnIds.includes(overId as TaskStatus)) {
-        newStatus = overId as TaskStatus;
-    } else {
-        const overTask = tasks.find(t => t.id === overId);
-        if (overTask) newStatus = overTask.status;
+  useEffect(() => {
+    if (!user) {
+      setTasks(initialTasks);
+      return;
     }
 
-    if (activeTask.status !== newStatus) {
-      const updatedTask = { ...activeTask, status: newStatus, updatedAt: Date.now() };
-      await dbService.saveTask(updatedTask);
-      onTaskUpdate();
+    // Realtime listener for the board
+    const q = query(collection(db, 'users', user.uid, 'tasks'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const newTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
+      // We only update if we are NOT currently dragging to avoid jitter
+      if (!draggedTaskId && !editingTask) {
+        setTasks(newTasks);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user, initialTasks, draggedTaskId, editingTask]);
+
+  // --- Drag & Drop Logic ---
+
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    setDraggedTaskId(taskId);
+    e.dataTransfer.effectAllowed = 'move';
+    // Transparent drag image or default
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetStatus: TaskStatus) => {
+    e.preventDefault();
+    if (!draggedTaskId) return;
+
+    const task = tasks.find(t => t.id === draggedTaskId);
+    if (!task || task.status === targetStatus) {
+      setDraggedTaskId(null);
+      return;
     }
-  };
 
-  const handleAddTask = async (status: TaskStatus) => {
-    if (!newTaskTitle.trim()) return;
-    const newTask: Task = {
-        id: crypto.randomUUID(),
-        title: newTaskTitle.trim(),
-        status,
-        priority: 'medium',
-        subjectId: newTaskSubject || (subjects[0]?.id || ''),
-        dateString: targetDate, 
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        order: Date.now(), 
-    };
-    await dbService.saveTask(newTask);
-    setIsAdding(null);
-    setNewTaskTitle('');
-    onTaskUpdate();
-  };
+    // 1. Optimistic Update
+    const updatedTask = { ...task, status: targetStatus, updatedAt: Date.now() };
+    setTasks(prev => prev.map(t => t.id === draggedTaskId ? updatedTask : t));
+    setDraggedTaskId(null);
 
-  const handleSaveEdit = async (task: Task) => {
-      await dbService.saveTask(task);
-      setEditingTask(null);
-      onTaskUpdate();
-  };
+    if (targetStatus === 'done') {
+        window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Task completed! Great job!", state: "Amaze" } }));
+    }
 
-  const handleDelete = async (id: string) => {
-      if(window.confirm("Delete this task?")) {
-        await dbService.deleteTask(id);
-        if (editingTask?.id === id) setEditingTask(null);
+    // 2. Firestore Update
+    try {
+      if (user) {
+        await updateDoc(doc(db, 'users', user.uid, 'tasks', draggedTaskId), {
+          status: targetStatus,
+          updatedAt: Date.now()
+        });
+      } else {
+        await dbService.saveTask(updatedTask);
         onTaskUpdate();
       }
+    } catch (err) {
+      console.error("Drop failed:", err);
+      // Revert on failure could go here
+    }
   };
 
-  const tasksByColumn = {
-      todo: tasks.filter(t => t.status === 'todo').sort((a, b) => a.order - b.order),
-      'in-progress': tasks.filter(t => t.status === 'in-progress').sort((a, b) => a.order - b.order),
-      done: tasks.filter(t => t.status === 'done').sort((a, b) => a.order - b.order),
+  // --- Actions ---
+
+  const handleAddTask = async () => {
+    if (!newTaskTitle.trim()) return;
+    
+    const newTask: Task = {
+      id: crypto.randomUUID(),
+      title: newTaskTitle.trim(),
+      status: 'backlog',
+      priority: 'medium',
+      subjectId: subjects[0]?.id || 'misc',
+      dateString: selectedDate || getLocalDateString(),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      order: Date.now(),
+    };
+
+    // Optimistic
+    setTasks(prev => [...prev, newTask]);
+    setNewTaskTitle('');
+    setIsAddingTask(false);
+    window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "New task added to the board.", state: "Focus" } }));
+
+    try {
+      if (user) {
+        await setDoc(doc(db, 'users', user.uid, 'tasks', newTask.id), newTask);
+      } else {
+        await dbService.saveTask(newTask);
+        onTaskUpdate();
+      }
+    } catch (err) {
+      console.error("Add task failed:", err);
+    }
   };
 
-  const activeTaskData = tasks.find(t => t.id === activeId);
+  const handleDelete = async (taskId: string) => {
+    // Optimistic
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Task deleted.", state: "Alert" } }));
+
+    try {
+      if (user) {
+        await deleteDoc(doc(db, 'users', user.uid, 'tasks', taskId));
+      } else {
+        await dbService.deleteTask(taskId);
+        onTaskUpdate();
+      }
+    } catch (err) {
+      console.error("Delete failed:", err);
+    }
+  };
+
+  const handleUpdateTask = async (taskId: string, updates: Partial<Task>) => {
+    // Optimistic Update
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+    setEditingTask(null);
+    window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Task updated.", state: "Thinking" } }));
+
+    try {
+      if (user) {
+        await updateDoc(doc(db, 'users', user.uid, 'tasks', taskId), {
+          ...updates,
+          updatedAt: Date.now()
+        });
+      } else {
+        const task = tasks.find(t => t.id === taskId);
+        if (task) {
+          await dbService.saveTask({ ...task, ...updates });
+          onTaskUpdate();
+        }
+      }
+    } catch (err) {
+      console.error("Update failed:", err);
+    }
+  };
+
+  const handleResetDay = async () => {
+    const doneTasks = tasks.filter(t => t.status === 'done');
+    if (doneTasks.length === 0) return;
+    
+    if (!confirm(`Archive ${doneTasks.length} completed tasks and clear the board?`)) return;
+
+    setIsResetting(true);
+    window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Archiving completed tasks...", state: "Thinking" } }));
+
+    // Optimistic Clear
+    setTasks(prev => prev.filter(t => t.status !== 'done'));
+
+    try {
+      if (user) {
+        const batch = writeBatch(db);
+        const archiveRef = collection(db, 'users', user.uid, 'archived_tasks');
+        
+        // 1. Copy to Archive & 2. Delete from Tasks
+        for (const task of doneTasks) {
+          const newDocRef = doc(archiveRef); // Auto-ID for archive
+          batch.set(newDocRef, { ...task, archivedAt: Date.now() });
+          
+          const taskRef = doc(db, 'users', user.uid, 'tasks', task.id);
+          batch.delete(taskRef);
+        }
+        
+        await batch.commit();
+      } else {
+        // Guest mode: just delete for now, or implement archive in dbService if needed
+        await Promise.all(doneTasks.map(t => dbService.deleteTask(t.id)));
+        onTaskUpdate();
+      }
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Tasks archived! Clean slate.", state: "Happy" } }));
+    } catch (err) {
+      console.error("Reset day failed:", err);
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   return (
-    <div className="h-full w-full flex flex-col">
-      {/* Mobile Tab Bar */}
-      <div className="flex md:hidden bg-slate-900/40 backdrop-blur-md p-1 rounded-xl border border-white/5 mb-4 mx-2">
-          {COLUMNS.map(col => (
-              <button
-                  key={col.id}
-                  onClick={() => setActiveTab(col.id)}
-                  className={`relative flex-1 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeTab === col.id ? 'text-white' : 'text-slate-500'}`}
-              >
-                  {activeTab === col.id && (
-                      <motion.div 
-                          layoutId="activeKanbanTab"
-                          className="absolute inset-0 bg-white/10 rounded-lg shadow-sm"
-                          transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                      />
-                  )}
-                  <span className="relative z-10">{col.title}</span>
-                  <span className="relative z-10 text-[10px] opacity-50 bg-black/20 px-1.5 rounded-full">
-                      {tasksByColumn[col.id].length}
-                  </span>
-              </button>
-          ))}
+    <div className="h-full flex flex-col relative">
+      {/* Header Actions */}
+      <div className="flex justify-end mb-4 px-2">
+        <button
+          onClick={handleResetDay}
+          disabled={isResetting || !tasks.some(t => t.status === 'done')}
+          className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 border border-white/5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <RotateCcw size={14} />
+          {isResetting ? 'Archiving...' : 'Reset Day'}
+        </button>
       </div>
 
-      <DndContext 
-        sensors={sensors} 
-        collisionDetection={closestCenter} 
-        onDragStart={(e) => setActiveId(e.active.id as string)}
-        onDragEnd={handleDragEnd}
-      >
-        {/* Desktop: Grid View | Mobile: Tabbed View */}
-        <div className="flex-1 min-h-0 relative">
-            {/* Desktop Layout */}
-            <div className="hidden md:flex h-full gap-4 overflow-x-auto pb-2 custom-scrollbar">
-                {COLUMNS.map(col => (
-                    <KanbanColumn 
-                        key={col.id}
-                        col={col}
-                        tasks={tasksByColumn[col.id]}
-                        subjects={subjects}
-                        isAdding={isAdding === col.id}
-                        setIsAdding={setIsAdding}
-                        newTaskTitle={newTaskTitle}
-                        setNewTaskTitle={setNewTaskTitle}
-                        newTaskSubject={newTaskSubject}
-                        setNewTaskSubject={setNewTaskSubject}
-                        onAddTask={handleAddTask}
-                        onStartSession={onStartSession}
-                        onEditTask={setEditingTask}
-                    />
-                ))}
-            </div>
-
-            {/* Mobile Layout (Animated Transitions) */}
-            <div className="md:hidden h-full px-2">
-                <AnimatePresence mode="wait">
-                    <motion.div
-                        key={activeTab}
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.2 }}
-                        className="h-full"
-                    >
-                        {COLUMNS.filter(c => c.id === activeTab).map(col => (
-                            <KanbanColumn 
-                                key={col.id}
-                                col={col}
-                                tasks={tasksByColumn[col.id]}
-                                subjects={subjects}
-                                isAdding={isAdding === col.id}
-                                setIsAdding={setIsAdding}
-                                newTaskTitle={newTaskTitle}
-                                setNewTaskTitle={setNewTaskTitle}
-                                newTaskSubject={newTaskSubject}
-                                setNewTaskSubject={setNewTaskSubject}
-                                onAddTask={handleAddTask}
-                                onStartSession={onStartSession}
-                                onEditTask={setEditingTask}
-                                isMobile
-                            />
-                        ))}
-                    </motion.div>
-                </AnimatePresence>
-            </div>
-        </div>
-
-        <DragOverlay>
-            {activeTaskData ? (
-                <div className="opacity-90 rotate-2 cursor-grabbing scale-105">
-                   <TaskCard task={activeTaskData} subject={subjects.find(s => s.id === activeTaskData.subjectId)} />
+      {/* Columns Container */}
+      <div className="flex-1 overflow-x-auto overflow-y-hidden">
+        <div className="h-full flex flex-col md:flex-row gap-4 min-w-[300px] md:min-w-0">
+          {COLUMNS.map(col => (
+            <div 
+              key={col.id}
+              className={`flex-1 flex flex-col min-w-[280px] md:min-w-0 rounded-2xl border ${
+                col.id === 'doing' 
+                  ? 'bg-violet-500/5 border-violet-500/20 shadow-[0_0_15px_rgba(139,92,246,0.1)]' 
+                  : 'bg-slate-900/40 border-white/5'
+              } backdrop-blur-sm transition-colors`}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, col.id)}
+            >
+              {/* Column Header */}
+              <div className={`p-4 border-b border-white/5 flex items-center justify-between ${
+                col.id === 'doing' ? 'bg-violet-500/10' : ''
+              }`}>
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-lg bg-${col.color}-500/10 text-${col.color}-400`}>
+                    <col.icon size={16} />
+                  </div>
+                  <h3 className={`font-bold text-sm ${col.id === 'doing' ? 'text-violet-200' : 'text-slate-300'}`}>
+                    {col.label}
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full bg-white/5 text-[10px] font-mono text-slate-500">
+                    {tasks.filter(t => t.status === col.id).length}
+                  </span>
                 </div>
-            ) : null}
-        </DragOverlay>
-      </DndContext>
+                {col.id === 'backlog' && (
+                   <button 
+                     onClick={() => setIsAddingTask(!isAddingTask)}
+                     className="text-slate-500 hover:text-white transition-colors"
+                   >
+                     <Plus size={16} />
+                   </button>
+                )}
+              </div>
+
+              {/* Add Task Input */}
+              {col.id === 'backlog' && isAddingTask && (
+                <div className="px-3 pt-3">
+                  <input
+                    autoFocus
+                    value={newTaskTitle}
+                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
+                    onBlur={() => { if(!newTaskTitle) setIsAddingTask(false) }}
+                    placeholder="New task..."
+                    className="w-full bg-slate-800 border border-indigo-500/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none placeholder:text-slate-600"
+                  />
+                </div>
+              )}
+
+              {/* Task List */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
+                <AnimatePresence mode="popLayout">
+                  {tasks
+                    .filter(t => t.status === col.id)
+                    .map(task => (
+                      <KanbanCard 
+                        key={task.id} 
+                        task={task} 
+                        subject={subjects.find(s => s.id === task.subjectId)}
+                        onDragStart={handleDragStart}
+                        onDelete={handleDelete}
+                        onEdit={() => setEditingTask(task)}
+                        onStartSession={onStartSession}
+                      />
+                    ))}
+                </AnimatePresence>
+                
+                {tasks.filter(t => t.status === col.id).length === 0 && !isAddingTask && (
+                  <div className="h-24 border-2 border-dashed border-white/5 rounded-xl flex items-center justify-center text-slate-600 text-xs">
+                    Drop here
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Edit Modal */}
       <AnimatePresence>
         {editingTask && (
-            <TaskDetailModal 
-                task={editingTask} 
-                subjects={subjects}
-                onClose={() => setEditingTask(null)}
-                onSave={handleSaveEdit}
-                onDelete={handleDelete}
-            />
+          <EditTaskModal 
+            task={editingTask} 
+            onClose={() => setEditingTask(null)} 
+            onSave={handleUpdateTask}
+            subjects={subjects}
+          />
         )}
       </AnimatePresence>
     </div>
   );
 };
 
-// --- Sub Components ---
-
-interface KanbanColumnProps {
-    col: { id: TaskStatus; title: string; color: string };
-    tasks: Task[];
-    subjects: Subject[];
-    isAdding: boolean;
-    setIsAdding: (val: TaskStatus | null) => void;
-    newTaskTitle: string;
-    setNewTaskTitle: (val: string) => void;
-    newTaskSubject: string;
-    setNewTaskSubject: (val: string) => void;
-    onAddTask: (status: TaskStatus) => void;
-    onStartSession: (id: string) => void;
-    onEditTask: (task: Task) => void;
-    isMobile?: boolean;
+interface KanbanCardProps {
+  task: Task;
+  subject?: Subject;
+  onDragStart: (e: React.DragEvent, id: string) => void;
+  onDelete: (id: string) => void;
+  onEdit: () => void;
+  onStartSession: (subjectId: string) => void;
 }
 
-const KanbanColumn: React.FC<KanbanColumnProps> = ({ 
-    col, tasks, subjects, isAdding, setIsAdding, 
-    newTaskTitle, setNewTaskTitle, newTaskSubject, setNewTaskSubject, 
-    onAddTask, onStartSession, onEditTask, isMobile
-}) => {
-    const { setNodeRef } = useDroppable({ id: col.id });
+const KanbanCard: React.FC<KanbanCardProps> = ({ task, subject, onDragStart, onDelete, onEdit, onStartSession }) => {
+  const color = subject?.color || '#64748b';
+  const isHex = isHexColor(color);
 
-    return (
-        <div className={`flex flex-col bg-slate-900/30 backdrop-blur-sm border border-white/5 rounded-2xl h-full ${isMobile ? 'w-full' : 'flex-1 min-w-[300px]'}`}>
-            {/* Header */}
-            <div className="p-4 flex justify-between items-center border-b border-white/5 flex-none">
-                <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${col.color}`} />
-                    <h3 className="font-bold text-slate-200">{col.title}</h3>
-                    <span className="text-xs bg-white/5 text-slate-400 px-2 py-0.5 rounded-full border border-white/5">{tasks.length}</span>
-                </div>
-                <button 
-                    onClick={() => { setIsAdding(col.id); setNewTaskTitle(''); }} 
-                    className="text-slate-400 hover:text-white p-2 hover:bg-white/10 rounded-xl transition-colors"
-                >
-                    <Plus size={20} />
-                </button>
-            </div>
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      draggable
+      onDragStart={(e) => {
+        // @ts-ignore - React.DragEvent mismatch with HTML element sometimes
+        onDragStart(e, task.id);
+      }}
+      className="group relative bg-slate-800/80 hover:bg-slate-800 border border-white/5 hover:border-white/10 rounded-xl p-3 shadow-sm hover:shadow-lg transition-all cursor-grab active:cursor-grabbing"
+    >
+      {/* Subject Indicator */}
+      <div className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full" style={{ backgroundColor: isHex ? color : undefined }} />
 
-            {/* Droppable Content */}
-            <div ref={setNodeRef} className="p-3 space-y-3 flex-1 overflow-y-auto custom-scrollbar min-h-[150px]">
-                <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-                
-                {isAdding && (
-                    <motion.div 
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="bg-slate-800 p-4 rounded-2xl border border-indigo-500/50 shadow-xl mb-4"
-                    >
-                        <input 
-                            autoFocus
-                            className="w-full bg-transparent text-sm text-white placeholder-slate-500 mb-4 focus:outline-none"
-                            placeholder="What needs to be done?"
-                            value={newTaskTitle}
-                            onChange={e => setNewTaskTitle(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && onAddTask(col.id)}
-                        />
-                        <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-1">
-                            {subjects.filter(s => !s.isArchived).map(sub => {
-                                const isHex = isHexColor(sub.color);
-                                return (
-                                    <button 
-                                        key={sub.id} 
-                                        onClick={() => setNewTaskSubject(sub.id)}
-                                        className={`w-5 h-5 rounded-full flex-none transition-transform ${!isHex ? sub.color : ''} ${newTaskSubject === sub.id ? 'ring-2 ring-white scale-110' : 'opacity-40 hover:opacity-100'}`}
-                                        style={isHex ? { backgroundColor: sub.color } : {}}
-                                        title={sub.name}
-                                    />
-                                );
-                            })}
-                        </div>
-                        <div className="flex justify-end gap-3">
-                            <button onClick={() => setIsAdding(null)} className="text-xs text-slate-400 px-3 py-2 hover:text-white font-medium">Cancel</button>
-                            <button onClick={() => onAddTask(col.id)} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold transition-colors">Add Task</button>
-                        </div>
-                    </motion.div>
-                )}
-
-                {tasks.map(task => (
-                    <SortableTask 
-                        key={task.id} 
-                        task={task} 
-                        subject={subjects.find(s => s.id === task.subjectId)} 
-                        onStartSession={onStartSession}
-                        onEdit={onEditTask}
-                    />
-                ))}
-                
-                {tasks.length === 0 && !isAdding && (
-                    <div className="h-32 border-2 border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center text-slate-600/50 gap-2">
-                        <div className="p-3 bg-white/5 rounded-full">
-                            <Plus size={20} />
-                        </div>
-                        <span className="text-xs font-medium">No tasks yet</span>
-                    </div>
-                )}
-                </SortableContext>
-            </div>
+      <div className="pl-3">
+        {/* Header */}
+        <div className="flex justify-between items-start mb-1">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            {subject?.name || 'General'}
+          </span>
+          <div className="flex items-center gap-1">
+            {task.priority === 'high' && (
+              <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
+            )}
+            {task.priority === 'medium' && (
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+            )}
+            {task.priority === 'low' && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            )}
+          </div>
         </div>
-    );
+
+        {/* Title */}
+        <h4 className={`text-sm font-medium mb-1 ${task.status === 'done' ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
+          {task.title}
+        </h4>
+        
+        {/* Description Preview (if any) */}
+        {task.description && (
+          <p className="text-[10px] text-slate-500 line-clamp-2 mb-2">
+            {task.description}
+          </p>
+        )}
+
+        {/* Footer Actions */}
+        <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
+           {/* Left: Time/Date or Start Button */}
+           <div className="flex items-center gap-2">
+              {task.status === 'todo' ? (
+                 <button 
+                   onClick={() => onStartSession(task.subjectId)}
+                   className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-2 py-1 rounded transition-colors"
+                 >
+                   <Play size={10} /> START
+                 </button>
+              ) : (
+                <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                  <Clock size={10} /> {new Date(task.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                </span>
+              )}
+           </div>
+
+           {/* Right: Edit/Delete/Archive */}
+           <div className="flex items-center gap-1">
+             <button 
+               onClick={(e) => {
+                 e.stopPropagation();
+                 onEdit();
+               }}
+               className="text-slate-600 hover:text-indigo-400 p-1 rounded hover:bg-white/5 transition-colors opacity-0 group-hover:opacity-100"
+               title="Edit Task"
+             >
+               <Pencil size={14} />
+             </button>
+             <button 
+               onClick={(e) => {
+                 e.stopPropagation();
+                 onDelete(task.id);
+               }}
+               className="text-slate-600 hover:text-rose-400 p-1 rounded hover:bg-white/5 transition-colors"
+               title={task.status === 'done' ? "Archive Task" : "Delete Task"}
+             >
+               {task.status === 'done' ? <Archive size={14} /> : <Trash2 size={14} />}
+             </button>
+           </div>
+        </div>
+      </div>
+    </motion.div>
+  );
 };
 
-interface SortableTaskProps {
-    task: Task;
-    subject?: Subject;
-    onStartSession: (id: string) => void;
-    onEdit: (task: Task) => void;
+interface EditTaskModalProps {
+  task: Task;
+  subjects: Subject[];
+  onClose: () => void;
+  onSave: (taskId: string, updates: Partial<Task>) => void;
 }
 
-const SortableTask: React.FC<SortableTaskProps> = ({ task, subject, onStartSession, onEdit }) => {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
-    
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.3 : 1,
-    };
+const EditTaskModal: React.FC<EditTaskModalProps> = ({ task, subjects, onClose, onSave }) => {
+  const [title, setTitle] = useState(task.title);
+  const [description, setDescription] = useState(task.description || '');
+  const [priority, setPriority] = useState<TaskPriority>(task.priority);
+  const [subjectId, setSubjectId] = useState(task.subjectId);
 
-    return (
-        <div ref={setNodeRef} style={style}>
-            <TaskCard 
-                task={task} 
-                subject={subject} 
-                dragHandleProps={{...listeners, ...attributes}} 
-                onStartSession={onStartSession}
-                onEdit={onEdit}
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(task.id, {
+      title,
+      description,
+      priority,
+      subjectId
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="w-full max-w-md bg-[#0F1115] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Pencil size={18} className="text-violet-400" />
+            Edit Task
+          </h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Title */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Title</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/50 transition-all"
+              placeholder="Task title"
+              required
             />
-        </div>
-    );
-};
+          </div>
 
-interface TaskCardProps {
-    task: Task;
-    subject?: Subject;
-    dragHandleProps?: any;
-    onStartSession?: (id: string) => void;
-    onEdit?: (task: Task) => void;
-}
+          {/* Description */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Description</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/50 transition-all min-h-[100px] resize-none"
+              placeholder="Add notes or details..."
+            />
+          </div>
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, subject, dragHandleProps, onStartSession, onEdit }) => {
-    const color = subject?.color || '#64748b';
-    const isHex = isHexColor(color);
-    const isDone = task.status === 'done';
-
-    const priorityColors = {
-        low: 'text-slate-400 bg-slate-500/10',
-        medium: 'text-amber-400 bg-amber-500/10',
-        high: 'text-rose-400 bg-rose-500/10'
-    };
-
-    return (
-        <div 
-            onClick={() => onEdit && onEdit(task)}
-            className={`
-            p-3.5 rounded-xl border shadow-sm group relative flex flex-col gap-2 transition-all cursor-pointer
-            ${isDone ? 'bg-slate-800/40 border-slate-700/30 opacity-75' : 'bg-slate-800 hover:bg-slate-750 border-white/5 hover:border-white/10 hover:shadow-md'}
-        `}>
-            <div className="flex justify-between items-start gap-2">
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <div className="flex items-center gap-1.5 bg-white/5 px-1.5 py-0.5 rounded text-[10px]">
-                            <div 
-                                className={`w-1.5 h-1.5 rounded-full ${!isHex ? color : ''}`} 
-                                style={isHex ? { backgroundColor: color } : {}}
-                            />
-                            <span className="text-slate-300 font-medium truncate max-w-[80px]">
-                                {subject?.name || 'Unknown'}
-                            </span>
-                        </div>
-                        {task.priority && (
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${priorityColors[task.priority]}`}>
-                                {task.priority}
-                            </span>
-                        )}
-                    </div>
-                    
-                    <p className={`text-sm font-medium leading-snug mb-1 ${isDone ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
-                        {task.title}
-                    </p>
-                    
-                    {task.description && (
-                        <div className="flex items-center gap-1 text-[10px] text-slate-500 mb-1">
-                            <AlignLeft size={10} />
-                            <span className="truncate max-w-full">{task.description}</span>
-                        </div>
-                    )}
-
-                    {task.dateString && (
-                        <span className="text-[10px] text-slate-500 flex items-center gap-1 mt-1">
-                            <Calendar size={10} />
-                            {new Date(task.dateString + 'T00:00:00').toLocaleDateString(undefined, {month:'short', day:'numeric'})}
-                        </span>
-                    )}
-                </div>
-                
-                <div 
-                    {...dragHandleProps}
-                    className="text-slate-600 hover:text-slate-400 cursor-grab active:cursor-grabbing p-1 -mr-1 -mt-1 touch-none"
-                    onClick={(e) => e.stopPropagation()} 
-                >
-                    <GripVertical size={14} />
-                </div>
+          {/* Row: Priority & Subject */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Priority</label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as TaskPriority)}
+                className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500/50"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
             </div>
-            
-            {onStartSession && !isDone && (
-                <div className="flex justify-end pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); onStartSession(task.subjectId); }}
-                        className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20"
-                    >
-                        <PlayCircle size={12} /> Focus
-                    </button>
-                </div>
-            )}
-            
-            {isDone && (
-                <div className="absolute top-3 right-3 text-emerald-500">
-                    <CheckCircle2 size={16} />
-                </div>
-            )}
-        </div>
-    );
-};
 
-// ... TaskDetailModal remains unchanged ...
-// Re-exporting TaskDetailModal is not necessary if only KanbanBoard is exported from the file, 
-// but we need to ensure the full file content is valid.
-// Including TaskDetailModal for completeness of the file update.
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Subject</label>
+              <select
+                value={subjectId}
+                onChange={(e) => setSubjectId(e.target.value)}
+                className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500/50"
+              >
+                {subjects.map(sub => (
+                  <option key={sub.id} value={sub.id}>{sub.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, subjects, onClose, onSave, onDelete }) => {
-    const [editedTask, setEditedTask] = useState<Task>({ ...task });
-
-    const handleSave = () => {
-        onSave({ ...editedTask, updatedAt: Date.now() });
-    };
-
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <motion.div 
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]"
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-3 pt-4 mt-2 border-t border-white/5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white transition-colors"
             >
-                <div className="flex items-center justify-between p-4 border-b border-white/5">
-                    <h3 className="font-bold text-lg text-white">Edit Task</h3>
-                    <button onClick={onClose} className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors">
-                        <X size={20} />
-                    </button>
-                </div>
-
-                <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
-                    {/* Title */}
-                    <div>
-                        <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Title</label>
-                        <input 
-                            value={editedTask.title}
-                            onChange={e => setEditedTask({...editedTask, title: e.target.value})}
-                            className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                            placeholder="What needs to be done?"
-                        />
-                    </div>
-
-                    {/* Description */}
-                    <div>
-                        <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Description</label>
-                        <textarea 
-                            value={editedTask.description || ''}
-                            onChange={e => setEditedTask({...editedTask, description: e.target.value})}
-                            className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-sm text-slate-300 focus:outline-none focus:border-indigo-500 transition-colors min-h-[100px] resize-none"
-                            placeholder="Add details, notes, or subtasks..."
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        {/* Subject */}
-                        <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Subject</label>
-                            <select 
-                                value={editedTask.subjectId}
-                                onChange={e => setEditedTask({...editedTask, subjectId: e.target.value})}
-                                className="w-full bg-slate-950 border border-white/10 rounded-xl p-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-                            >
-                                {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                            </select>
-                        </div>
-
-                        {/* Date */}
-                        <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Due Date</label>
-                            <input 
-                                type="date"
-                                value={editedTask.dateString || ''}
-                                onChange={e => setEditedTask({...editedTask, dateString: e.target.value})}
-                                className="w-full bg-slate-950 border border-white/10 rounded-xl p-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        {/* Status */}
-                        <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Status</label>
-                            <div className="flex bg-slate-950 rounded-xl p-1 border border-white/5">
-                                {COLUMNS.map(col => (
-                                    <button
-                                        key={col.id}
-                                        onClick={() => setEditedTask({...editedTask, status: col.id})}
-                                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${editedTask.status === col.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}
-                                    >
-                                        {col.title}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Priority */}
-                        <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Priority</label>
-                            <div className="flex bg-slate-950 rounded-xl p-1 border border-white/5">
-                                {(['low', 'medium', 'high'] as TaskPriority[]).map(p => (
-                                    <button
-                                        key={p}
-                                        onClick={() => setEditedTask({...editedTask, priority: p})}
-                                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase transition-all 
-                                            ${editedTask.priority === p 
-                                                ? (p === 'high' ? 'bg-rose-500 text-white' : p === 'medium' ? 'bg-amber-500 text-white' : 'bg-slate-600 text-white')
-                                                : 'text-slate-500 hover:text-slate-300'
-                                            }
-                                        `}
-                                    >
-                                        {p}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="p-4 border-t border-white/5 flex justify-between items-center bg-white/[0.02]">
-                    <button 
-                        onClick={() => onDelete(task.id)}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all"
-                    >
-                        <Trash2 size={16} /> Delete
-                    </button>
-                    <div className="flex gap-3">
-                        <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
-                            Cancel
-                        </button>
-                        <button 
-                            onClick={handleSave}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all"
-                        >
-                            <Save size={16} /> Save Changes
-                        </button>
-                    </div>
-                </div>
-            </motion.div>
-        </div>
-    );
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex items-center gap-2 px-6 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-xl shadow-lg shadow-violet-500/20 transition-all transform hover:scale-105 active:scale-95"
+            >
+              <Save size={16} />
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
 };
-
-interface TaskDetailModalProps {
-    task: Task;
-    subjects: Subject[];
-    onClose: () => void;
-    onSave: (task: Task) => void;
-    onDelete: (id: string) => void;
-}

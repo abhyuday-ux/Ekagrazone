@@ -44,6 +44,7 @@ export const PricingPage: React.FC<{ onClose?: () => void }> = ({ onClose }) => 
         }
         
         setIsUpgrading(true);
+        window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Processing upgrade...", state: "Thinking" } }));
         
         // Simulate payment processing
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -56,11 +57,13 @@ export const PricingPage: React.FC<{ onClose?: () => void }> = ({ onClose }) => 
                 updatedAt: new Date().toISOString()
             }, { merge: true });
             
+            window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Welcome to Premium! Let's achieve greatness.", state: "Happy" } }));
             // Reload to trigger auth check and remove lock
-            window.location.reload();
+            setTimeout(() => window.location.reload(), 1500);
         } catch (error) {
             console.error("Upgrade failed", error);
             setIsUpgrading(false);
+            window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Upgrade failed. Please try again.", state: "Alert" } }));
             alert("Upgrade failed. Please try again.");
         }
     };

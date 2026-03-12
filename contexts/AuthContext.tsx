@@ -110,6 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     try {
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Signing in with Google...", state: "Thinking" } }));
       if (currentUser && currentUser.isAnonymous) {
         // Link Guest account to Google so XP isn't lost
         await linkWithPopup(currentUser, googleProvider);
@@ -118,8 +119,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         await signInWithPopup(auth, googleProvider);
       }
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Welcome back!", state: "Happy" } }));
     } catch (error) {
       console.error("Error signing in with Google", error);
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Sign in failed.", state: "Alert" } }));
     }
   };
 
@@ -136,6 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsGuest(true);
       localStorage.setItem('ekagrazone_guest_mode', 'true');
       dbService.setUserId(null);
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Continuing as guest. Your data is saved locally.", state: "Focus" } }));
   };
 
   const logout = async () => {
@@ -146,7 +150,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setHasPremium(false);
       localStorage.removeItem('ekagrazone_guest_mode');
       dbService.setUserId(null);
-      window.location.reload(); 
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Logged out successfully.", state: "Alert" } }));
+      setTimeout(() => window.location.reload(), 1000);
     } catch (error) {
       console.error("Error signing out", error);
     }
