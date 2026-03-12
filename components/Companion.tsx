@@ -1,33 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface Step {
-  title: string;
-  description: string;
-  targetId: string;
-  tab: string;
-}
-
-const GLOBAL_TOUR: Step[] = [
-  { tab: 'dashboard', title: "Dashboard", description: "Welcome to EkagraZone! Let me show you around. Here is your dashboard.", targetId: "dashboard-container" },
-  { tab: 'dashboard', title: "Focus Timer", description: "Select a subject and start your focus session here.", targetId: "timer-display" },
-  { tab: 'dashboard', title: "Daily Goals", description: "Track your daily objectives.", targetId: "daily-goals" },
-  { tab: 'timer', title: "Focus Mode", description: "Visualize your session progress here.", targetId: "timer-circle" },
-  { tab: 'timer', title: "Choose Mode", description: "Switch between Stopwatch and Timer modes.", targetId: "timer-modes" },
-  { tab: 'timer', title: "Controls", description: "Start, pause, or stop your session.", targetId: "timer-controls" },
-  { tab: 'habits', title: "Habit List", description: "View and track your daily rituals.", targetId: "habits-list" },
-  { tab: 'habits', title: "New Habit", description: "Forge a new habit to build consistency.", targetId: "habits-add-btn" },
-  { tab: 'journal', title: "Daily Entry", description: "Reflect on your day, gratitude, and wins.", targetId: "journal-entry-area" },
-  { tab: 'journal', title: "Save Entry", description: "Don't forget to save your reflections!", targetId: "journal-save-btn" },
-  { tab: 'calendar', title: "Schedule", description: "View your study sessions and heatmaps.", targetId: "plan-calendar" },
-  { tab: 'calendar', title: "Goals", description: "Set and track your daily study targets.", targetId: "plan-goals" },
-  { tab: 'social', title: "Leaderboard", description: "Compete with others and see where you rank.", targetId: "arena-leaderboard" },
-  { tab: 'timeline', title: "Activity Heatmap", description: "Visualize your consistency over the year.", targetId: "stats-heatmap" },
-  { tab: 'exams', title: "Exam Countdown", description: "Keep track of upcoming deadlines.", targetId: "exam-countdown" },
-  { tab: 'settings', title: "Preferences", description: "Customize your app experience here.", targetId: "settings-container" },
-  { tab: 'settings', title: "Reset Tutorials", description: "Need a refresher? Reset all guides here.", targetId: "reset-tutorials-btn" }
-];
-
 const scales: Record<string, number[]> = {
   'Amaze': [523.25, 659.25, 783.99, 1046.50, 1318.51],
   'Happy': [523.25, 587.33, 659.25, 783.99, 880.00],
@@ -240,7 +213,7 @@ const playAudio = (state: string) => {
   }
 };
 
-export const Companion: React.FC<{ activeTab?: string, onNavigate?: (tab: string) => void }> = ({ activeTab, onNavigate }) => {
+export const Companion: React.FC = () => {
   const [state, setState] = useState('Idle');
   const [speech, setSpeech] = useState('');
   const [userName, setUserName] = useState(localStorage.getItem('rocky_username') || '');
@@ -262,22 +235,11 @@ export const Companion: React.FC<{ activeTab?: string, onNavigate?: (tab: string
   const [isPetted, setIsPetted] = useState(false);
   const [dragConstraints, setDragConstraints] = useState({ top: 0, left: 0, right: 0, bottom: 0 });
   
-  // Tour States
-  const [showTour, setShowTour] = useState(false);
-  const showTourRef = useRef(showTour);
-  
-  useEffect(() => {
-    showTourRef.current = showTour;
-  }, [showTour]);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  
   const lastActivityRef = useRef(Date.now());
   const petRef = useRef({ lastX: 0, lastY: 0, lastTime: 0, accum: 0 });
   const lastTypedSpeechRef = useRef(0);
   const lastEdgeSpeechRef = useRef(0);
   const lastTimerSpeechRef = useRef(0);
-  const hasGreetedRef = useRef(false);
-  const speechTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const updateConstraints = () => {
@@ -412,39 +374,35 @@ export const Companion: React.FC<{ activeTab?: string, onNavigate?: (tab: string
   }, []);
 
   useEffect(() => {
-    if (isTyping && Date.now() - lastTypedSpeechRef.current > 5 * 60 * 1000 && !showTour) {
+    if (isTyping && Date.now() - lastTypedSpeechRef.current > 5 * 60 * 1000) {
       lastTypedSpeechRef.current = Date.now();
       const typePhrases = ["Writing something brilliant?", "I'm watching your keystrokes.", "Good input.", "Keep the ideas flowing."];
       const text = typePhrases[Math.floor(Math.random() * typePhrases.length)];
       window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text, state: 'Focus' } }));
     }
-  }, [isTyping, showTour]);
+  }, [isTyping]);
 
   useEffect(() => {
-    if (isMouseNearEdge && Date.now() - lastEdgeSpeechRef.current > 2 * 60 * 1000 && !showTour) {
+    if (isMouseNearEdge && Date.now() - lastEdgeSpeechRef.current > 2 * 60 * 1000) {
       lastEdgeSpeechRef.current = Date.now();
       const edgePhrases = ["Where are you going?", "Stay within parameters.", "Don't leave the focus zone!", "Warning: cursor drifting."];
       const text = edgePhrases[Math.floor(Math.random() * edgePhrases.length)];
       window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text, state: 'Scary' } }));
     }
-  }, [isMouseNearEdge, showTour]);
+  }, [isMouseNearEdge]);
 
   useEffect(() => {
-    if (isTimerActive && Date.now() - lastTimerSpeechRef.current > 15 * 60 * 1000 && !showTour) {
+    if (isTimerActive && Date.now() - lastTimerSpeechRef.current > 15 * 60 * 1000) {
       lastTimerSpeechRef.current = Date.now();
       const focusPhrases = ["Focus mode engaged.", "Time to lock in.", "I'm breathing with you.", "Stay concentrated."];
       const text = focusPhrases[Math.floor(Math.random() * focusPhrases.length)];
       window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text, state: 'Focus' } }));
     }
-  }, [isTimerActive, showTour]);
+  }, [isTimerActive]);
 
   useEffect(() => {
-    if (hasGreetedRef.current) return;
-    
     if (isFirstLaunch) {
       const timer = setTimeout(() => {
-        hasGreetedRef.current = true;
-        if (showTour) return;
         setState('Question');
         setSpeech('Hello! What is your name?');
         playSpeech('Hello! What is your name?', 'Question');
@@ -452,8 +410,6 @@ export const Companion: React.FC<{ activeTab?: string, onNavigate?: (tab: string
       return () => clearTimeout(timer);
     } else {
       const timer = setTimeout(() => {
-        hasGreetedRef.current = true;
-        if (showTour) return;
         const hour = new Date().getHours();
         let greeting = "Hello!";
         if (hour >= 5 && hour < 12) greeting = "Good morning! Ready to focus?";
@@ -464,7 +420,7 @@ export const Companion: React.FC<{ activeTab?: string, onNavigate?: (tab: string
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [isFirstLaunch, showTour]);
+  }, [isFirstLaunch]);
 
   useEffect(() => {
     if (clickCount > 0) {
@@ -475,7 +431,6 @@ export const Companion: React.FC<{ activeTab?: string, onNavigate?: (tab: string
 
   useEffect(() => {
     const handleRockySpeak = (e: CustomEvent) => {
-      if (showTourRef.current) return; // Don't interrupt tour
       const text = e.detail.text;
       const forceState = e.detail.state;
       setSpeech(text);
@@ -494,12 +449,7 @@ export const Companion: React.FC<{ activeTab?: string, onNavigate?: (tab: string
       setState(newState);
       playSpeech(text, newState);
       
-      if (speechTimeoutRef.current) {
-        clearTimeout(speechTimeoutRef.current);
-      }
-      
-      speechTimeoutRef.current = setTimeout(() => {
-        if (showTourRef.current) return;
+      setTimeout(() => {
         setSpeech('');
         setState('Idle');
       }, Math.max(3000, text.length * 100));
@@ -511,14 +461,14 @@ export const Companion: React.FC<{ activeTab?: string, onNavigate?: (tab: string
 
   useEffect(() => {
     const idleSpeakInterval = setInterval(() => {
-      if (state === 'Idle' && !speech && !isFirstLaunch && Math.random() > 0.5 && !isNapping && !isTabHidden && !showTour) {
+      if (state === 'Idle' && !speech && !isFirstLaunch && Math.random() > 0.5 && !isNapping && !isTabHidden) {
         const phrase = getUniquePhrase('idle') as { text: string, state: string };
         window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: phrase.text, state: phrase.state } }));
       }
     }, 30 * 60 * 1000);
 
     return () => clearInterval(idleSpeakInterval);
-  }, [state, speech, isFirstLaunch, isNapping, isTabHidden, showTour]);
+  }, [state, speech, isFirstLaunch, isNapping, isTabHidden]);
 
   useEffect(() => {
     const blinkInterval = setInterval(() => {
@@ -557,7 +507,7 @@ export const Companion: React.FC<{ activeTab?: string, onNavigate?: (tab: string
   };
 
   const handleClick = () => {
-    if (isNapping || isTabHidden || showTour) return;
+    if (isNapping || isTabHidden) return;
     
     setClickCount(prev => prev + 1);
     if (clickCount >= 4) {
@@ -577,7 +527,7 @@ export const Companion: React.FC<{ activeTab?: string, onNavigate?: (tab: string
       setIsJittering(false);
     }, 200);
     
-    if (speech && !showTour) {
+    if (speech) {
       playSpeech(speech, state);
       return;
     }
@@ -600,87 +550,11 @@ export const Companion: React.FC<{ activeTab?: string, onNavigate?: (tab: string
       setSpeech(amazeText);
       setState('Amaze');
       playSpeech(amazeText, 'Amaze');
-      
-      if (speechTimeoutRef.current) {
-        clearTimeout(speechTimeoutRef.current);
-      }
-      
-      speechTimeoutRef.current = setTimeout(() => {
-        if (showTourRef.current) return;
+      setTimeout(() => {
         setSpeech('');
         setState('Idle');
       }, 3000);
     }
-  };
-
-  useEffect(() => {
-    if (isFirstLaunch) return; // Wait for name submission
-    
-    const isCompleted = localStorage.getItem('ekagra_global_tour_completed');
-    if (!isCompleted && !showTour) {
-      const timer = setTimeout(() => {
-        setShowTour(true);
-        setCurrentStepIndex(0);
-        const firstStep = GLOBAL_TOUR[0];
-        setSpeech(firstStep.description);
-        setState('Question');
-        playSpeech(firstStep.description, 'Question');
-      }, 3500); // Wait a bit after the "Nice to meet you" message
-      return () => clearTimeout(timer);
-    }
-  }, [isFirstLaunch, showTour]);
-
-  useEffect(() => {
-    if (!showTour) return;
-    const step = GLOBAL_TOUR[currentStepIndex];
-    if (!step) return;
-    
-    if (activeTab !== step.tab && onNavigate) {
-      onNavigate(step.tab);
-      return;
-    }
-    
-    let attempts = 0;
-    const findElement = setInterval(() => {
-      const element = document.getElementById(step.targetId);
-      if (element) {
-        clearInterval(findElement);
-        element.classList.add('ring-4', 'ring-violet-500', 'ring-opacity-50', 'transition-all', 'duration-500');
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else if (attempts > 10) {
-        clearInterval(findElement);
-      }
-      attempts++;
-    }, 100);
-    
-    return () => {
-      clearInterval(findElement);
-      const element = document.getElementById(step.targetId);
-      if (element) {
-        element.classList.remove('ring-4', 'ring-violet-500', 'ring-opacity-50', 'transition-all', 'duration-500');
-      }
-    };
-  }, [showTour, currentStepIndex, activeTab, onNavigate]);
-
-  const handleTourNext = () => {
-    if (currentStepIndex < GLOBAL_TOUR.length - 1) {
-      const nextIndex = currentStepIndex + 1;
-      setCurrentStepIndex(nextIndex);
-      const nextStep = GLOBAL_TOUR[nextIndex];
-      setSpeech(nextStep.description);
-      setState('Question');
-      playSpeech(nextStep.description, 'Question');
-    } else {
-      handleTourFinish();
-    }
-  };
-
-  const handleTourFinish = () => {
-    setShowTour(false);
-    setSpeech('');
-    setState('Idle');
-    localStorage.setItem('ekagra_global_tour_completed', 'true');
-    if (onNavigate) onNavigate('dashboard');
   };
 
   let effectiveState = state;
@@ -772,21 +646,6 @@ export const Companion: React.FC<{ activeTab?: string, onNavigate?: (tab: string
                   Save
                 </button>
               </form>
-            ) : showTour && GLOBAL_TOUR[currentStepIndex] ? (
-              <div className="flex flex-col gap-2">
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold text-violet-500 uppercase tracking-wider">{GLOBAL_TOUR[currentStepIndex].title}</span>
-                  <span className="text-sm">{speech}</span>
-                </div>
-                <div className="flex justify-end mt-1">
-                  <button 
-                    onClick={handleTourNext}
-                    className="bg-violet-600 hover:bg-violet-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm"
-                  >
-                    {currentStepIndex === GLOBAL_TOUR.length - 1 ? 'Got it!' : 'Next'}
-                  </button>
-                </div>
-              </div>
             ) : (
               <span>{speech}</span>
             )}

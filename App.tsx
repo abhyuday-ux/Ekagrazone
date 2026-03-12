@@ -60,11 +60,6 @@ const WALLPAPERS = [
   { id: 'abstract', label: 'Dark Abstract', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=2000&q=80' },
 ];
 
-const resetTours = () => {
-  localStorage.removeItem('ekagra_global_tour_completed');
-  window.location.reload();
-};
-
 const formatMiniTime = (ms: number) => {
     const totalSeconds = Math.ceil(ms / 1000);
     const hours = Math.floor(totalSeconds / 3600);
@@ -186,6 +181,7 @@ const App: React.FC = () => {
   const [wallpaper, setWallpaper] = useState<string>('');
   const [showWallpaperOnHome, setShowWallpaperOnHome] = useState(false);
   const [enableZenMode, setEnableZenMode] = useState(false);
+  const [enableCompanion, setEnableCompanion] = useState(true);
   const [isZenActive, setIsZenActive] = useState(false);
   const [showZenPrompt, setShowZenPrompt] = useState(false);
 
@@ -196,9 +192,6 @@ const App: React.FC = () => {
   // Animation State
   const [isLogoSpinning, setIsLogoSpinning] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
-  
-  // Companion State
-  const [isRockyEnabled, setIsRockyEnabled] = useState(true);
 
   const { accent, setAccent } = useTheme();
   
@@ -288,11 +281,11 @@ const App: React.FC = () => {
         const savedZenEnabled = localStorage.getItem('ekagrazone_enableZenMode');
         if (savedZenEnabled) setEnableZenMode(savedZenEnabled === 'true');
         
+        const savedCompanionEnabled = localStorage.getItem('ekagrazone_enableCompanion');
+        if (savedCompanionEnabled) setEnableCompanion(savedCompanionEnabled === 'true');
+        
         const savedDayStartHour = localStorage.getItem('ekagrazone_dayStartHour');
         if (savedDayStartHour) setDayStartHour(parseInt(savedDayStartHour));
-        
-        const savedRockyEnabled = localStorage.getItem('ekagrazone_rockyEnabled');
-        if (savedRockyEnabled) setIsRockyEnabled(savedRockyEnabled === 'true');
         
         const oldZenUrl = localStorage.getItem('ekagrazone_zenWallpaperUrl');
         if (oldZenUrl && !savedWallpaper) {
@@ -439,6 +432,14 @@ const App: React.FC = () => {
       window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: newState ? "Zen mode enabled." : "Zen mode disabled.", state: "Alert" } }));
   }, [enableZenMode]);
 
+  const handleCompanionToggle = useCallback(() => {
+      const newState = !enableCompanion;
+      setEnableCompanion(newState);
+      localStorage.setItem('ekagrazone_enableCompanion', String(newState));
+      dbService.syncSettingsToCloud().catch(console.error);
+      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: newState ? "Companion enabled." : "Companion disabled.", state: "Alert" } }));
+  }, [enableCompanion]);
+
   const handleWallpaperChange = useCallback((url: string) => {
       setWallpaper(url);
       localStorage.setItem('ekagrazone_wallpaper', url);
@@ -453,16 +454,6 @@ const App: React.FC = () => {
       dbService.syncSettingsToCloud().catch(console.error);
       window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: newVal ? "Wallpaper shown on home screen." : "Wallpaper hidden on home screen.", state: "Alert" } }));
   }, [showWallpaperOnHome]);
-
-  const handleRockyToggle = useCallback(() => {
-      const newVal = !isRockyEnabled;
-      setIsRockyEnabled(newVal);
-      localStorage.setItem('ekagrazone_rockyEnabled', String(newVal));
-      dbService.syncSettingsToCloud().catch(console.error);
-      if (newVal) {
-          window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "I'm back! Ready to help.", state: "Happy" } }));
-      }
-  }, [isRockyEnabled]);
 
   const handleAccentChange = useCallback((newAccent: string) => {
       setAccent(newAccent as any);
@@ -1093,12 +1084,12 @@ const App: React.FC = () => {
                             <div className="flex items-center gap-4">
                                 <div className={`p-2 bg-${accent}-500/10 rounded-xl text-${accent}-400`}><Users size={20} /></div>
                                 <div>
-                                    <span className="font-semibold text-slate-200 block">Rocky Companion</span>
-                                    <span className="text-xs text-slate-500">Enable or disable your AI friend</span>
+                                    <span className="font-semibold text-slate-200 block">Desktop Companion</span>
+                                    <span className="text-xs text-slate-500">Enable the interactive companion</span>
                                 </div>
                             </div>
-                            <button onClick={handleRockyToggle} className={`transition-colors ${isRockyEnabled ? `text-${accent}-400` : 'text-slate-600 hover:text-slate-400'}`}>
-                                {isRockyEnabled ? <ToggleRight size={36} /> : <ToggleLeft size={36} />}
+                            <button onClick={handleCompanionToggle} className={`transition-colors ${enableCompanion ? `text-${accent}-400` : 'text-slate-600 hover:text-slate-400'}`}>
+                                {enableCompanion ? <ToggleRight size={36} /> : <ToggleLeft size={36} />}
                             </button>
                         </div>
 
@@ -1108,17 +1099,6 @@ const App: React.FC = () => {
                                 <div>
                                     <span className="font-semibold text-slate-200 block text-left">Manage Subjects</span>
                                     <span className="text-xs text-slate-500 block text-left">Edit names and colors</span>
-                                </div>
-                            </div>
-                            <ChevronRight size={20} className="text-slate-500 group-hover:text-white transition-colors" />
-                        </button>
-
-                        <button id="reset-tutorials-btn" onClick={resetTours} className="w-full flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors group">
-                            <div className="flex items-center gap-4">
-                                <div className={`p-2 bg-${accent}-500/10 rounded-xl text-${accent}-400 group-hover:bg-${accent}-500/20 transition-colors`}><HelpCircle size={20} /></div>
-                                <div>
-                                    <span className="font-semibold text-slate-200 block text-left">Reset Tutorials</span>
-                                    <span className="text-xs text-slate-500 block text-left">Show all app guides again</span>
                                 </div>
                             </div>
                             <ChevronRight size={20} className="text-slate-500 group-hover:text-white transition-colors" />
@@ -1295,7 +1275,7 @@ const App: React.FC = () => {
       
       {/* Friend Milestone Observer - Always render but handle user inside */}
       <FriendObserver />
-      {isRockyEnabled && <Companion activeTab={activeTab} onNavigate={(tab) => handleTabChange(tab as any)} />}
+      {enableCompanion && <Companion />}
       
       {/* Notification Center - Always render */}
       <NotificationCenter isOpen={isNotificationOpen} onClose={() => setIsNotificationOpen(false)} />
