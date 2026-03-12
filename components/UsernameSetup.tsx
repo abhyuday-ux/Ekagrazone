@@ -52,15 +52,12 @@ export const UsernameSetup: React.FC<UsernameSetupProps> = ({ onComplete }) => {
     const handleSubmit = async () => {
         if (!isAvailable) return;
         setChecking(true);
-        window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Claiming your identity...", state: "Thinking" } }));
         try {
             await dbService.claimUsername(username);
-            window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: `Welcome, ${username}!`, state: "Happy" } }));
             onComplete();
         } catch (e) {
             setError("Failed to claim username.");
             setChecking(false);
-            window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Failed to claim username.", state: "Alert" } }));
         }
     };
 

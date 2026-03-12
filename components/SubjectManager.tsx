@@ -86,7 +86,6 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({ subjects: initia
     try {
       await dbService.saveSubjects(newList);
       onUpdate();
-      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: `Added subject: ${newSubject.name}`, state: "Happy" } }));
     } catch (e) {
       console.error("Failed to add subject", e);
       setSubjects(initialSubjects);
@@ -114,7 +113,6 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({ subjects: initia
     try {
       await dbService.saveSubjects(newList);
       onUpdate();
-      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Subject updated.", state: "Thinking" } }));
     } catch (e) {
       console.error("Failed to edit subject", e);
       setSubjects(initialSubjects);
@@ -135,7 +133,6 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({ subjects: initia
     try {
       await dbService.saveSubjects(newList);
       onUpdate();
-      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: archive ? "Subject archived." : "Subject unarchived.", state: "Alert" } }));
     } catch (err) {
       console.error("Failed to toggle archive", err);
       setSubjects(initialSubjects);
@@ -152,7 +149,6 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({ subjects: initia
       try {
         await dbService.saveSubjects(newList);
         onUpdate();
-        window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Subject deleted.", state: "Alert" } }));
       } catch (err) {
         console.error("Failed to delete subject", err);
         setSubjects(initialSubjects);

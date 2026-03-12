@@ -50,7 +50,7 @@ export const ExamTracker: React.FC<ExamTrackerProps> = ({ subjects, exams, onUpd
             </div>
 
             {/* Content Area */}
-            <div id="exam-countdown" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {activeTab === 'upcoming' ? (
                     <ExamCountdown subjects={subjects} exams={exams} onUpdate={onUpdate} />
                 ) : (

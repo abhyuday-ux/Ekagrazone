@@ -36,7 +36,6 @@ export const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
       subjectId: selectedSubjectId,
       focusScore
     });
-    window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Session saved. Great work!", state: "Happy" } }));
   };
 
   return (

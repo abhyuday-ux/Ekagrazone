@@ -73,7 +73,6 @@ export const SessionManager: React.FC<SessionManagerProps> = ({
       };
 
       onSave(newSession);
-      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: isEditing ? "Session updated." : "Session logged manually.", state: "Happy" } }));
   };
 
   const handleDeleteClick = (e: React.MouseEvent) => {
@@ -83,10 +82,7 @@ export const SessionManager: React.FC<SessionManagerProps> = ({
   };
 
   const confirmDelete = () => {
-      if (session && onDelete) {
-          onDelete(session.id);
-          window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Session deleted.", state: "Alert" } }));
-      }
+      if (session && onDelete) onDelete(session.id);
   };
 
   const activeSubjects = subjects.filter(s => !s.isArchived || s.id === session?.subjectId);

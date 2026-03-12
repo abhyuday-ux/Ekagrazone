@@ -100,7 +100,6 @@ export const PlanPage: React.FC<PlanPageProps> = ({
 
       await dbService.saveExam(exam);
       window.dispatchEvent(new Event('omni_sync_complete'));
-      window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Exam added. Let's start preparing!", state: "Happy" } }));
       
       setIsAddingExam(false);
       setNewExamTitle('');
@@ -111,7 +110,6 @@ export const PlanPage: React.FC<PlanPageProps> = ({
       if(confirm("Delete this exam?")) {
           await dbService.deleteExam(id);
           window.dispatchEvent(new Event('omni_sync_complete'));
-          window.dispatchEvent(new CustomEvent('rocky-speak', { detail: { text: "Exam deleted.", state: "Alert" } }));
       }
   };
 
@@ -165,7 +163,7 @@ export const PlanPage: React.FC<PlanPageProps> = ({
                 {/* Left Column: Calendar Area */}
                 <div className="lg:col-span-8 flex flex-col p-6 pt-0 lg:border-r border-white/5">
                     {/* Calendar Container */}
-                    <div id="plan-calendar" className="bg-transparent rounded-3xl pt-2 pb-6 relative overflow-hidden flex-none">
+                    <div className="bg-transparent rounded-3xl pt-2 pb-6 relative overflow-hidden flex-none">
                         <HeatmapCalendar 
                             sessions={sessions} 
                             currentDate={calendarMonth} 
@@ -182,7 +180,6 @@ export const PlanPage: React.FC<PlanPageProps> = ({
                         <div className="flex items-center justify-between mb-3">
                             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><GraduationCap size={16}/> Upcoming Milestones</h3>
                             <button 
-                                id="plan-add-exam"
                                 onClick={() => setIsAddingExam(true)}
                                 className="flex items-center gap-1 text-[10px] font-bold bg-white/5 hover:bg-white/10 text-slate-300 px-2 py-1 rounded-lg transition-colors border border-white/5"
                             >
@@ -194,7 +191,7 @@ export const PlanPage: React.FC<PlanPageProps> = ({
                 </div>
 
                 {/* Right Column: Goals Side Panel */}
-                <div id="plan-goals" className="lg:col-span-4 h-auto lg:h-full bg-slate-900/20 backdrop-blur-sm border-t lg:border-t-0 lg:border-l border-white/5 p-6 min-h-[400px]">
+                <div className="lg:col-span-4 h-auto lg:h-full bg-slate-900/20 backdrop-blur-sm border-t lg:border-t-0 lg:border-l border-white/5 p-6 min-h-[400px]">
                     <GoalChecklist 
                         dailyTotalMs={dailyTotalMs} 
                         tasks={todaysTasks}
@@ -215,7 +212,7 @@ export const PlanPage: React.FC<PlanPageProps> = ({
                 className="flex-1 min-h-0 overflow-hidden px-4 md:px-6 pb-20 lg:pb-6"
             >
                 <KanbanBoard 
-                    tasks={tasks} // Pass ALL tasks to Board for project view
+                    tasks={tasks} // Pass ALL tasks to Kanban for project view
                     subjects={subjects}
                     onTaskUpdate={onTaskUpdate}
                     onStartSession={onStartSession}
