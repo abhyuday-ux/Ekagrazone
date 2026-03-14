@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { EkagraLogo } from './EkagraLogo';
-import { Zap, BarChart2, Timer, Workflow, CheckCircle2, Shield, ArrowRight, Layout, Calendar, CheckSquare, Sparkles } from 'lucide-react';
-import { motion, useScroll, useTransform, Variants } from 'framer-motion';
+import { Zap, BarChart2, Timer, Workflow, CheckCircle2, Shield, ArrowRight, Layout, Calendar, CheckSquare, Sparkles, ChevronDown, ChevronUp, Star, Users, Globe, Smartphone, Laptop, Cloud, CloudOff } from 'lucide-react';
+import { motion, useScroll, useTransform, Variants, AnimatePresence } from 'framer-motion';
 import { LandingPricing } from './LandingPricing';
 import { ContainerScroll } from './ContainerScroll';
 import { Footer } from './Footer';
@@ -42,12 +42,32 @@ const SHOWCASE_ITEMS = [
   }
 ];
 
+const FAQS = [
+  {
+    question: "Is EkagraZone really free?",
+    answer: "Yes! The core features including the focus timer, basic analytics, and task planner are completely free. We offer a premium 'Legend' tier for advanced analytics and cloud sync."
+  },
+  {
+    question: "Does it work offline?",
+    answer: "Absolutely. EkagraZone is built with a local-first architecture. Your data is saved to your device and syncs to the cloud when you're back online."
+  },
+  {
+    question: "Can I use it on my phone?",
+    answer: "Yes, EkagraZone is fully responsive and works beautifully as a Progressive Web App (PWA) on iOS and Android devices."
+  },
+  {
+    question: "How is my data protected?",
+    answer: "We use enterprise-grade encryption via Firebase. Your personal journal entries and study habits are private by design."
+  }
+];
+
 export const LoginPage: React.FC = () => {
   const { signInWithGoogle, continueAsGuest } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [isSpinning, setIsSpinning] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
   const { scrollY } = useScroll();
   
   const backgroundY = useTransform(scrollY, [0, 1000], [0, 200]);
@@ -144,7 +164,7 @@ export const LoginPage: React.FC = () => {
 
              {/* Headline */}
              <div className="relative">
-                 <motion.h1 variants={itemVariants} className="text-5xl sm:text-6xl lg:text-7xl font-bold text-white tracking-tight leading-[1.1]">
+                 <motion.h1 variants={itemVariants} className="text-4xl sm:text-6xl lg:text-7xl font-bold text-white tracking-tight leading-[1.1]">
                     Master your <br/>
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400">flow state.</span>
                  </motion.h1>
@@ -157,7 +177,7 @@ export const LoginPage: React.FC = () => {
                  </motion.span>
              </div>
 
-             <motion.p variants={itemVariants} className="text-lg text-slate-400 leading-relaxed max-w-lg">
+             <motion.p variants={itemVariants} className="text-base sm:text-lg text-slate-400 leading-relaxed max-w-lg">
                 Stop juggling apps. Ekagrazone combines a pro-grade timer, habit tracker, and analytics engine into one beautiful, local-first workspace.
                 <span className="block mt-2 font-hand text-xl text-cyan-200/70">Designed for deep work enthusiasts.</span>
              </motion.p>
@@ -166,7 +186,7 @@ export const LoginPage: React.FC = () => {
              <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 pt-4">
                  <button 
                     onClick={signInWithGoogle}
-                    className="h-14 px-8 bg-white text-slate-900 hover:bg-slate-100 rounded-xl flex items-center justify-center gap-3 transition-all font-bold text-base shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 active:scale-95 group relative overflow-hidden"
+                    className="h-14 px-8 bg-white text-slate-900 hover:bg-slate-100 rounded-xl flex items-center justify-center gap-3 transition-all font-bold text-base shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 active:scale-95 group relative overflow-hidden w-full sm:w-auto"
                  >
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -180,7 +200,7 @@ export const LoginPage: React.FC = () => {
                  
                  <button 
                     onClick={continueAsGuest}
-                    className="font-hand text-3xl text-slate-400 hover:text-cyan-300 transition-colors relative group px-4 py-2"
+                    className="font-hand text-2xl sm:text-3xl text-slate-400 hover:text-cyan-300 transition-colors relative group px-4 py-2 w-full sm:w-auto text-center"
                  >
                     Continue as Guest
                     <span className="absolute bottom-2 left-4 right-4 h-0.5 bg-cyan-300/50 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center"></span>
@@ -188,7 +208,7 @@ export const LoginPage: React.FC = () => {
              </motion.div>
 
              {/* Features Grid (Bento Style with "Screenshots") */}
-             <motion.div variants={containerVariants} className="grid grid-cols-2 gap-4 pt-8">
+             <motion.div variants={containerVariants} className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-8">
                  {/* Feature 1: Timer */}
                  <motion.div 
                     variants={itemVariants} 
@@ -300,7 +320,7 @@ export const LoginPage: React.FC = () => {
           </motion.div>
 
           {/* Right Column: 3D UI Showcase */}
-          <div className="relative hidden lg:block h-[600px] w-full perspective-1000">
+          <div className="relative h-[400px] lg:h-[600px] w-full perspective-1000 mt-12 lg:mt-0">
               <MockInterface />
           </div>
 
@@ -353,20 +373,31 @@ export const LoginPage: React.FC = () => {
                 </div>
 
                 {/* Image Side */}
-                <div className="flex-1 w-full">
+                <div className="flex-1 w-full relative">
+                    {/* Decorative background glow */}
+                    <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-gradient-to-br ${index % 2 === 0 ? 'from-cyan-500/20 to-blue-500/20' : 'from-emerald-500/20 to-teal-500/20'} blur-[80px] rounded-full -z-10 opacity-50 group-hover:opacity-100 transition-opacity duration-700`} />
+                    
                     <motion.div 
-                        whileHover={{ scale: 1.02, rotateY: index % 2 === 0 ? 2 : -2 }}
+                        whileHover={{ scale: 1.02, y: -5 }}
                         transition={{ type: "spring", stiffness: 100, damping: 20 }}
-                        className="relative group rounded-3xl border border-white/10 bg-slate-900/50 backdrop-blur-sm overflow-hidden shadow-2xl hover:shadow-cyan-500/10 transition-all duration-500"
+                        className="relative group rounded-2xl border border-white/10 bg-slate-900/80 backdrop-blur-xl overflow-hidden shadow-2xl transition-all duration-500 flex flex-col"
                     >
-                        {/* Overlay Gradient */}
-                        <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none z-10" />
-                        <img 
-                            src={item.image} 
-                            alt={item.title} 
-                            className="w-full h-auto transform transition-transform duration-700"
-                            loading="lazy"
-                        />
+                        {/* App Window Header */}
+                        <div className="h-10 border-b border-white/10 bg-slate-800/50 flex items-center px-4 gap-2">
+                            <div className="w-3 h-3 rounded-full bg-rose-500/80" />
+                            <div className="w-3 h-3 rounded-full bg-amber-500/80" />
+                            <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
+                        </div>
+                        {/* Image */}
+                        <div className="relative overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none z-10" />
+                            <img 
+                                src={item.image} 
+                                alt={item.title} 
+                                className="w-full h-auto transform group-hover:scale-105 transition-transform duration-700"
+                                loading="lazy"
+                            />
+                        </div>
                     </motion.div>
                 </div>
             </motion.div>
@@ -406,49 +437,291 @@ export const LoginPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Why EkagraZone Section */}
-      <div className="w-full max-w-7xl mx-auto px-6 pb-16 relative z-10">
-        <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-3xl p-8 md:p-12">
-          <h2 className="text-3xl font-bold text-white mb-8 text-center">Why EkagraZone?</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-slate-400">
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
-              <h4 className="text-cyan-400 font-bold mb-2">Focus Timer</h4>
-              <p className="text-xs leading-relaxed">Customizable Pomodoro timer to break work into manageable intervals.</p>
-            </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
-              <h4 className="text-cyan-400 font-bold mb-2">Productivity Tracker</h4>
-              <p className="text-xs leading-relaxed">Detailed analytics to visualize your productivity patterns and improvements.</p>
-            </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
-              <h4 className="text-cyan-400 font-bold mb-2">Study Aid</h4>
-              <p className="text-xs leading-relaxed">Perfect for students needing structured study sessions and break management.</p>
-            </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
-              <h4 className="text-cyan-400 font-bold mb-2">Flow State</h4>
-              <p className="text-xs leading-relaxed">Immersive environments and sounds to help you enter and maintain flow state.</p>
-            </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
-              <h4 className="text-cyan-400 font-bold mb-2">Gamification</h4>
-              <p className="text-xs leading-relaxed">Earn XP, level up, and compete on leaderboards to make work fun.</p>
-            </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
-              <h4 className="text-cyan-400 font-bold mb-2">Habit Building</h4>
-              <p className="text-xs leading-relaxed">Track daily habits and build streaks to form long-lasting positive routines.</p>
-            </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
-              <h4 className="text-cyan-400 font-bold mb-2">Mindfulness</h4>
-              <p className="text-xs leading-relaxed">Integrated journaling and reflection tools to support your mental well-being.</p>
-            </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors">
-              <h4 className="text-cyan-400 font-bold mb-2">Community</h4>
-              <p className="text-xs leading-relaxed">Join a global community of focused individuals and stay motivated together.</p>
-            </div>
-          </div>
+      {/* Premium Bento Grid Features */}
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 pb-32 relative z-10">
+        <div className="text-center mb-16">
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest mb-6"
+            >
+                <Layout size={12} /> The Ecosystem
+            </motion.div>
+            <motion.h2 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.1 }}
+                className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 tracking-tight"
+            >
+                Everything you need.<br/>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">Nothing you don't.</span>
+            </motion.h2>
+            <motion.p 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.2 }}
+                className="text-lg text-slate-400 max-w-2xl mx-auto"
+            >
+                A carefully curated suite of tools designed to eliminate distractions, build unbreakable habits, and amplify your cognitive output.
+            </motion.p>
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Large Card 1 */}
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="md:col-span-2 p-8 md:p-10 bg-slate-900/40 backdrop-blur-md rounded-[2rem] border border-white/10 hover:border-cyan-500/30 transition-all group overflow-hidden relative"
+            >
+                <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 blur-[80px] rounded-full group-hover:bg-cyan-500/20 transition-colors duration-700" />
+                <div className="relative z-10 h-full flex flex-col justify-between">
+                    <div>
+                        <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 flex items-center justify-center text-cyan-400 mb-6 group-hover:scale-110 transition-transform duration-500"><Timer size={28} /></div>
+                        <h4 className="text-2xl md:text-3xl text-white font-bold mb-4">Precision Focus Timer</h4>
+                        <p className="text-slate-400 leading-relaxed max-w-md text-lg">Customizable Pomodoro intervals with deep work tracking. Enter flow state faster with our scientifically-backed timing sequences and immersive ambient sounds.</p>
+                    </div>
+                </div>
+            </motion.div>
+
+            {/* Small Card 1 */}
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.1 }}
+                className="p-8 md:p-10 bg-slate-900/40 backdrop-blur-md rounded-[2rem] border border-white/10 hover:border-emerald-500/30 transition-all group overflow-hidden relative"
+            >
+                <div className="absolute bottom-0 right-0 w-48 h-48 bg-emerald-500/10 blur-[60px] rounded-full group-hover:bg-emerald-500/20 transition-colors duration-700" />
+                <div className="relative z-10">
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 mb-6 group-hover:scale-110 transition-transform duration-500"><BarChart2 size={28} /></div>
+                    <h4 className="text-2xl text-white font-bold mb-4">Deep Analytics</h4>
+                    <p className="text-slate-400 leading-relaxed">Visualize your productivity patterns, track subject mastery, and optimize your study schedule based on real data.</p>
+                </div>
+            </motion.div>
+
+            {/* Small Card 2 */}
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.2 }}
+                className="p-8 md:p-10 bg-slate-900/40 backdrop-blur-md rounded-[2rem] border border-white/10 hover:border-amber-500/30 transition-all group overflow-hidden relative"
+            >
+                <div className="absolute top-0 left-0 w-48 h-48 bg-amber-500/10 blur-[60px] rounded-full group-hover:bg-amber-500/20 transition-colors duration-700" />
+                <div className="relative z-10">
+                    <div className="w-14 h-14 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-400 mb-6 group-hover:scale-110 transition-transform duration-500"><Workflow size={28} /></div>
+                    <h4 className="text-2xl text-white font-bold mb-4">Habit Forge</h4>
+                    <p className="text-slate-400 leading-relaxed">Build unbreakable routines. Track daily habits, maintain streaks, and forge the discipline needed for top-tier performance.</p>
+                </div>
+            </motion.div>
+
+            {/* Large Card 2 */}
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.3 }}
+                className="md:col-span-2 p-8 md:p-10 bg-slate-900/40 backdrop-blur-md rounded-[2rem] border border-white/10 hover:border-pink-500/30 transition-all group overflow-hidden relative"
+            >
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-pink-500/10 blur-[80px] rounded-full group-hover:bg-pink-500/20 transition-colors duration-700" />
+                <div className="relative z-10 h-full flex flex-col justify-between">
+                    <div>
+                        <div className="w-14 h-14 rounded-2xl bg-pink-500/20 flex items-center justify-center text-pink-400 mb-6 group-hover:scale-110 transition-transform duration-500"><Users size={28} /></div>
+                        <h4 className="text-2xl md:text-3xl text-white font-bold mb-4">Global Arena</h4>
+                        <p className="text-slate-400 leading-relaxed max-w-md text-lg">Productivity is better together. Compete on global leaderboards, challenge your friends, and stay accountable in a community of high achievers.</p>
+                    </div>
+                </div>
+            </motion.div>
+        </div>
+      </div>
+
+      {/* How It Works Section */}
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 pb-32 relative z-10">
+          <div className="text-center mb-16">
+              <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-widest mb-6"
+              >
+                  <Workflow size={12} /> The Process
+              </motion.div>
+              <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 tracking-tight">How to master your workflow</h2>
+              <p className="text-lg text-slate-400 max-w-2xl mx-auto">Three simple steps to transition from scattered attention to laser-focused execution.</p>
+          </div>
+
+          <div className="relative">
+              {/* Connecting Line */}
+              <div className="hidden md:block absolute top-1/2 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent -translate-y-1/2 z-0" />
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative z-10">
+                  {[
+                      {
+                          step: "01",
+                          title: "Plan Your Attack",
+                          desc: "Organize your tasks in the planner. Break down large projects into actionable, bite-sized chunks.",
+                          icon: <Calendar size={24} />,
+                          colorClass: "text-cyan-400",
+                          bgClass: "bg-cyan-500/10",
+                          borderClass: "border-cyan-500/30",
+                          hoverBgClass: "group-hover:bg-cyan-500/10"
+                      },
+                      {
+                          step: "02",
+                          title: "Enter the Zone",
+                          desc: "Start the Pomodoro timer. The interface fades away, leaving only your task and the ticking clock.",
+                          icon: <Timer size={24} />,
+                          colorClass: "text-blue-400",
+                          bgClass: "bg-blue-500/10",
+                          borderClass: "border-blue-500/30",
+                          hoverBgClass: "group-hover:bg-blue-500/10"
+                      },
+                      {
+                          step: "03",
+                          title: "Review & Adapt",
+                          desc: "Check your analytics. See where your time went, adjust your habits, and prepare for the next session.",
+                          icon: <BarChart2 size={24} />,
+                          colorClass: "text-emerald-400",
+                          bgClass: "bg-emerald-500/10",
+                          borderClass: "border-emerald-500/30",
+                          hoverBgClass: "group-hover:bg-emerald-500/10"
+                      }
+                  ].map((item, i) => (
+                      <motion.div 
+                          key={i}
+                          initial={{ opacity: 0, y: 30 }}
+                          whileInView={{ opacity: 1, y: 0 }}
+                          viewport={{ once: true }}
+                          transition={{ delay: i * 0.2 }}
+                          className="flex flex-col items-center text-center relative group"
+                      >
+                          <div className={`w-20 h-20 rounded-2xl bg-slate-900 border ${item.borderClass} flex items-center justify-center ${item.colorClass} mb-6 relative z-10 group-hover:scale-110 ${item.hoverBgClass} transition-all duration-500 shadow-[0_0_30px_rgba(0,0,0,0.5)]`}>
+                              {item.icon}
+                              <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center text-xs font-bold text-white">
+                                  {item.step}
+                              </div>
+                          </div>
+                          <h3 className="text-xl font-bold text-white mb-3">{item.title}</h3>
+                          <p className="text-slate-400 leading-relaxed">{item.desc}</p>
+                      </motion.div>
+                  ))}
+              </div>
+          </div>
       </div>
 
       {/* Science & Methodology Section */}
       <ScienceSection />
+
+      {/* Mobile Experience Section */}
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 pb-32 relative z-10">
+          <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-[3rem] p-8 md:p-16 overflow-hidden relative flex flex-col md:flex-row items-center gap-12">
+              {/* Background Glow */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-3xl bg-blue-500/10 blur-[100px] rounded-full pointer-events-none" />
+              
+              <div className="flex-1 space-y-8 relative z-10">
+                  <motion.div 
+                      initial={{ opacity: 0, x: -20 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-300 text-xs font-bold uppercase tracking-widest"
+                  >
+                      <Smartphone size={12} className="text-cyan-400" /> Cross-Platform
+                  </motion.div>
+                  <motion.h2 
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: 0.1 }}
+                      className="text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight"
+                  >
+                      Your focus, <br/>
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">anywhere you go.</span>
+                  </motion.h2>
+                  <motion.p 
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: 0.2 }}
+                      className="text-lg text-slate-400 leading-relaxed max-w-md"
+                  >
+                      EkagraZone is built as a Progressive Web App (PWA). Install it directly to your home screen on iOS, Android, or Desktop. No app store required.
+                  </motion.p>
+                  
+                  <motion.div 
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: 0.3 }}
+                      className="flex flex-col sm:flex-row gap-4 pt-4"
+                  >
+                      <div className="flex items-center gap-3 text-slate-300 bg-white/5 px-4 py-3 rounded-xl border border-white/5">
+                          <Laptop size={20} className="text-cyan-400" />
+                          <span className="font-medium">Desktop</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-slate-300 bg-white/5 px-4 py-3 rounded-xl border border-white/5">
+                          <Smartphone size={20} className="text-blue-400" />
+                          <span className="font-medium">Mobile</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-slate-300 bg-white/5 px-4 py-3 rounded-xl border border-white/5">
+                          <Cloud size={20} className="text-emerald-400" />
+                          <span className="font-medium">Cloud Sync</span>
+                      </div>
+                  </motion.div>
+              </div>
+
+              {/* Mobile Mockup */}
+              <motion.div 
+                  initial={{ opacity: 0, y: 50, rotateZ: -5 }}
+                  whileInView={{ opacity: 1, y: 0, rotateZ: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8, type: "spring" }}
+                  className="flex-1 relative z-10 flex justify-center w-full"
+              >
+                  <motion.div 
+                      animate={{ y: [0, -15, 0] }}
+                      transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                      className="w-[280px] h-[580px] bg-slate-950 rounded-[3rem] border-8 border-slate-800 shadow-2xl relative overflow-hidden flex flex-col"
+                  >
+                      {/* Notch */}
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-slate-800 rounded-b-2xl z-20" />
+                      
+                      {/* Screen Content */}
+                      <div className="flex-1 bg-[#050511] p-6 pt-12 flex flex-col relative">
+                          <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/10 to-transparent opacity-50" />
+                          
+                          <div className="flex justify-between items-center mb-8 relative z-10">
+                              <div className="w-8 h-8 rounded-full bg-slate-800" />
+                              <div className="w-8 h-8 rounded-full bg-slate-800" />
+                          </div>
+                          
+                          <div className="flex-1 flex flex-col items-center justify-center relative z-10">
+                              <div className="w-48 h-48 rounded-full border-4 border-cyan-500/30 flex items-center justify-center relative mb-8">
+                                  <div className="absolute inset-0 border-4 border-cyan-400 rounded-full border-t-transparent animate-spin" style={{ animationDuration: '3s' }} />
+                                  <span className="text-4xl font-mono font-bold text-white">25:00</span>
+                              </div>
+                              <div className="text-center">
+                                  <h3 className="text-white font-bold text-lg mb-1">Deep Work</h3>
+                                  <p className="text-cyan-400 text-sm">Session 1/4</p>
+                              </div>
+                          </div>
+                          
+                          <div className="h-16 bg-slate-900/80 rounded-2xl border border-white/10 mt-auto flex items-center justify-around px-4 relative z-10">
+                              <div className="w-8 h-8 rounded-full bg-cyan-500/20" />
+                              <div className="w-8 h-8 rounded-full bg-white/5" />
+                              <div className="w-8 h-8 rounded-full bg-white/5" />
+                              <div className="w-8 h-8 rounded-full bg-white/5" />
+                          </div>
+                      </div>
+                  </motion.div>
+                  {/* Decorative blur behind phone */}
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[500px] bg-cyan-500/20 blur-[60px] rounded-full -z-10" />
+              </motion.div>
+          </div>
+      </div>
 
       {/* Pricing Section */}
       <LandingPricing />
@@ -465,6 +738,117 @@ export const LoginPage: React.FC = () => {
                   We never sell your study habits, session data, or personal information to third parties. 
                   EkagraZone is built to be a safe haven for your mind.
               </p>
+          </div>
+      </div>
+
+      {/* Proudly Made in India Badge */}
+      <div className="w-full flex justify-center pb-16 relative z-10">
+          <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-gradient-to-r from-orange-500/10 via-white/5 to-green-500/10 border border-white/10 backdrop-blur-md shadow-[0_0_30px_rgba(255,153,51,0.1)]"
+          >
+              <span className="text-2xl">🇮🇳</span>
+              <span className="text-slate-300 font-medium tracking-wide">Proudly crafted in <span className="text-white font-bold">India</span> for the world</span>
+          </motion.div>
+      </div>
+
+      {/* Guest Mode Explanation */}
+      <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 pb-32 relative z-10">
+          <div className="bg-gradient-to-br from-slate-900/80 to-slate-950/80 backdrop-blur-xl border border-white/10 rounded-[3rem] p-10 md:p-16 relative overflow-hidden shadow-2xl">
+              {/* Background Glows */}
+              <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-cyan-500/10 blur-[120px] rounded-full pointer-events-none" />
+              
+              <div className="flex flex-col md:flex-row items-center gap-12 relative z-10">
+                  <div className="flex-1 space-y-6">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-widest">
+                          <CloudOff size={12} /> Local Storage Only
+                      </div>
+                      <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight">Why Guest Mode stays offline.</h2>
+                      <p className="text-lg text-slate-400 leading-relaxed">
+                          In Guest Mode, your focus data, habits, and tasks are stored <strong className="text-white font-medium">strictly on your device</strong>. We designed it this way to give you instant, frictionless access without requiring an account.
+                      </p>
+                      <p className="text-lg text-slate-400 leading-relaxed">
+                          Because the data never leaves your browser, <strong className="text-cyan-400 font-medium">Cloud Sync is disabled</strong>. To sync across devices, backup your progress, and join the global leaderboard, you'll need to create a free account.
+                      </p>
+                      
+                      <div className="pt-4 flex flex-col sm:flex-row gap-4">
+                          <button 
+                            onClick={signInWithGoogle}
+                            className="h-14 px-8 bg-white text-slate-900 hover:bg-slate-100 rounded-xl flex items-center justify-center gap-2 transition-all font-bold shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:scale-105 active:scale-95"
+                          >
+                            Create Free Account
+                            <ArrowRight size={18} />
+                          </button>
+                      </div>
+                  </div>
+                  
+                  {/* Visual Representation */}
+                  <div className="flex-1 w-full max-w-md relative flex justify-center items-center h-[300px]">
+                      {/* Device Node */}
+                      <motion.div 
+                          animate={{ y: [-5, 5, -5] }}
+                          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                          className="bg-slate-800/80 border border-slate-700 rounded-2xl p-6 relative z-10 shadow-xl backdrop-blur-md w-64"
+                      >
+                          <div className="flex items-center justify-between mb-4">
+                              <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400">
+                                      <Laptop size={20} />
+                                  </div>
+                                  <div>
+                                      <div className="text-sm font-bold text-white">Your Device</div>
+                                      <div className="text-xs text-slate-400">Local Storage</div>
+                                  </div>
+                              </div>
+                              <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse" />
+                          </div>
+                          
+                          {/* Data blocks */}
+                          <div className="space-y-3">
+                              <div className="h-2 w-full bg-slate-700 rounded-full overflow-hidden">
+                                  <div className="h-full w-3/4 bg-indigo-500 rounded-full" />
+                              </div>
+                              <div className="h-2 w-full bg-slate-700 rounded-full overflow-hidden">
+                                  <div className="h-full w-1/2 bg-cyan-500 rounded-full" />
+                              </div>
+                              <div className="h-2 w-full bg-slate-700 rounded-full overflow-hidden">
+                                  <div className="h-full w-5/6 bg-emerald-500 rounded-full" />
+                              </div>
+                          </div>
+                      </motion.div>
+                      
+                      {/* Disconnected Cloud Node */}
+                      <motion.div 
+                          animate={{ y: [5, -5, 5] }}
+                          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                          className="absolute -top-4 -right-4 md:-right-12 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 z-0 shadow-2xl backdrop-blur-md opacity-60 w-48"
+                      >
+                          <div className="flex items-center gap-3">
+                              <div className="p-2 bg-slate-800 rounded-lg text-slate-500">
+                                  <CloudOff size={20} />
+                              </div>
+                              <div>
+                                  <div className="text-sm font-bold text-slate-400">Cloud Sync</div>
+                                  <div className="text-xs text-slate-500">Disconnected</div>
+                              </div>
+                          </div>
+                      </motion.div>
+                      
+                      {/* Broken Connection Line */}
+                      <svg className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 -z-10 text-slate-700/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1" strokeDasharray="4 4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16" />
+                      </svg>
+                      
+                      {/* X mark in the middle of the line */}
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-slate-900 rounded-full flex items-center justify-center border border-slate-800 z-0">
+                          <div className="w-3 h-0.5 bg-rose-500 rotate-45 absolute" />
+                          <div className="w-3 h-0.5 bg-rose-500 -rotate-45 absolute" />
+                      </div>
+                  </div>
+              </div>
           </div>
       </div>
 

@@ -256,6 +256,7 @@ export const JournalPage: React.FC = () => {
 
             <div className="flex items-center gap-3">
                 <motion.button 
+                    id="journal-save-btn"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleSave}
@@ -318,7 +319,7 @@ export const JournalPage: React.FC = () => {
                 {/* Vitals Row */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Mood */}
-                    <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="bg-slate-900/40 backdrop-blur-sm border border-white/5 rounded-3xl p-5 flex flex-col items-center justify-between">
+                    <motion.div id="journal-mood" variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="bg-slate-900/40 backdrop-blur-sm border border-white/5 rounded-3xl p-5 flex flex-col items-center justify-between">
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Current Mood</span>
                         <div className="flex gap-2 w-full justify-between">
                             {MOODS.map(m => (
@@ -375,7 +376,7 @@ export const JournalPage: React.FC = () => {
                 </div>
 
                 {/* Lists Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div id="journal-entry-area" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4">
                     {renderListInput("Gratitude", "gratitude", <Smile />, "text-amber-400")}
                     {renderListInput("Daily Wins", "wins", <Trophy size={18} />, "text-emerald-400")}
                     {renderListInput("Challenges", "challenges", <Target />, "text-rose-400")}

@@ -315,6 +315,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                 
                 {/* Hero Card / XP Rank Card */}
                 <motion.div 
+                    id="daily-goals"
                     variants={itemVariants}
                     className="col-span-1 sm:col-span-2 bg-gradient-to-br from-slate-900 to-slate-950 border border-white/10 rounded-[2rem] p-6 lg:p-8 relative overflow-hidden group shadow-2xl flex flex-col justify-between min-h-[240px]"
                 >
@@ -366,7 +367,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                         </div>
                     </div>
 
-                    <div className="relative z-10 mt-4 flex items-center gap-3">
+                    <div id="timer-display" className="relative z-10 mt-4 flex items-center gap-3">
                         {!isDayStarted ? (
                             <motion.button 
                                 whileHover={{ scale: 1.02 }}

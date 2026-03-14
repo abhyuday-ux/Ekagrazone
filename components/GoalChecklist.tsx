@@ -185,7 +185,7 @@ export const GoalChecklist: React.FC<GoalChecklistProps> = ({
                                     <span className={`text-sm transition-all ${isCompleted ? 'text-emerald-200/50 line-through' : 'text-slate-300'}`}>
                                         {task.title}
                                     </span>
-                                    {task.status === 'in-progress' && !isCompleted && (
+                                    {(task.status === 'doing' || task.status === 'in-progress' as any) && !isCompleted && (
                                         <span className="text-[10px] text-amber-400 flex items-center gap-1 font-bold uppercase tracking-wider mt-0.5">
                                             <Clock size={10} /> In Progress
                                         </span>

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { useStopwatch } from './hooks/useStopwatch';
 import { SubjectPicker } from './components/SubjectPicker';
 import { TimerDisplay } from './components/TimerDisplay';
@@ -22,6 +23,7 @@ import { SocialPanel } from './components/SocialPanel';
 import { UsernameSetup } from './components/UsernameSetup';
 import { LevelUpModal } from './components/LevelUpModal';
 import { SessionSummaryModal } from './components/SessionSummaryModal';
+import { AppGuide, resetTours } from './components/AppGuide';
 import { FriendObserver } from './components/FriendObserver';
 import { NotificationCenter } from './components/NotificationCenter';
 import { ChallengeSettings } from './components/ChallengeSettings';
@@ -35,7 +37,7 @@ import { useSound } from './contexts/SoundContext';
 import { HeaderAd } from './components/HeaderAd';
 import { usePerformance } from './contexts/PerformanceContext';
 import { StudySession, Subject, DEFAULT_SUBJECTS, Task, Exam, isHexColor, TimerDurations, DEFAULT_DURATIONS, UserProfile, getLocalDateString } from './types';
-import { Zap, Wifi, WifiOff, RefreshCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Settings, Timer, BarChart3, CalendarDays, Target, Trash2, AlertCircle, PanelLeftClose, PanelLeftOpen, CheckSquare, Palette, Image as ImageIcon, ToggleLeft, ToggleRight, Maximize2, X, BookOpen, Repeat, Home, AlertTriangle, Download, Upload, Database, Layout, Rocket, Globe, RotateCcw, LogOut, HardDrive, LogIn, GraduationCap, Volume2, VolumeX, Play, Pause, Hourglass, Users, Bell, Loader2, ShieldCheck, Lock, Clock, Library } from 'lucide-react';
+import { Zap, Wifi, WifiOff, RefreshCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Settings, Timer, BarChart3, CalendarDays, Target, Trash2, AlertCircle, PanelLeftClose, PanelLeftOpen, CheckSquare, Palette, Image as ImageIcon, ToggleLeft, ToggleRight, Maximize2, X, BookOpen, Repeat, Home, AlertTriangle, Download, Upload, Database, Layout, Rocket, Globe, RotateCcw, LogOut, HardDrive, LogIn, GraduationCap, Volume2, VolumeX, Play, Pause, Hourglass, Users, Bell, Loader2, ShieldCheck, Lock, Clock, Library, HelpCircle } from 'lucide-react';
 import { useTheme, ACCENT_COLORS } from './contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { rtdb, db } from './services/firebase';
@@ -144,6 +146,30 @@ const MiniTimer: React.FC<MiniTimerProps> = React.memo(({
     );
 });
 
+const tabMap: Record<string, MobileTab> = {
+  '/home': 'dashboard',
+  '/focus': 'timer',
+  '/stats': 'timeline',
+  '/exam': 'exams',
+  '/habits': 'habits',
+  '/journal': 'journal',
+  '/plan': 'calendar',
+  '/arena': 'social',
+  '/settings': 'settings'
+};
+
+const reverseTabMap: Record<MobileTab, string> = {
+  'dashboard': '/home',
+  'timer': '/focus',
+  'timeline': '/stats',
+  'exams': '/exam',
+  'habits': '/habits',
+  'journal': '/journal',
+  'calendar': '/plan',
+  'social': '/arena',
+  'settings': '/settings'
+};
+
 const App: React.FC = () => {
   const { currentUser, isGuest, loading, logout, signInWithGoogle, hasPremium } = useAuth(); 
   const { isPlaying, currentSound, togglePlay } = useSound();
@@ -193,7 +219,21 @@ const App: React.FC = () => {
 
   const { accent, setAccent } = useTheme();
   
-  const [activeTab, setActiveTab] = useState<MobileTab>('dashboard');
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const activeTab = tabMap[location.pathname] || 'dashboard';
+
+  const setActiveTab = useCallback((tab: MobileTab) => {
+    navigate(reverseTabMap[tab]);
+  }, [navigate]);
+
+  useEffect(() => {
+    if ((location.pathname === '/' || !tabMap[location.pathname]) && (currentUser || isGuest)) {
+      navigate('/home', { replace: true });
+    }
+  }, [location.pathname, navigate, currentUser, isGuest]);
+
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSubjectManagerOpen, setIsSubjectManagerOpen] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{ type: 'today' | 'all'; title: string; message: string; } | null>(null);
@@ -661,6 +701,9 @@ const App: React.FC = () => {
 
   // 2. Not Logged In & Not Guest -> Login Page
   if (!currentUser && !isGuest) {
+      if (location.pathname !== '/') {
+          return <Navigate to="/" replace />;
+      }
       return <LoginPage />;
   }
 
@@ -696,7 +739,6 @@ const App: React.FC = () => {
       
       // Premium Check for Non-Guest Users
       // VIPs (isAuthorized) bypass this check
-      const { hasPremium } = useAuth();
       if (!currentUser.isAnonymous && !hasPremium && !isAuthorized) {
           return <PricingPage />;
       }
@@ -849,7 +891,7 @@ const App: React.FC = () => {
   };
 
   const SettingsContent = () => (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto w-full">
+    <div id="settings-container" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto w-full">
         {/* Profile Card */}
         <div className="p-8 bg-gradient-to-br from-slate-800 to-slate-900/80 backdrop-blur-xl rounded-3xl border border-white/10 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl relative overflow-hidden group">
              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
@@ -1048,6 +1090,17 @@ const App: React.FC = () => {
                             </div>
                             <ChevronRight size={20} className="text-slate-500 group-hover:text-white transition-colors" />
                         </button>
+
+                        <button id="reset-tutorials-btn" onClick={resetTours} className="w-full flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors group">
+                            <div className="flex items-center gap-4">
+                                <div className={`p-2 bg-${accent}-500/10 rounded-xl text-${accent}-400 group-hover:bg-${accent}-500/20 transition-colors`}><HelpCircle size={20} /></div>
+                                <div>
+                                    <span className="font-semibold text-slate-200 block text-left">Reset Tutorials</span>
+                                    <span className="text-xs text-slate-500 block text-left">Show all app guides again</span>
+                                </div>
+                            </div>
+                            <ChevronRight size={20} className="text-slate-500 group-hover:text-white transition-colors" />
+                        </button>
                     </div>
                 </div>
 
@@ -1203,6 +1256,7 @@ const App: React.FC = () => {
       
       {/* Friend Milestone Observer - Always render but handle user inside */}
       <FriendObserver />
+      <AppGuide activeTab={activeTab} />
       
       {/* Notification Center - Always render */}
       <NotificationCenter isOpen={isNotificationOpen} onClose={() => setIsNotificationOpen(false)} />

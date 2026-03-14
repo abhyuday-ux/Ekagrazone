@@ -257,6 +257,7 @@ export const HabitsPage: React.FC = () => {
                   
                   <div className="flex items-center gap-4">
                        <motion.button 
+                          id="habits-add-btn"
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => setIsModalOpen(true)}
@@ -279,7 +280,7 @@ export const HabitsPage: React.FC = () => {
               </div>
 
               {/* Stats Grid - Responsive */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+              <div id="habits-stats" className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                   <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
                       {/* Metrics */}
                       {[
@@ -357,7 +358,7 @@ export const HabitsPage: React.FC = () => {
               </div>
 
               {/* Habit List */}
-              <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-3">
+              <motion.div id="habits-list" variants={containerVariants} initial="hidden" animate="show" className="space-y-3">
                   {filteredHabits.length === 0 ? (
                       <motion.div variants={itemVariants} className="text-center py-20 border-2 border-dashed border-slate-800 rounded-3xl bg-slate-900/20">
                           <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-600"><List size={32} /></div>

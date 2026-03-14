@@ -1,7 +1,9 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { SoundProvider } from './contexts/SoundContext';
@@ -24,14 +26,18 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <AuthProvider>
-      <ThemeProvider>
-        <PerformanceProvider>
-          <SoundProvider>
-            <App />
-          </SoundProvider>
-        </PerformanceProvider>
-      </ThemeProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ThemeProvider>
+          <PerformanceProvider>
+            <SoundProvider>
+              <BrowserRouter>
+                <App />
+              </BrowserRouter>
+            </SoundProvider>
+          </PerformanceProvider>
+        </ThemeProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );

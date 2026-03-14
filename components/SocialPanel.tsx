@@ -290,7 +290,7 @@ export const SocialPanel: React.FC = () => {
                     <p className="text-sm text-slate-400">Connect, Compete, Conquer.</p>
                 </div>
                 
-                <div className="flex bg-slate-800/50 p-1 rounded-xl border border-white/5">
+                <div id="arena-tabs" className="flex bg-slate-800/50 p-1 rounded-xl border border-white/5">
                     <button 
                         onClick={() => setActiveTab('global')}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'global' ? `bg-${accent}-600 text-white shadow-lg` : 'text-slate-400 hover:text-white'}`}
@@ -397,7 +397,7 @@ export const SocialPanel: React.FC = () => {
                             exit={{ opacity: 0, x: 20 }}
                             className="h-full flex flex-col"
                         >
-                            <div className="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar">
+                            <div id="arena-leaderboard" className="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar">
                                 <div className="max-w-3xl mx-auto space-y-2 pt-4">
                                     {leaderboardUsers.length === 0 ? (
                                         <div className="text-center py-20 opacity-50">
