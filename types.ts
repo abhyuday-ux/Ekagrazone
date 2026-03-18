@@ -172,7 +172,6 @@ export interface UserProfile {
   challengeStartDate?: string; // ISO Date YYYY-MM-DD
   subscriptionType?: 'monthly' | 'yearly' | 'lifetime';
   dailyGoal?: number; // Daily study goal in hours
-  companionName?: string; // Name of the AI companion
 }
 
 export type FriendStatus = 'pending_sent' | 'pending_received' | 'accepted';

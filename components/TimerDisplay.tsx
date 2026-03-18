@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { TimerStatus, TimerMode, isHexColor, CustomSound, TimerDurations, DEFAULT_DURATIONS, Subject } from '../types';
-import { Play, Pause, Square, Timer, Hourglass, CheckCircle2, Coffee, Armchair, Settings2, Save, Music, Volume2, VolumeX, CloudRain, Waves, Trees, BookOpen, Plus, Trash2, Upload, Link as LinkIcon, X, Sun } from 'lucide-react';
+import { Play, Pause, Square, Timer, Hourglass, CheckCircle2, Coffee, Armchair, Settings2, Save, Music, Volume2, VolumeX, CloudRain, Waves, Trees, BookOpen, Plus, Trash2, Upload, Link as LinkIcon, X, Sun, Clock } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { dbService } from '../services/db';
 import { useSound, SoundType } from '../contexts/SoundContext';
@@ -12,7 +12,6 @@ import { XP_PER_MINUTE } from '../utils/xp';
 import { useAuth } from '../contexts/AuthContext';
 import { HeaderAd } from './HeaderAd';
 import { ZenSubjectPanel } from './ZenSubjectPanel';
-import { Companion } from './Companion';
 
 interface TimerDisplayProps {
   elapsedMs: number;
@@ -33,6 +32,7 @@ interface TimerDisplayProps {
   subjects?: Subject[];
   currentSubjectId?: string;
   onSelectSubject?: (id: string) => void;
+  dailyTotalMs?: number;
 }
 
 const FALLBACK_QUOTES = [
@@ -63,7 +63,8 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
   isOvertime = false,
   subjects = [],
   currentSubjectId = '',
-  onSelectSubject = () => {}
+  onSelectSubject = () => {},
+  dailyTotalMs = 0
 }) => {
   const { hasPremium } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
@@ -323,9 +324,12 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                     isTimerRunning={status === 'running'}
                     className="relative z-50 mr-2"
                 />
-                <div className="text-white/80 text-xs font-bold uppercase tracking-widest mr-2 hidden sm:flex items-center gap-2">
-                     {mode === 'pomodoro' ? 'Focus' : mode === 'stopwatch' ? 'Timer' : 'Break'}
-                     {isWakeLockActive && <Sun size={12} className="text-amber-400 animate-pulse" />}
+                <div className="text-white/80 text-xs font-bold uppercase tracking-widest mr-2 flex items-center gap-2">
+                     <span className="hidden sm:inline">{mode === 'pomodoro' ? 'Focus' : mode === 'stopwatch' ? 'Timer' : 'Break'}</span>
+                     {isWakeLockActive && <Sun size={12} className="text-amber-400 animate-pulse hidden sm:block" />}
+                     <div className="w-px h-4 bg-white/20 mx-1 hidden sm:block" />
+                     <Clock size={14} className="text-white/40" />
+                     <span title="Global Total" className="text-white font-black text-sm md:text-base tracking-wider">{formatShort(dailyTotalMs + (status !== 'idle' ? elapsedMs : 0))}</span>
                 </div>
                 {status === 'running' ? (
                      <button onClick={onPause} className="p-3 bg-white text-black rounded-full hover:scale-110 transition-transform shadow-lg">
@@ -358,7 +362,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
 
   // STANDARD LAYOUT
   return (
-    <div className="flex flex-col items-center relative w-full h-full select-none overflow-hidden px-4 md:px-12 justify-center">
+    <div className="flex flex-col items-center relative w-full min-h-full select-none px-4 md:px-12 justify-center">
         <style>{`
           @keyframes breathe {
             0%, 100% { transform: scale(1); filter: brightness(1); }
@@ -383,7 +387,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
           }
         `}</style>
 
-        <div className="relative z-10 flex flex-col md:grid md:grid-cols-3 items-center w-full max-w-[1600px] gap-4 md:gap-8 justify-between py-2 md:py-0 md:items-center md:justify-center h-full">
+        <div className="relative z-10 flex flex-col md:grid md:grid-cols-3 items-center w-full max-w-[1600px] gap-4 md:gap-8 justify-between py-2 md:py-0 md:items-center md:justify-center min-h-full">
             
             {/* --- LEFT COLUMN: Side Panel (Goals) --- */}
             {sidePanel ? (
@@ -399,11 +403,6 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                 
                 {/* Visualization Container - fluid max width for mobile */}
                 <div id="timer-circle" className="relative w-full aspect-square max-w-[260px] sm:max-w-[320px] md:max-w-[50vmin] flex items-center justify-center">
-                    <Companion 
-                        timerStatus={status} 
-                        isComplete={isTimerMode && elapsedMs >= targetDuration} 
-                        currentTask={subjects.find(s => s.id === currentSubjectId)?.name}
-                    />
                     
                     {/* Animated Background Blob */}
                     {isHighQuality && (
@@ -488,7 +487,10 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                                         className={`w-1.5 h-1.5 rounded-full shadow-[0_0_5px_currentColor] ${!theme.isHex ? theme.bg : ''} ${status === 'running' ? 'animate-pulse' : ''}`} 
                                         style={theme.isHex ? { backgroundColor: theme.bg, boxShadow: `0 0 5px ${theme.bg}` } : {}}
                                     />
-                                    <span>Today: {formatShort(todaySubjectTotal + (status !== 'idle' ? elapsedMs : 0))}</span>
+                                    <span title="Subject Total">Sub: {formatShort(todaySubjectTotal + (status !== 'idle' ? elapsedMs : 0))}</span>
+                                    <div className="w-px h-3 bg-white/20 mx-1" />
+                                    <Clock size={12} className="text-slate-400" />
+                                    <span title="Global Total">Total: {formatShort(dailyTotalMs + (status !== 'idle' ? elapsedMs : 0))}</span>
                                     {isWakeLockActive && (
                                         <div className="flex items-center gap-1 ml-2 pl-2 border-l border-white/10 text-amber-400/80" title="Screen Wake Lock Active">
                                             <Sun size={10} className="animate-pulse" />

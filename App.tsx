@@ -1326,6 +1326,7 @@ const App: React.FC = () => {
                         subjects={subjects}
                         currentSubjectId={currentSubjectId}
                         onSelectSubject={setSubjectId}
+                        dailyTotalMs={dailyTotalMs}
                     />
                   </div>
               </div>
@@ -1373,6 +1374,7 @@ const App: React.FC = () => {
                         subjects={subjects}
                         currentSubjectId={currentSubjectId}
                         onSelectSubject={setSubjectId}
+                        dailyTotalMs={dailyTotalMs}
                     />
                   </div>
                   <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-400 font-mono tracking-widest opacity-60">
@@ -1461,6 +1463,7 @@ const App: React.FC = () => {
                             durations={timerDurations}
                             onUpdateDurations={handleUpdateDurations}
                             isWallpaperMode={false}
+                            dailyTotalMs={dailyTotalMs}
                           />
                           {enableZenMode && wallpaper && status === 'running' && !isZenActive && (
                               <button onClick={() => setIsZenActive(true)} className={`mt-6 flex items-center gap-2 px-4 py-2 rounded-full bg-${accent}-500/10 text-${accent}-400 border border-${accent}-500/20 text-xs font-semibold hover:bg-${accent}-500/20 transition-all`}>
@@ -1623,7 +1626,7 @@ const App: React.FC = () => {
                             )}
                             
                             {activeTab === 'timer' && (
-                                <div className="h-full flex flex-col relative overflow-hidden">
+                                <div className="h-full flex flex-col relative overflow-y-auto custom-scrollbar pb-8">
                                     <div className="flex-none py-2 flex justify-center relative z-20">
                                         <div className="bg-slate-900/30 backdrop-blur-md border border-white/10 rounded-2xl p-2 shadow-xl max-w-[95%]">
                                             <SubjectPicker subjects={subjects} selectedId={currentSubjectId} onSelect={setSubjectId} disabled={status !== 'idle'} variant="horizontal" />
@@ -1644,6 +1647,7 @@ const App: React.FC = () => {
                                             durations={timerDurations}
                                             onUpdateDurations={handleUpdateDurations}
                                             isWallpaperMode={false}
+                                            dailyTotalMs={dailyTotalMs}
                                             sidePanel={
                                                 <div className={`transition-all duration-500 ease-in-out flex flex-col bg-slate-900/30 backdrop-blur-sm rounded-3xl border border-white/5 overflow-hidden ${isSidePanelCollapsed ? 'w-14' : 'w-80'} h-full hover:bg-slate-900/40`}>
                                                     <div className="flex-none flex items-center justify-between p-3 border-b border-white/5">
