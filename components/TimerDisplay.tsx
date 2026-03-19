@@ -33,6 +33,7 @@ interface TimerDisplayProps {
   currentSubjectId?: string;
   onSelectSubject?: (id: string) => void;
   dailyTotalMs?: number;
+  targetHours?: number;
 }
 
 const FALLBACK_QUOTES = [
@@ -64,7 +65,8 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
   subjects = [],
   currentSubjectId = '',
   onSelectSubject = () => {},
-  dailyTotalMs = 0
+  dailyTotalMs = 0,
+  targetHours = 6
 }) => {
   const { hasPremium } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
@@ -310,9 +312,24 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
           <>
             {!hasPremium && onUpgrade && <HeaderAd onClick={onUpgrade} isZenMode={true} />}
             <div className={`flex flex-col md:flex-row items-center gap-4 md:gap-6 p-5 md:p-6 bg-black/40 backdrop-blur-xl rounded-[2.5rem] md:rounded-full border border-white/10 shadow-2xl animate-in slide-in-from-bottom-8 relative z-10 ${!hasPremium ? 'mt-24 md:mt-36' : ''}`}>
-            {/* Time */}
-            <div className={`text-5xl md:text-6xl font-mono font-bold tabular-nums tracking-tight drop-shadow-lg ${isOvertime ? 'text-amber-400 animate-pulse' : 'text-white'}`}>
-                {isComplete ? "DONE" : formatTime(displayMs)}
+            {/* Timers */}
+            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8 px-2 md:px-4">
+                <div className="flex flex-col items-center md:items-start">
+                    <span className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-1">{mode === 'pomodoro' ? 'Focus Session' : mode === 'stopwatch' ? 'Timer' : 'Break'}</span>
+                    <div className={`text-5xl md:text-6xl font-mono font-bold tabular-nums tracking-tight drop-shadow-lg leading-none ${isOvertime ? 'text-amber-400 animate-pulse' : 'text-white'}`}>
+                        {isComplete ? "DONE" : formatTime(displayMs)}
+                    </div>
+                </div>
+                
+                <div className="hidden md:block w-px h-12 bg-white/10" />
+                <div className="w-full h-px bg-white/10 md:hidden" />
+                
+                <div className="flex flex-col items-center md:items-start">
+                    <span className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-1">Global Total</span>
+                    <div className="text-5xl md:text-6xl font-mono font-bold tabular-nums tracking-tight drop-shadow-lg leading-none text-white/90">
+                        {formatTime(dailyTotalMs + (status !== 'idle' ? elapsedMs : 0))}
+                    </div>
+                </div>
             </div>
             
             {/* Controls */}
@@ -325,11 +342,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                     className="relative z-50 mr-2"
                 />
                 <div className="text-white/80 text-xs font-bold uppercase tracking-widest mr-2 flex items-center gap-2">
-                     <span className="hidden sm:inline">{mode === 'pomodoro' ? 'Focus' : mode === 'stopwatch' ? 'Timer' : 'Break'}</span>
                      {isWakeLockActive && <Sun size={12} className="text-amber-400 animate-pulse hidden sm:block" />}
-                     <div className="w-px h-4 bg-white/20 mx-1 hidden sm:block" />
-                     <Clock size={14} className="text-white/40" />
-                     <span title="Global Total" className="text-white font-black text-sm md:text-base tracking-wider">{formatShort(dailyTotalMs + (status !== 'idle' ? elapsedMs : 0))}</span>
                 </div>
                 {status === 'running' ? (
                      <button onClick={onPause} className="p-3 bg-white text-black rounded-full hover:scale-110 transition-transform shadow-lg">
@@ -488,14 +501,19 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                                         style={theme.isHex ? { backgroundColor: theme.bg, boxShadow: `0 0 5px ${theme.bg}` } : {}}
                                     />
                                     <span title="Subject Total">Sub: {formatShort(todaySubjectTotal + (status !== 'idle' ? elapsedMs : 0))}</span>
-                                    <div className="w-px h-3 bg-white/20 mx-1" />
-                                    <Clock size={12} className="text-slate-400" />
-                                    <span title="Global Total">Total: {formatShort(dailyTotalMs + (status !== 'idle' ? elapsedMs : 0))}</span>
                                     {isWakeLockActive && (
                                         <div className="flex items-center gap-1 ml-2 pl-2 border-l border-white/10 text-amber-400/80" title="Screen Wake Lock Active">
                                             <Sun size={10} className="animate-pulse" />
                                         </div>
                                     )}
+                                </div>
+                                
+                                {/* Small Global Timer Text */}
+                                <div className="mt-4 md:mt-6 flex flex-col items-center animate-in slide-in-from-bottom-4 fade-in duration-500">
+                                    <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Global Total</span>
+                                    <div className="font-mono font-bold select-none drop-shadow-lg leading-none tracking-tighter tabular-nums text-4xl sm:text-5xl text-white/90">
+                                        {formatTime(dailyTotalMs + (status !== 'idle' ? elapsedMs : 0))}
+                                    </div>
                                 </div>
                             </div>
                         ) : (
