@@ -33,7 +33,7 @@ export const PricingPage: React.FC<{ onClose?: () => void }> = ({ onClose }) => 
         await signOut(auth);
     };
 
-    const handleUpgrade = async (plan: 'monthly' | 'yearly') => {
+    const handleUpgrade = async () => {
         if (!currentUser) {
             try {
                 await signInWithGoogle();
@@ -51,7 +51,7 @@ export const PricingPage: React.FC<{ onClose?: () => void }> = ({ onClose }) => 
         try {
             await setDoc(doc(db, 'users', currentUser.uid), {
                 hasPremium: true,
-                subscriptionType: plan,
+                subscriptionType: 'lifetime',
                 subscriptionDate: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             }, { merge: true });
@@ -113,7 +113,7 @@ export const PricingPage: React.FC<{ onClose?: () => void }> = ({ onClose }) => 
                     variants={containerVariants}
                     initial="hidden"
                     animate="visible"
-                    className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start"
+                    className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start max-w-4xl mx-auto"
                 >
                     
                     {/* Card 1: The Student (Free) */}
@@ -125,9 +125,8 @@ export const PricingPage: React.FC<{ onClose?: () => void }> = ({ onClose }) => 
                         <div className="text-3xl font-bold text-white">Free</div>
                         
                         <div className="space-y-4 flex-1">
-                            <FeatureItem icon={<Check size={16} />} text="Ads Included" />
-                            <FeatureItem icon={<Check size={16} />} text="Basic Pomodoro & Zen Mode" />
-                            <FeatureItem icon={<Check size={16} />} text="Detailed Analytics" />
+                            <FeatureItem icon={<Check size={16} />} text="Basic Pomodoro Timer" />
+                            <FeatureItem icon={<Check size={16} />} text="Today's Analytics" />
                             <FeatureItem icon={<Check size={16} />} text="Exam Tracker (Mock tests)" />
                             <FeatureItem icon={<Check size={16} />} text="Habit Forger" />
                             <FeatureItem icon={<Check size={16} />} text="Daily Journal" />
@@ -136,8 +135,8 @@ export const PricingPage: React.FC<{ onClose?: () => void }> = ({ onClose }) => 
                             <div className="my-4 border-t border-white/5" />
                             
                             <FeatureItem icon={<AlertTriangle size={16} className="text-amber-500" />} text="No Cloud Sync" subtext="Data lost if cache cleared" warning />
-                            <FeatureItem icon={<X size={16} className="text-slate-500" />} text="No Global Leaderboards" muted />
-                            <FeatureItem icon={<X size={16} className="text-slate-500" />} text="No Friends Challenge" muted />
+                            <FeatureItem icon={<X size={16} className="text-slate-500" />} text="No Zen Mode" muted />
+                            <FeatureItem icon={<X size={16} className="text-slate-500" />} text="No Historical Stats" muted />
                         </div>
 
                         <button 
@@ -145,105 +144,63 @@ export const PricingPage: React.FC<{ onClose?: () => void }> = ({ onClose }) => 
                             className="w-full py-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium transition-all flex items-center justify-center gap-2 mt-4"
                         >
                             {onClose ? <X size={18} /> : <LogOut size={18} />} 
-                            {onClose ? 'Continue as Guest' : 'Sign Out & Continue as Guest'}
+                            {onClose ? 'Continue as Free' : 'Sign Out & Continue as Guest'}
                         </button>
                     </motion.div>
 
-                    {/* Card 2: The Focus Pro (Monthly) */}
-                    <motion.div variants={cardVariants} className="bg-slate-900/80 border border-indigo-500/30 rounded-3xl p-8 flex flex-col gap-6 relative overflow-hidden shadow-2xl shadow-indigo-500/10 scale-100 lg:scale-105 z-10">
-                        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-indigo-500 to-cyan-500" />
-                        
-                        <div className="space-y-2">
-                            <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-                                The Focus Pro <Zap size={20} className="text-indigo-400 fill-indigo-400" />
-                            </h3>
-                            <p className="text-indigo-200/60 text-sm">Serious about productivity.</p>
-                        </div>
-                        
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-4xl font-bold text-white">
-                                {isIndia ? '₹99' : '$4.99'}
-                                <span className="text-sm opacity-80 font-normal">/mo</span>
-                            </span>
-                            <span className="text-lg text-slate-500 line-through decoration-slate-500/50">
-                                {isIndia ? '₹149' : '$6.99'}
-                                <span className="text-xs opacity-60">/mo</span>
-                            </span>
-                            <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full ml-auto">
-                                Newly Launched Bonus
-                            </span>
-                        </div>
-
-                        <div className="space-y-4 flex-1">
-                            <FeatureItem icon={<Check size={16} className="text-emerald-400" />} text="NO ADS" highlight />
-                            <FeatureItem icon={<Check size={16} className="text-emerald-400" />} text="Secure Cloud Sync" highlight />
-                            <FeatureItem icon={<Check size={16} className="text-emerald-400" />} text="Global Leaderboards" highlight />
-                            <FeatureItem icon={<Check size={16} className="text-emerald-400" />} text="Friend Challenges" highlight />
-                            <FeatureItem icon={<Check size={16} />} text="Everything in Free" />
-                        </div>
-
-                        <button 
-                            onClick={() => handleUpgrade('monthly')}
-                            disabled={isUpgrading}
-                            className="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold transition-all flex items-center justify-center gap-2 mt-4 shadow-lg shadow-indigo-500/25"
-                        >
-                            {isUpgrading ? <Loader2 className="animate-spin" /> : !currentUser ? 'Sign In to Upgrade' : 'Upgrade to Pro Access'}
-                        </button>
-                    </motion.div>
-
-                    {/* Card 3: The Focus Legend (Yearly) */}
-                    <motion.div variants={cardVariants} className="bg-slate-900/90 border-2 border-amber-500/50 rounded-3xl p-8 flex flex-col gap-6 relative overflow-hidden shadow-[0_0_40px_rgba(245,158,11,0.15)]">
+                    {/* Card 2: The Focus Legend (Lifetime) */}
+                    <motion.div variants={cardVariants} className="bg-slate-900/90 border-2 border-amber-500/50 rounded-3xl p-8 flex flex-col gap-6 relative overflow-hidden shadow-[0_0_40px_rgba(245,158,11,0.15)] scale-100 lg:scale-105 z-10">
                         {/* Badge */}
                         <div className="absolute top-0 right-0 bg-amber-500 text-slate-900 text-xs font-bold px-4 py-1.5 rounded-bl-2xl">
-                            2 MONTHS FREE + BEST VALUE
+                            LIFETIME ACCESS
                         </div>
 
                         <div className="space-y-2">
                             <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-                                The Focus Legend <Crown size={20} className="text-amber-400 fill-amber-400" />
+                                Premium <Crown size={20} className="text-amber-400 fill-amber-400" />
                             </h3>
-                            <p className="text-amber-200/60 text-sm">For the relentless achiever.</p>
+                            <p className="text-amber-200/60 text-sm">Unlock the full potential.</p>
                         </div>
                         
                         <div className="flex flex-col gap-1">
                             <div className="flex items-baseline gap-2">
                                 <span className="text-4xl font-bold text-white">
-                                    {isIndia ? '₹999' : '$40.99'}
-                                    <span className="text-sm opacity-80 font-normal">/yr</span>
+                                    {isIndia ? '₹1,999' : '$29.99'}
                                 </span>
                                 <span className="text-lg text-slate-500 line-through decoration-slate-500/50">
-                                    {isIndia ? '₹1,799' : '$84.99'}
-                                    <span className="text-xs opacity-60">/yr</span>
+                                    {isIndia ? '₹3,999' : '$59.99'}
                                 </span>
                             </div>
                             <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">
-                                Billed annually
+                                One-Time Payment
                             </div>
                         </div>
                         <div className="text-xs text-amber-400 font-bold">
-                            {isIndia ? 'Massive ₹800 Saving' : 'Save over 50%'}
+                            {isIndia ? '50% Off Launch Special' : '50% Off Launch Special'}
                         </div>
 
                         <div className="space-y-4 flex-1">
-                            <FeatureItem icon={<Star size={16} className="text-amber-400 fill-amber-400" />} text="All Pro Features" highlight />
+                            <FeatureItem icon={<Star size={16} className="text-amber-400 fill-amber-400" />} text="Zen Mode Access" highlight />
+                            <FeatureItem icon={<Check size={16} className="text-emerald-400" />} text="Full Historical Statistics" highlight />
+                            <FeatureItem icon={<Check size={16} className="text-emerald-400" />} text="Secure Cloud Sync" highlight />
+                            <FeatureItem icon={<Check size={16} className="text-emerald-400" />} text="Global Leaderboards" highlight />
+                            <FeatureItem icon={<Check size={16} className="text-emerald-400" />} text="Friend Challenges" highlight />
                             <FeatureItem icon={<Crown size={16} className="text-amber-400 fill-amber-400" />} text="Exclusive 'Founding Member' Badge" highlight />
-                            <FeatureItem icon={<Sparkles size={16} className="text-amber-400" />} text="Priority Support" />
-                            <FeatureItem icon={<Shield size={16} className="text-amber-400" />} text="Early Access to New Features" />
                         </div>
 
                         <button 
-                            onClick={() => handleUpgrade('yearly')}
+                            onClick={() => handleUpgrade()}
                             disabled={isUpgrading}
                             className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold transition-all flex items-center justify-center gap-2 mt-4 shadow-lg shadow-amber-500/25 group"
                         >
                             {isUpgrading ? <Loader2 className="animate-spin" /> : (
                                 <>
                                     <Crown size={18} className="fill-white group-hover:scale-110 transition-transform" />
-                                    {!currentUser ? 'Sign In & Become a Legend' : 'Become a Legend'}
+                                    {!currentUser ? 'Sign In to Upgrade' : 'Unlock Lifetime Access'}
                                 </>
                             )}
                         </button>
-                        <p className="text-center text-[10px] text-slate-500 font-mono">2 MONTHS FREE INCLUDED</p>
+                        <p className="text-center text-[10px] text-slate-500 font-mono">PAY ONCE, USE FOREVER</p>
                     </motion.div>
 
                 </motion.div>

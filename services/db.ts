@@ -1,9 +1,8 @@
 
-import { StudySession, Subject, DEFAULT_SUBJECTS, DailyGoal, Task, Exam, ChatMessage, JournalEntry, DailyNote, CustomSound, UserProfile, Friend, FriendStatus, MockTest, getLocalDateString } from '../types';
+import { StudySession, Subject, DEFAULT_SUBJECTS, DailyGoal, Task, Exam, ChatMessage, JournalEntry, DailyNote, CustomSound, UserProfile, Friend, FriendStatus, MockTest, SyllabusSubject, SyllabusTemplate, getLocalDateString } from '../types';
 import { db, rtdb } from './firebase';
-import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, writeBatch, onSnapshot, Unsubscribe, query, where, updateDoc, increment, limit, orderBy } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, writeBatch, onSnapshot, Unsubscribe, query, where, updateDoc, increment } from 'firebase/firestore';
 import { ref, update as rtdbUpdate, set as rtdbSet, serverTimestamp, remove as rtdbRemove } from 'firebase/database';
-import { XP_PER_MINUTE, getLevelFromXP, getRankInfo } from '../utils/xp';
 
 export const getStudyDate = (userDayStart: number): string => {
     const now = new Date();
@@ -19,7 +18,7 @@ export const getStudyDate = (userDayStart: number): string => {
 };
 
 const DB_NAME = 'EkagrazoneDB';
-const DB_VERSION = 10; 
+const DB_VERSION = 11; 
 const STORE_SESSIONS = 'sessions';
 const STORE_SUBJECTS = 'subjects';
 const STORE_GOALS = 'goals';
@@ -30,6 +29,7 @@ const STORE_JOURNAL = 'journal';
 const STORE_DAILY_NOTES = 'daily_notes';
 const STORE_CUSTOM_SOUNDS = 'custom_sounds';
 const STORE_MOCK_TESTS = 'mock_tests';
+const STORE_SYLLABUS = 'syllabus';
 
 
 const LOCAL_STORAGE_KEYS = [
@@ -93,6 +93,7 @@ class LocalDB {
         createStore(STORE_DAILY_NOTES, 'id', 'dateString');
         createStore(STORE_CUSTOM_SOUNDS);
         createStore(STORE_MOCK_TESTS, 'id', 'date');
+        createStore(STORE_SYLLABUS);
       };
     });
   }
@@ -103,7 +104,7 @@ class LocalDB {
       this.stopRealtimeSync(); 
       console.log("Starting real-time sync for user:", this.userId);
 
-      const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_MOCK_TESTS];
+      const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_MOCK_TESTS, STORE_SYLLABUS];
 
       collections.forEach(colName => {
           const q = collection(db, 'users', this.userId!, colName);
@@ -174,14 +175,10 @@ class LocalDB {
         if (!snap.exists()) {
             const sessions = await this.getAllSessions();
             const totalTime = sessions.reduce((acc, s) => acc + s.durationMs, 0);
-            const totalXP = Math.floor(totalTime / 60000) * XP_PER_MINUTE;
-            const level = getLevelFromXP(totalXP);
             
             await setDoc(userRef, {
                 uid: this.userId,
                 totalFocusMs: totalTime,
-                xp: totalXP,
-                level: level,
                 lastActive: Date.now()
             }, { merge: true });
         }
@@ -193,8 +190,6 @@ class LocalDB {
   async getUserProfile(): Promise<UserProfile | null> {
       if (!this.userId) {
           // Guest Mode Profile - Retrieve from LocalStorage
-          const xp = parseInt(localStorage.getItem('ekagrazone_guest_xp') || '0');
-          const level = parseInt(localStorage.getItem('ekagrazone_guest_level') || '1');
           const totalFocusMs = parseInt(localStorage.getItem('ekagrazone_guest_totalFocusMs') || '0');
           
           return {
@@ -202,8 +197,6 @@ class LocalDB {
               displayName: 'Guest',
               email: '',
               totalFocusMs,
-              xp,
-              level,
               lastActive: Date.now()
           };
       }
@@ -242,31 +235,14 @@ class LocalDB {
       await batch.commit();
   }
 
-  // Update cumulative focus time and XP
-  async updateUserStats(addedDurationMs: number): Promise<{ levelUp: boolean, newLevel: number }> {
-      const xpGained = Math.floor(addedDurationMs / 60000) * XP_PER_MINUTE;
-
-      // Dispatch XP gained event for sound effects
-      if (xpGained > 0) {
-          window.dispatchEvent(new Event('ekagra_xp_gained'));
-      }
-
+  // Update cumulative focus time
+  async updateUserStats(addedDurationMs: number): Promise<void> {
       if (!this.userId) {
           // Guest Mode Logic - Update LocalStorage
-          const currentXP = parseInt(localStorage.getItem('ekagrazone_guest_xp') || '0');
-          const currentLevel = parseInt(localStorage.getItem('ekagrazone_guest_level') || '1');
           const currentTotalMs = parseInt(localStorage.getItem('ekagrazone_guest_totalFocusMs') || '0');
-
-          const newXP = Math.max(0, currentXP + xpGained); // Ensure XP doesn't go below 0
           const newTotalMs = Math.max(0, currentTotalMs + addedDurationMs);
-          const newLevel = getLevelFromXP(newXP);
-          const levelUp = newLevel > currentLevel;
-
-          localStorage.setItem('ekagrazone_guest_xp', newXP.toString());
-          localStorage.setItem('ekagrazone_guest_level', newLevel.toString());
           localStorage.setItem('ekagrazone_guest_totalFocusMs', newTotalMs.toString());
-
-          return { levelUp, newLevel };
+          return;
       }
       
       // Cloud Logic
@@ -276,48 +252,23 @@ class LocalDB {
           const snap = await getDoc(userRef);
           if (snap.exists()) {
               const data = snap.data() as UserProfile;
-              const currentXP = data.xp || 0;
-              const currentLevel = data.level || 1;
               const currentTotalMs = data.totalFocusMs || 0;
-              
-              const newXP = Math.max(0, currentXP + xpGained);
-              const newLevel = getLevelFromXP(newXP);
-              const levelUp = newLevel > currentLevel;
               const newTotalMs = currentTotalMs + addedDurationMs;
 
               await updateDoc(userRef, {
                   totalFocusMs: increment(addedDurationMs),
-                  xp: newXP,
-                  level: newLevel,
                   lastActive: Date.now()
               });
 
-              // Sync to Realtime Database for Leaderboard
+              // Sync to Realtime Database
               // Path: users/{uid}/stats
               const statsRef = ref(rtdb, `users/${this.userId}/stats`);
               rtdbUpdate(statsRef, {
-                  totalXP: newXP,
-                  level: newLevel,
                   totalFocusMs: newTotalMs,
                   displayName: data.displayName || 'Anonymous',
                   photoURL: data.photoURL || null
               }).catch(e => console.warn("RTDB sync warning:", e));
 
-              // --- MILESTONE TRIGGER ---
-              if (levelUp) {
-                  const milestoneRef = ref(rtdb, `users/${this.userId}/milestones/latest`);
-                  const rankInfo = getRankInfo(newLevel);
-                  rtdbSet(milestoneRef, {
-                      username: data.displayName || 'Friend',
-                      message: `reached Level ${newLevel}!`,
-                      tier: rankInfo.title,
-                      tierColor: rankInfo.color, // Storing color ref for convenience
-                      level: newLevel,
-                      timestamp: serverTimestamp()
-                  }).catch(e => console.error("Milestone broadcast failed", e));
-              }
-
-              return { levelUp, newLevel };
           } else {
               await this.ensureUserProfile();
               // Recursive call once profile ensured
@@ -325,28 +276,7 @@ class LocalDB {
           }
       } catch (e) {
           console.error("Error updating stats", e);
-          return { levelUp: false, newLevel: 1 };
       }
-  }
-
-  // Leaderboard Subscription (Live)
-  subscribeToLeaderboard(callback: (users: UserProfile[]) => void, limitCount: number = 10): Unsubscribe {
-      const q = query(
-          collection(db, 'user_profiles'),
-          orderBy('xp', 'desc'),
-          limit(limitCount)
-      );
-
-      return onSnapshot(q, (snapshot) => {
-          const users: UserProfile[] = [];
-          snapshot.forEach((doc) => {
-              users.push(doc.data() as UserProfile);
-          });
-          callback(users);
-      }, (error) => {
-          console.warn("Leaderboard subscription error:", error.message);
-          callback([]); // Return empty list on error to prevent UI crash
-      });
   }
 
   // 3. Find User via Username Lookup
@@ -510,7 +440,7 @@ class LocalDB {
   async syncLocalToCloud() {
       if (!this.userId) return;
       await this.syncSettingsToCloud();
-      const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_MOCK_TESTS];
+      const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_MOCK_TESTS, STORE_SYLLABUS];
       
       // Merge Strategy: Prefer Local (Guest) data if it exists, then sync to cloud
       for (const colName of collections) {
@@ -541,7 +471,7 @@ class LocalDB {
       }
   }
 
-  async saveSession(session: StudySession): Promise<{ levelUp: boolean, newLevel: number }> {
+  async saveSession(session: StudySession): Promise<void> {
     let dayStartHour = 0;
     if (this.userId) {
         try {
@@ -565,9 +495,9 @@ class LocalDB {
       const request = store.put(session);
       request.onsuccess = async () => {
           this.syncToFirestore(STORE_SESSIONS, session);
-          // Update Stats and Check for Level Up
-          const statsResult = await this.updateUserStats(session.durationMs);
-          resolve(statsResult);
+          // Update Stats
+          await this.updateUserStats(session.durationMs);
+          resolve();
       };
       request.onerror = () => reject(request.error);
     });
@@ -640,18 +570,53 @@ class LocalDB {
     
     try {
         // Try to get from user document first (New Schema: Array in Document)
-        const userDoc = await getDoc(doc(db, 'users', this.userId));
+        const userDocRef = doc(db, 'users', this.userId);
+        const userDoc = await getDoc(userDocRef);
+        
+        let migratedSubjects: Subject[] | null = null;
         if (userDoc.exists() && userDoc.data().subjects) {
-            const subjects = userDoc.data().subjects as Subject[];
+            migratedSubjects = userDoc.data().subjects as Subject[];
+        }
+        
+        // Check old subcollection for migration
+        const oldCollectionRef = collection(db, 'users', this.userId, STORE_SUBJECTS);
+        const oldDocs = await getDocs(oldCollectionRef);
+        
+        if (!oldDocs.empty) {
+            const oldSubjects = oldDocs.docs.map(d => d.data() as Subject);
             
+            // Merge subjects, avoiding duplicates by id
+            const merged = [...(migratedSubjects || [])];
+            const existingIds = new Set(merged.map(s => s.id));
+            
+            oldSubjects.forEach(s => {
+                if (!existingIds.has(s.id)) {
+                    merged.push(s);
+                }
+            });
+            
+            // Save the merged array back via the new schema
+            await this.saveSubjects(merged);
+            
+            // Batch delete old subcollection documents
+            const batch = writeBatch(db);
+            oldDocs.docs.forEach(docSnap => {
+                batch.delete(docSnap.ref);
+            });
+            await batch.commit();
+            
+            return merged;
+        }
+
+        if (migratedSubjects) {
             // Sync to IndexedDB for offline access
             const localDb = await this.connect();
             const tx = localDb.transaction(STORE_SUBJECTS, 'readwrite');
             const store = tx.objectStore(STORE_SUBJECTS);
             store.clear().onsuccess = () => {
-                subjects.forEach(s => store.put(s));
+                migratedSubjects.forEach(s => store.put(s));
             };
-            return subjects;
+            return migratedSubjects;
         }
     } catch (e) {
         console.warn("Error fetching subjects from cloud document:", e);
@@ -660,8 +625,6 @@ class LocalDB {
     // Fallback to IndexedDB (Old Schema: Subcollection items might be here)
     return this.getAllFromStore(STORE_SUBJECTS, DEFAULT_SUBJECTS); 
   }
-
-  async saveSubject(item: Subject) { await this.saveToStore(STORE_SUBJECTS, item); }
 
   async saveSubjects(items: Subject[]) {
       // 1. Guest Mode: Simple LocalStorage overwrite
@@ -694,7 +657,11 @@ class LocalDB {
           tx.onerror = () => reject(tx.error);
       });
   }
-  async deleteSubject(id: string) { await this.deleteFromStore(STORE_SUBJECTS, id); }
+  async deleteSubject(id: string) {
+      const current = await this.getSubjects();
+      const updated = current.filter(s => s.id !== id);
+      await this.saveSubjects(updated);
+  }
   
   async getGoalsByDate(dateString: string): Promise<DailyGoal[]> { return this.getByDateFromStore(STORE_GOALS, dateString); }
   async getAllGoals(): Promise<DailyGoal[]> { return this.getAllFromStore(STORE_GOALS); }
@@ -746,6 +713,11 @@ class LocalDB {
 
   async getMockTests(): Promise<MockTest[]> { return this.getAllFromStore(STORE_MOCK_TESTS); }
   async saveMockTest(item: MockTest) { await this.saveToStore(STORE_MOCK_TESTS, item); }
+  
+  async getSyllabusSubjects(): Promise<SyllabusSubject[]> { return this.getAllFromStore(STORE_SYLLABUS); }
+  async saveSyllabusSubject(item: SyllabusSubject) { await this.saveToStore(STORE_SYLLABUS, item); }
+  async deleteSyllabusSubject(id: string) { await this.deleteFromStore(STORE_SYLLABUS, id); }
+
   async deleteMockTest(id: string) {
     if (!this.userId) {
         let tests = await this.getMockTests();
@@ -884,7 +856,7 @@ class LocalDB {
   async factoryReset(): Promise<void> {
       if (this.userId) {
           // 1. Wipe Firestore Collections
-          const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_MOCK_TESTS];
+          const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_MOCK_TESTS, STORE_SYLLABUS];
           const batch = writeBatch(db);
           for (const col of collections) {
               const snapshot = await getDocs(collection(db, 'users', this.userId, col));
@@ -895,8 +867,6 @@ class LocalDB {
           const profileRef = doc(db, 'user_profiles', this.userId);
           batch.update(profileRef, { 
               totalFocusMs: 0, 
-              xp: 0, 
-              level: 1,
               lastActive: Date.now() 
           });
           
@@ -906,22 +876,15 @@ class LocalDB {
           await batch.commit();
 
           // 3. Reset Realtime Database (Leaderboard Wipe)
-          // Set stats to 0/1/0 to effectively remove from leaderboard ranking logic
           const rtdbStatsRef = ref(rtdb, `users/${this.userId}/stats`);
           await rtdbUpdate(rtdbStatsRef, {
-              totalXP: 0,
-              level: 1,
               totalFocusMs: 0
           });
-
-          // Remove milestones
-          await rtdbRemove(ref(rtdb, `users/${this.userId}/milestones`));
-          await rtdbRemove(ref(rtdb, `users/${this.userId}/lastMilestone`));
       } 
       
       // 4. Wipe Local IndexedDB
       const dbInstance = await this.connect();
-      const stores = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_CUSTOM_SOUNDS, STORE_MOCK_TESTS];
+      const stores = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_CUSTOM_SOUNDS, STORE_MOCK_TESTS, STORE_SYLLABUS];
       const existingStores = stores.filter(s => dbInstance.objectStoreNames.contains(s));
       const tx = dbInstance.transaction(existingStores, 'readwrite');
       existingStores.forEach(s => tx.objectStore(s).clear());

@@ -160,7 +160,6 @@ export const LandingPricing: React.FC = () => {
                     </div>
 
                     <div className="space-y-4 flex-1">
-                        <FeatureItem text="Ads Included" />
                         <FeatureItem text="Basic Pomodoro & Zen" />
                         <FeatureItem text="Detailed Analytics" />
                         <FeatureItem text="Exam Tracker" />
@@ -203,7 +202,6 @@ export const LandingPricing: React.FC = () => {
                     </div>
 
                     <div className="space-y-4 flex-1">
-                        <FeatureItem text="NO ADS" highlight />
                         <FeatureItem text="Secure Cloud Sync" highlight />
                         <FeatureItem text="Global Leaderboards" />
                         <FeatureItem text="Friend Challenges" />

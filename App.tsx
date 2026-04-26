@@ -21,23 +21,22 @@ import { PricingPage } from './components/PricingPage';
 import { ExamList } from './components/ExamList';
 import { SocialPanel } from './components/SocialPanel';
 import { UsernameSetup } from './components/UsernameSetup';
-import { LevelUpModal } from './components/LevelUpModal';
 import { SessionSummaryModal } from './components/SessionSummaryModal';
 import { AppGuide, resetTours } from './components/AppGuide';
 import { FriendObserver } from './components/FriendObserver';
 import { NotificationCenter } from './components/NotificationCenter';
 import { ChallengeSettings } from './components/ChallengeSettings';
 import { ExamTracker } from './components/ExamTracker/ExamTracker';
+import { SyllabusPage } from './components/SyllabusPage';
 
 import { EkagraLogo } from './components/EkagraLogo';
 import { ZenSubjectPanel } from './components/ZenSubjectPanel';
 import { useAuth } from './contexts/AuthContext'; 
 import { dbService } from './services/db';
 import { useSound } from './contexts/SoundContext';
-import { HeaderAd } from './components/HeaderAd';
 import { usePerformance } from './contexts/PerformanceContext';
 import { StudySession, Subject, DEFAULT_SUBJECTS, Task, Exam, isHexColor, TimerDurations, DEFAULT_DURATIONS, UserProfile, getLocalDateString } from './types';
-import { Zap, Wifi, WifiOff, RefreshCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Settings, Timer, BarChart3, CalendarDays, Target, Trash2, AlertCircle, PanelLeftClose, PanelLeftOpen, CheckSquare, Palette, Image as ImageIcon, ToggleLeft, ToggleRight, Maximize2, X, BookOpen, Repeat, Home, AlertTriangle, Download, Upload, Database, Layout, Rocket, Globe, RotateCcw, LogOut, HardDrive, LogIn, GraduationCap, Volume2, VolumeX, Play, Pause, Hourglass, Users, Bell, Loader2, ShieldCheck, Lock, Clock, Library, HelpCircle } from 'lucide-react';
+import { Zap, Wifi, WifiOff, RefreshCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Settings, Timer, BarChart3, CalendarDays, Target, Trash2, AlertCircle, PanelLeftClose, PanelLeftOpen, CheckSquare, Palette, Image as ImageIcon, ToggleLeft, ToggleRight, Maximize2, X, BookOpen, Repeat, Home, Activity, AlertTriangle, Download, Upload, Database, Layout, Rocket, Globe, RotateCcw, LogOut, HardDrive, LogIn, GraduationCap, Volume2, VolumeX, Play, Pause, Hourglass, Users, Bell, Loader2, ShieldCheck, Lock, Clock, Library, HelpCircle, Leaf } from 'lucide-react';
 import { useTheme, ACCENT_COLORS } from './contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { rtdb, db } from './services/firebase';
@@ -155,7 +154,9 @@ const tabMap: Record<string, MobileTab> = {
   '/journal': 'journal',
   '/plan': 'calendar',
   '/arena': 'social',
-  '/settings': 'settings'
+  '/settings': 'settings',
+  '/garden': 'garden',
+  '/syllabus': 'syllabus'
 };
 
 const reverseTabMap: Record<MobileTab, string> = {
@@ -167,7 +168,9 @@ const reverseTabMap: Record<MobileTab, string> = {
   'journal': '/journal',
   'calendar': '/plan',
   'social': '/arena',
-  'settings': '/settings'
+  'settings': '/settings',
+  'garden': '/garden',
+  'syllabus': '/syllabus'
 };
 
 const App: React.FC = () => {
@@ -185,16 +188,9 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [usernameNeeded, setUsernameNeeded] = useState(false);
   
-  // Whitelist & Auth State
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
-
   // UI State
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  
-  // Level Up State
-  const [levelUpData, setLevelUpData] = useState<{ show: boolean; level: number }>({ show: false, level: 1 });
 
   // Session Summary Modal State
   const [sessionToSave, setSessionToSave] = useState<StudySession | null>(null);
@@ -216,6 +212,10 @@ const App: React.FC = () => {
   // Animation State
   const [isLogoSpinning, setIsLogoSpinning] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
+
+  // Fix 2 & 3: Orphaned Session and Auto-capped states
+  const [orphanedSession, setOrphanedSession] = useState<{ durationMs: number; subjectId: string; show: boolean } | null>(null);
+  const [cappedNotification, setCappedNotification] = useState(false);
 
   const { accent, setAccent } = useTheme();
   
@@ -249,44 +249,68 @@ const App: React.FC = () => {
       return allSessions.filter(s => s.dateString === today).reduce((acc, curr) => acc + curr.durationMs, 0);
   }, [allSessions]);
 
-  // --- WHITELIST VERIFICATION EFFECT ---
+  // Daily Reset for Free Users
   useEffect(() => {
-      if (!currentUser) {
-          setIsAuthorized(false);
-          setIsVerifying(false);
-          return;
-      }
+      if (loading) return; // Wait until auth state is resolved
+      if (hasPremium) return; // Premium users keep their data
 
-      const verifyUser = async () => {
-          setIsVerifying(true);
-          try {
-              const email = currentUser.email?.toLowerCase() || '';
-              // Verify against Firestore collection
-              const docRef = doc(db, 'authorized_users', email);
-              const docSnap = await getDoc(docRef);
-              const exists = docSnap.exists();
-              
-              console.log('VIP Status:', exists);
-              setIsAuthorized(exists);
-          } catch (error) {
-              console.error("Verification error:", error);
-              setIsAuthorized(false); // Default to deny on error for security
-          } finally {
-              setIsVerifying(false);
+      const checkDailyReset = async () => {
+          const lastOpenDate = localStorage.getItem('ekagrazone_lastOpenDate');
+          const today = getLocalDateString();
+
+          if (lastOpenDate && lastOpenDate !== today) {
+              // It's a new day, clear tasks for free users
+              const allTasks = await dbService.getTasks();
+              for (const task of allTasks) {
+                  await dbService.deleteTask(task.id);
+              }
+              setTasks([]);
+              console.log("Daily reset performed for free user.");
           }
+          
+          localStorage.setItem('ekagrazone_lastOpenDate', today);
       };
 
-      verifyUser();
-  }, [currentUser]);
+      checkDailyReset();
+  }, [hasPremium, loading]);
 
   // Init Data Effect
   useEffect(() => {
-    // Only init data if we are authorized OR a guest
-    const canAccess = (currentUser && isAuthorized) || isGuest;
+    // Only init data if we are logged in OR a guest
+    const canAccess = currentUser || isGuest;
     if (!canAccess) return;
 
     const initData = async () => {
       try {
+        // Fix 2: Detect orphaned session
+        const isRunning = localStorage.getItem('ekagra_session_running');
+        if (isRunning) {
+            const startStr = localStorage.getItem('ekagra_session_start');
+            const subjectId = localStorage.getItem('ekagra_session_subject') || DEFAULT_SUBJECTS[0].id;
+            
+            if (startStr) {
+                const startTime = parseInt(startStr);
+                const orphanedMs = Date.now() - startTime;
+                
+                if (orphanedMs > 21600000) { // 6 hours
+                    // Discard silently
+                    localStorage.removeItem('ekagra_session_running');
+                    localStorage.removeItem('ekagra_session_start');
+                    localStorage.removeItem('ekagra_session_subject');
+                } else if (orphanedMs > 60000) { // > 1 minute
+                    setOrphanedSession({
+                        durationMs: orphanedMs,
+                        subjectId,
+                        show: true
+                    });
+                } else {
+                    localStorage.removeItem('ekagra_session_running');
+                    localStorage.removeItem('ekagra_session_start');
+                    localStorage.removeItem('ekagra_session_subject');
+                }
+            }
+        }
+
         await refreshSubjects();
         loadSessions();
         loadTasks();
@@ -352,16 +376,13 @@ const App: React.FC = () => {
     };
     window.addEventListener('ekagrazone_sync_complete', handleSyncComplete);
 
-    const handleLevelUp = (e: CustomEvent) => {
-        setLevelUpData({ show: true, level: e.detail.level });
-    };
-    // Cast to EventListener to satisfy TS with CustomEvent
-    window.addEventListener('ekagra_levelup', handleLevelUp as EventListener);
-
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    
+    const handleSessionCapped = () => setCappedNotification(true);
+    window.addEventListener('ekagra_session_capped', handleSessionCapped as EventListener);
 
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
@@ -369,15 +390,15 @@ const App: React.FC = () => {
 
     return () => {
       window.removeEventListener('ekagrazone_sync_complete', handleSyncComplete);
-      window.removeEventListener('ekagra_levelup', handleLevelUp as EventListener);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('ekagra_session_capped', handleSessionCapped as EventListener);
     };
-  }, [currentUser, isAuthorized, isGuest]); // Depend on authorization state
+  }, [currentUser, isGuest]); // Depend on authorization state
 
   // Unread Notification Listener
   useEffect(() => {
-      if (!currentUser || !isAuthorized) return;
+      if (!currentUser) return;
       const notifRef = ref(rtdb, `users/${currentUser.uid}/notifications`);
       return onValue(notifRef, (snapshot) => {
           const data = snapshot.val();
@@ -388,7 +409,7 @@ const App: React.FC = () => {
               setUnreadCount(0);
           }
       });
-  }, [currentUser, isAuthorized]);
+  }, [currentUser]);
 
   const refreshSubjects = async () => {
       const storedSubjects = await dbService.getSubjects();
@@ -456,11 +477,15 @@ const App: React.FC = () => {
   }, []);
 
   const handleZenToggle = useCallback(() => {
+      if (!hasPremium) {
+          setShowPricing(true);
+          return;
+      }
       const newState = !enableZenMode;
       setEnableZenMode(newState);
       localStorage.setItem('ekagrazone_enableZenMode', String(newState));
       dbService.syncSettingsToCloud().catch(console.error);
-  }, [enableZenMode]);
+  }, [enableZenMode, hasPremium]);
 
   const handleWallpaperChange = useCallback((url: string) => {
       setWallpaper(url);
@@ -522,7 +547,7 @@ const App: React.FC = () => {
       setConfirmModal({
           type: 'all',
           title: "⚠️ ARE YOU ABSOLUTELY SURE?",
-          message: "This action is permanent. You will lose your Rank, your XP will be wiped from the Global Leaderboard, and your focus history will vanish forever."
+          message: "This action is permanent. Your entire focus history and data will be wiped forever."
       });
   };
 
@@ -539,7 +564,11 @@ const App: React.FC = () => {
           await loadTasks();
       } else if (confirmModal.type === 'all') {
           await dbService.factoryReset();
+          const hasPremiumCached = localStorage.getItem('ekagrazone_hasPremium');
           localStorage.clear();
+          if (hasPremiumCached) {
+              localStorage.setItem('ekagrazone_hasPremium', hasPremiumCached);
+          }
           window.location.reload();
       }
 
@@ -553,15 +582,36 @@ const App: React.FC = () => {
   };
 
   const handleSessionSave = async (updatedSession: StudySession) => {
-    const { levelUp, newLevel } = await dbService.saveSession(updatedSession);
-    if (levelUp) {
-        const event = new CustomEvent('ekagra_levelup', { 
-            detail: { level: newLevel } 
-        });
-        window.dispatchEvent(event);
-    }
+    await dbService.saveSession(updatedSession);
     setSessionToSave(null);
     handleSessionComplete();
+  };
+
+  const handleOrphanedSave = async () => {
+      if (!orphanedSession) return;
+      const sessionToSave: StudySession = {
+          id: crypto.randomUUID(),
+          subjectId: orphanedSession.subjectId,
+          durationMs: orphanedSession.durationMs,
+          startTime: Date.now() - orphanedSession.durationMs,
+          endTime: Date.now(),
+          dateString: getLocalDateString(),
+      };
+      await dbService.saveSession(sessionToSave);
+      
+      localStorage.removeItem('ekagra_session_running');
+      localStorage.removeItem('ekagra_session_start');
+      localStorage.removeItem('ekagra_session_subject');
+      
+      setOrphanedSession(null);
+      handleSessionComplete();
+  };
+
+  const handleOrphanedDiscard = () => {
+      localStorage.removeItem('ekagra_session_running');
+      localStorage.removeItem('ekagra_session_start');
+      localStorage.removeItem('ekagra_session_subject');
+      setOrphanedSession(null);
   };
 
   const { elapsedMs, status, mode, isOvertime, currentSubjectId, setSubjectId, setMode, start, pause, stop } = useStopwatch(DEFAULT_SUBJECTS[0].id, handleSessionComplete, timerDurations);
@@ -583,7 +633,7 @@ const App: React.FC = () => {
 
   // --- LIVE STATUS SYNC (RTDB) ---
   useEffect(() => {
-      if (!currentUser || !isAuthorized) return;
+      if (!currentUser) return;
 
       const publicStatusRef = ref(rtdb, `users/${currentUser.uid}/publicStatus`);
       const connectedRef = ref(rtdb, '.info/connected');
@@ -631,7 +681,7 @@ const App: React.FC = () => {
           clearInterval(interval);
           unsubscribe();
       };
-  }, [currentUser, status, dailyTotalMs, currentSubjectId, subjects, isAuthorized]); 
+  }, [currentUser, status, dailyTotalMs, currentSubjectId, subjects]); 
   // removed elapsedMs from dep array to avoid spam, interval handles updates if needed, 
   // but crucially status change triggers immediate update with correct start time.
 
@@ -680,6 +730,11 @@ const App: React.FC = () => {
 
   const handleZenResponse = (shouldEnter: boolean) => {
       setShowZenPrompt(false);
+      if (shouldEnter && !hasPremium) {
+          setShowPricing(true);
+          start();
+          return;
+      }
       start(); 
       if (shouldEnter) setIsZenActive(true);
   };
@@ -708,45 +763,6 @@ const App: React.FC = () => {
   }
 
   // 3. Logged In User Checks
-  if (currentUser) {
-      if (isVerifying) {
-          return (
-              <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay pointer-events-none"></div>
-                  <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-indigo-900/10 blur-[120px] rounded-full mix-blend-screen pointer-events-none" />
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.9 }} 
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="relative z-10 flex flex-col items-center"
-                  >
-                      <div className="relative mb-8">
-                          <div className={`absolute inset-0 bg-${accent}-500 blur-2xl opacity-20 rounded-full animate-pulse`} />
-                          <div className="w-20 h-20 bg-slate-900 border border-white/10 rounded-2xl flex items-center justify-center shadow-2xl relative">
-                              <ShieldCheck size={40} className={`text-${accent}-400 animate-pulse`} />
-                              <div className="absolute -bottom-2 -right-2 bg-slate-950 p-1.5 rounded-full border border-white/10">
-                                  <Lock size={14} className="text-slate-400" />
-                              </div>
-                          </div>
-                      </div>
-                      <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Authenticating</h2>
-                      <div className="flex items-center gap-2 text-slate-400 text-sm font-mono">
-                          <Loader2 size={14} className="animate-spin" /> Verifying Access...
-                      </div>
-                  </motion.div>
-              </div>
-          );
-      }
-      
-      // Premium Check for Non-Guest Users
-      // VIPs (isAuthorized) bypass this check
-      if (!currentUser.isAnonymous && !hasPremium && !isAuthorized) {
-          return <PricingPage />;
-      }
-
-      if (!isAuthorized) {
-          return <MaintenanceMode />;
-      }
-  }
 
   // 4. Force Username Setup if needed (Post-Auth / Post-Guest)
   if (usernameNeeded && !isGuest) {
@@ -1161,7 +1177,8 @@ const App: React.FC = () => {
       { id: 'dashboard', label: 'Home', icon: Home },
       { id: 'timer', label: 'Focus', icon: Timer },
       { id: 'timeline', label: 'Stats', icon: BarChart3 },
-
+      { id: 'garden', label: 'Oasis', icon: Leaf },
+      { id: 'syllabus', label: 'Syllabus', icon: Library },
       { id: 'exams', label: 'Exams', icon: GraduationCap },
       { id: 'habits', label: 'Habits', icon: Repeat },
       { id: 'journal', label: 'Journal', icon: BookOpen },
@@ -1395,6 +1412,70 @@ const App: React.FC = () => {
 
       <ConfirmationModal />
       
+      {/* Orphaned Session Modal */}
+      <AnimatePresence>
+          {orphanedSession && orphanedSession.show && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+                  <motion.div 
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.9, opacity: 0 }}
+                      className="bg-slate-900 border border-white/10 rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl relative overflow-hidden"
+                  >
+                      <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
+                      <div className="w-16 h-16 rounded-full bg-amber-500/20 flex flex-col items-center justify-center mb-6 mx-auto text-amber-500">
+                          <Activity size={32} />
+                      </div>
+                      
+                      <h3 className="text-xl font-bold text-white text-center mb-3">Looks like you forgot to stop your timer!</h3>
+                      <p className="text-slate-400 text-sm text-center mb-8">
+                          Did you study for <span className="text-amber-400 font-bold whitespace-nowrap">{Math.floor(orphanedSession.durationMs / 3600000)} hrs {Math.floor((orphanedSession.durationMs % 3600000) / 60000)} mins</span>?
+                      </p>
+                      
+                      <div className="flex flex-col gap-3">
+                          <button 
+                              onClick={handleOrphanedSave}
+                              className={`w-full py-3 rounded-xl font-bold transition-all bg-gradient-to-r from-${accent}-600 to-${accent}-500 text-white hover:from-${accent}-500 hover:to-${accent}-400 shadow-lg`}
+                          >
+                              Yes, save it
+                          </button>
+                          <button 
+                              onClick={handleOrphanedDiscard}
+                              className="w-full py-3 rounded-xl font-bold transition-all bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                          >
+                              No, discard
+                          </button>
+                      </div>
+                  </motion.div>
+              </div>
+          )}
+      </AnimatePresence>
+
+      {/* Capped Notification */}
+      <AnimatePresence>
+          {cappedNotification && (
+              <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] px-4 w-full max-w-md">
+                 <motion.div 
+                    initial={{ y: -50, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -50, opacity: 0 }}
+                    className="bg-slate-900/90 backdrop-blur-md border border-amber-500/30 rounded-2xl p-4 shadow-2xl shadow-amber-500/10 flex items-start gap-4"
+                 >
+                    <div className="w-10 h-10 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center flex-none">
+                        <Activity size={20} />
+                    </div>
+                    <div className="flex-1 pr-6">
+                        <h4 className="text-sm font-bold text-white mb-1">Timer Auto-Paused</h4>
+                        <p className="text-xs text-slate-400">Timer auto-paused after 6 hours. Don't forget to save your session!</p>
+                    </div>
+                    <button onClick={() => setCappedNotification(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white">
+                        <X size={16} />
+                    </button>
+                 </motion.div>
+              </div>
+          )}
+      </AnimatePresence>
+      
       {/* Session Summary Modal */}
       <AnimatePresence>
           {sessionToSave && (
@@ -1406,17 +1487,9 @@ const App: React.FC = () => {
               />
           )}
       </AnimatePresence>
-      
-      {/* Level Up Modal */}
-      <AnimatePresence>
-          {levelUpData.show && (
-              <LevelUpModal newLevel={levelUpData.level} onClose={() => setLevelUpData({ ...levelUpData, show: false })} />
-          )}
-      </AnimatePresence>
 
       {/* --- Mobile Layout (< md) --- */}
       <div className={`md:hidden flex flex-col h-[100dvh] relative z-10 ${isZenActive || isSpaceMode ? 'hidden' : ''}`}>
-        {!hasPremium && <HeaderAd onClick={() => setShowPricing(true)} />}
         <div className="flex-none px-4 pt-4 transition-all">
            <Header />
         </div>
@@ -1466,7 +1539,13 @@ const App: React.FC = () => {
                             dailyTotalMs={dailyTotalMs}
                           />
                           {enableZenMode && wallpaper && status === 'running' && !isZenActive && (
-                              <button onClick={() => setIsZenActive(true)} className={`mt-6 flex items-center gap-2 px-4 py-2 rounded-full bg-${accent}-500/10 text-${accent}-400 border border-${accent}-500/20 text-xs font-semibold hover:bg-${accent}-500/20 transition-all`}>
+                              <button onClick={() => {
+                                  if (!hasPremium) {
+                                      setShowPricing(true);
+                                      return;
+                                  }
+                                  setIsZenActive(true);
+                              }} className={`mt-6 flex items-center gap-2 px-4 py-2 rounded-full bg-${accent}-500/10 text-${accent}-400 border border-${accent}-500/20 text-xs font-semibold hover:bg-${accent}-500/20 transition-all`}>
                                   <Maximize2 size={14} /> Enter Zen Mode
                               </button>
                           )}
@@ -1482,13 +1561,25 @@ const App: React.FC = () => {
 
                    {activeTab === 'timeline' && (
                      <div className="flex-1 flex flex-col px-4 overflow-y-auto pb-4">
-                        <StatsPage sessions={allSessions} subjects={subjects} onDataUpdate={loadSessions} />
+                        <StatsPage 
+                            sessions={allSessions} 
+                            subjects={subjects} 
+                            onDataUpdate={loadSessions} 
+                            hasPremium={hasPremium}
+                            onUpgrade={() => setShowPricing(true)}
+                        />
                      </div>
                    )}
 
                    {activeTab === 'exams' && (
                      <div className="flex-1 flex flex-col px-4 overflow-y-auto pb-4">
                         <ExamTracker subjects={subjects} exams={exams} onUpdate={loadExams} />
+                     </div>
+                   )}
+
+                   {activeTab === 'syllabus' && (
+                     <div className="flex-1 flex flex-col overflow-hidden pb-4">
+                        <SyllabusPage subjects={subjects} />
                      </div>
                    )}
 
@@ -1549,7 +1640,6 @@ const App: React.FC = () => {
          >
             {/* Content Area */}
             <div className="flex-1 flex flex-col min-w-0">
-                {!hasPremium && <HeaderAd onClick={() => setShowPricing(true)} />}
                 {/* Top Bar inside glass */}
                 {activeTab !== 'calendar' && (
                     <div className="flex justify-between items-center mb-6 flex-none z-30 relative transition-opacity">
@@ -1564,6 +1654,7 @@ const App: React.FC = () => {
                         {activeTab === 'timeline' && 'Analytics'}
 
                         {activeTab === 'exams' && 'Exam Tracker'}
+                        {activeTab === 'syllabus' && 'Syllabus'}
                         {activeTab === 'journal' && 'Daily Journal'}
                         {activeTab === 'habits' && 'Habit Forge'}
                         {activeTab === 'social' && 'Social Hub'}
@@ -1696,7 +1787,13 @@ const App: React.FC = () => {
                                             }
                                         />
                                         {enableZenMode && wallpaper && status === 'running' && !isZenActive && (
-                                            <button onClick={() => setIsZenActive(true)} className={`mt-6 flex items-center gap-2 px-4 py-2 rounded-full bg-${accent}-500/10 text-${accent}-400 border border-${accent}-500/20 text-xs font-semibold hover:bg-${accent}-500/20 transition-all`}>
+                                            <button onClick={() => {
+                                                if (!hasPremium) {
+                                                    setShowPricing(true);
+                                                    return;
+                                                }
+                                                setIsZenActive(true)
+                                            }} className={`mt-6 flex items-center gap-2 px-4 py-2 rounded-full bg-${accent}-500/10 text-${accent}-400 border border-${accent}-500/20 text-xs font-semibold hover:bg-${accent}-500/20 transition-all`}>
                                                 <Maximize2 size={14} /> Enter Zen Mode
                                             </button>
                                         )}
@@ -1706,13 +1803,25 @@ const App: React.FC = () => {
 
                             {activeTab === 'timeline' && (
                                 <div className="h-full w-full overflow-hidden">
-                                    <StatsPage sessions={allSessions} subjects={subjects} onDataUpdate={loadSessions} />
+                                    <StatsPage 
+                                        sessions={allSessions} 
+                                        subjects={subjects} 
+                                        onDataUpdate={loadSessions} 
+                                        hasPremium={hasPremium}
+                                        onUpgrade={() => setShowPricing(true)}
+                                    />
                                 </div>
                             )}
 
                             {activeTab === 'exams' && (
                                 <div className="h-full w-full overflow-y-auto custom-scrollbar rounded-[2rem]">
                                     <ExamTracker subjects={subjects} exams={exams} onUpdate={loadExams} />
+                                </div>
+                            )}
+
+                            {activeTab === 'syllabus' && (
+                                <div className="h-full w-full overflow-hidden rounded-[2rem]">
+                                    <SyllabusPage subjects={subjects} />
                                 </div>
                             )}
 

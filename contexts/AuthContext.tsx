@@ -51,12 +51,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const snapshot = await getDoc(docRef);
       if (snapshot.exists() && snapshot.data().hasPremium) {
         setHasPremium(true);
+        localStorage.setItem('ekagrazone_hasPremium', 'true');
       } else {
         setHasPremium(false);
+        localStorage.setItem('ekagrazone_hasPremium', 'false');
       }
     } catch (e) {
       console.error("Error checking premium status", e);
-      setHasPremium(false);
+      const cached = localStorage.getItem('ekagrazone_hasPremium');
+      if (cached === 'true') {
+          setHasPremium(true);
+      } else {
+          setHasPremium(false);
+      }
     }
   };
 

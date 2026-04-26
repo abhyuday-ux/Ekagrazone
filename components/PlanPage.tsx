@@ -204,23 +204,27 @@ export const PlanPage: React.FC<PlanPageProps> = ({
             </motion.div>
         )}
 
-        {view === 'tasks' && (
-            <motion.div
-                key="tasks"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex-1 min-h-0 overflow-hidden px-4 md:px-6 pb-20 lg:pb-6"
-            >
-                <KanbanBoard 
-                    tasks={tasks} // Pass ALL tasks to Board for project view
-                    subjects={subjects}
-                    onTaskUpdate={onTaskUpdate}
-                    onStartSession={onStartSession}
-                    selectedDate={selectedDate} // New tasks will default to this date for sync
-                />
-            </motion.div>
-        )}
+        {view === 'tasks' && (() => {
+            const dayStartHour = parseInt(localStorage.getItem('ekagrazone_dayStartHour') || '0');
+            return (
+                <motion.div
+                    key="tasks"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex-1 min-h-0 overflow-hidden px-4 md:px-6 pb-20 lg:pb-6"
+                >
+                    <KanbanBoard 
+                        tasks={tasks} // Pass ALL tasks to Board for project view
+                        subjects={subjects}
+                        onTaskUpdate={onTaskUpdate}
+                        onStartSession={onStartSession}
+                        selectedDate={selectedDate} // New tasks will default to this date for sync
+                        dayStartHour={dayStartHour}
+                    />
+                </motion.div>
+            );
+        })()}
 
         {view === 'year' && (
             <motion.div 

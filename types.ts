@@ -98,6 +98,41 @@ export interface MockTest {
 
 
 
+export type TopicStatus = 'none' | 'progress' | 'done' | 'revision';
+
+export interface SyllabusTopic {
+  id: string;
+  name: string;
+  status: TopicStatus;
+  order: number;
+}
+
+export interface SyllabusChapter {
+  id: string;
+  name: string;
+  topics: SyllabusTopic[];
+  order: number;
+  isOpen?: boolean;
+}
+
+export interface SyllabusSubject {
+  id: string;
+  subjectId: string;
+  chapters: SyllabusChapter[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface SyllabusTemplate {
+  id: string;
+  name: string;
+  exam: string;
+  subjects: Omit<SyllabusSubject, 'id' | 'createdAt' | 'updatedAt'>[];
+  createdBy: string;
+  shareCode?: string;
+  createdAt: number;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'model';
@@ -165,8 +200,6 @@ export interface UserProfile {
   email: string;
   photoURL?: string;
   totalFocusMs: number; // Lifetime focus time
-  xp?: number; // Total Experience Points
-  level?: number; // Current Level
   lastActive: number;
   challengeTitle?: string;
   challengeStartDate?: string; // ISO Date YYYY-MM-DD

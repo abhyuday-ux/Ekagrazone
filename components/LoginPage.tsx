@@ -766,7 +766,6 @@ export const LoginPage: React.FC = () => {
           <div className="bg-slate-900/90 border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl backdrop-blur-xl">
             <h3 className="text-xl font-bold text-[#158af2] mb-4">Privacy Policy</h3>
             <div className="space-y-4 text-sm text-slate-300">
-              <p>EkagraZone uses Google AdSense to serve ads. Google uses cookies (DART cookies) to serve ads based on user visits. Users can opt-out via Google Ad settings.</p>
               <p>We collect email addresses only for account authentication and leaderboard ranking. We do not sell user data to third parties.</p>
             </div>
             <button 

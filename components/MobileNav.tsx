@@ -1,9 +1,9 @@
 
 import React from 'react';
-import { Timer, BarChart3, CalendarDays, Settings, BookOpen, Repeat, Home, Users, GraduationCap, Library } from 'lucide-react';
+import { Timer, BarChart3, CalendarDays, Settings, BookOpen, Repeat, Home, Users, GraduationCap, Library, Leaf } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
-export type MobileTab = 'dashboard' | 'timer' | 'timeline' | 'calendar' | 'exams' | 'settings' | 'journal' | 'habits' | 'social';
+export type MobileTab = 'dashboard' | 'timer' | 'timeline' | 'calendar' | 'exams' | 'settings' | 'journal' | 'habits' | 'social' | 'garden' | 'syllabus';
 
 interface MobileNavProps {
   activeTab: MobileTab;
@@ -15,6 +15,8 @@ export const MobileNav: React.FC<MobileNavProps> = ({ activeTab, setTab }) => {
   const tabs: { id: MobileTab; label: string; icon: React.FC<any> }[] = [
     { id: 'dashboard', label: 'Home', icon: Home },
     { id: 'timer', label: 'Focus', icon: Timer },
+    { id: 'syllabus', label: 'Syllabus', icon: Library },
+    { id: 'garden', label: 'Oasis', icon: Leaf },
     { id: 'timeline', label: 'Stats', icon: BarChart3 },
     { id: 'exams', label: 'Exams', icon: GraduationCap },
     { id: 'social', label: 'Social', icon: Users },

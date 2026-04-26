@@ -42,48 +42,6 @@ export const useStopwatch = (
     }
   }, []);
 
-  // Timer Tick Loop (using setInterval for background persistence)
-  useEffect(() => {
-    if (status === 'running') {
-      const tick = () => {
-        const savedState = loadActiveState();
-        if (savedState && savedState.status === 'running') {
-            const currentElapsed = calculateElapsed(savedState);
-            setElapsedMs(currentElapsed);
-
-            // Overtime detection
-            if (savedState.mode === 'pomodoro') {
-                const target = (durations[savedState.mode] || 25) * 60 * 1000;
-                if (currentElapsed >= target) {
-                    setIsOvertime(true);
-                } else {
-                    setIsOvertime(false);
-                }
-            } else {
-                setIsOvertime(false);
-            }
-        }
-      };
-      
-      // 100ms interval for responsive UI, throttles to 1s in background tabs
-      intervalRef.current = window.setInterval(tick, 100); 
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (status === 'idle') {
-          setIsOvertime(false);
-      }
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [status, durations]);
-
   const start = useCallback(() => {
     const now = Date.now();
     const perfNow = performance.now(); // Uptime Tick for Anti-Cheat
@@ -123,6 +81,81 @@ export const useStopwatch = (
     setStatus('idle');
     setElapsedMs(0);
   }, []);
+
+  // Timer Tick Loop (using setInterval for background persistence)
+  useEffect(() => {
+    let periodicSaveInterval: number | null = null;
+
+    if (status === 'running') {
+      const tick = () => {
+        const savedState = loadActiveState();
+        if (savedState && savedState.status === 'running') {
+            const currentElapsed = calculateElapsed(savedState);
+            
+            // Fix 3: Hard cap on session duration (6 hours = 21600000 ms)
+            if (currentElapsed > 21600000) {
+                pause();
+                window.dispatchEvent(new CustomEvent('ekagra_session_capped'));
+                return;
+            }
+
+            setElapsedMs(currentElapsed);
+
+            // Overtime detection
+            if (savedState.mode === 'pomodoro') {
+                const target = (durations[savedState.mode] || 25) * 60 * 1000;
+                if (currentElapsed >= target) {
+                    setIsOvertime(true);
+                } else {
+                    setIsOvertime(false);
+                }
+            } else {
+                setIsOvertime(false);
+            }
+        }
+      };
+      
+      // 100ms interval for responsive UI, throttles to 1s in background tabs
+      intervalRef.current = window.setInterval(tick, 100); 
+
+      // Fix 1: Save timestamp on tab close (every 30s)
+      periodicSaveInterval = window.setInterval(() => {
+          localStorage.setItem('ekagra_session_running', 'true');
+          const currentState = loadActiveState();
+          if (currentState && currentState.startTime) {
+              const startTimestamp = currentState.startTime - currentState.accumulatedTime;
+              localStorage.setItem('ekagra_session_start', startTimestamp.toString());
+          } else {
+              localStorage.setItem('ekagra_session_start', Date.now().toString());
+          }
+          localStorage.setItem('ekagra_session_subject', currentSubjectId);
+      }, 30000);
+
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      if (status === 'idle') {
+          setIsOvertime(false);
+      }
+      // Fix 1: Clear when stopped or paused normally
+      if (status === 'paused' || status === 'idle') {
+          localStorage.removeItem('ekagra_session_running');
+          localStorage.removeItem('ekagra_session_start');
+          localStorage.removeItem('ekagra_session_subject');
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      if (periodicSaveInterval) {
+        clearInterval(periodicSaveInterval);
+      }
+    };
+  }, [status, durations, pause, currentSubjectId]);
 
   const stop = useCallback(async () => {
     const savedState = loadActiveState();

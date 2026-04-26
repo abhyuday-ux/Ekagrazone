@@ -5,10 +5,9 @@ import { Friend, UserProfile } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Search, UserPlus, Trophy, X, Check, Activity, Crown, Zap, Globe, Loader2, AlertCircle, LogIn } from 'lucide-react';
+import { Users, Search, UserPlus, X, Check, Activity, Crown, Zap, Globe, Loader2, AlertCircle, LogIn, Clock } from 'lucide-react';
 import { rtdb } from '../services/firebase';
-import { ref, onValue, off, query, orderByChild, limitToLast } from 'firebase/database';
-import { getRankInfo } from '../utils/xp';
+import { ref, onValue, off, query } from 'firebase/database';
 
 const formatDuration = (ms: number) => {
     const h = Math.floor(ms / 3600000);
@@ -19,14 +18,12 @@ const formatDuration = (ms: number) => {
 
 const FriendRow: React.FC<{ 
     profile: UserProfile; 
-    rank: number | string; 
     isMe: boolean;
     onClick: () => void;
     showStatus?: boolean;
     subtitle?: string; 
-}> = ({ profile, rank, isMe, onClick, showStatus = true, subtitle }) => {
+}> = ({ profile, isMe, onClick, showStatus = true, subtitle }) => {
     const [status, setStatus] = useState<{ isOnline: boolean; isFocusing: boolean }>({ isOnline: false, isFocusing: false });
-    const rankInfo = getRankInfo(profile.level || 1);
 
     useEffect(() => {
         if (!showStatus || profile.uid.startsWith('mock-')) return;
@@ -60,17 +57,7 @@ const FriendRow: React.FC<{
                     : 'bg-white/[0.03] border-white/5 hover:bg-white/5 hover:border-white/10'}
             `}
         >
-            <div className="flex items-center gap-4 min-w-0 flex-1">
-                <div className={`
-                    w-8 text-center font-mono font-bold text-lg flex-none flex items-center justify-center
-                    ${rank === 1 ? 'text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]' 
-                    : rank === 2 ? 'text-slate-300' 
-                    : rank === 3 ? 'text-orange-400' 
-                    : 'text-slate-600'}
-                `}>
-                    {rank === 1 ? <Crown size={20} className="fill-amber-400/20" /> : rank === 2 ? <Crown size={18} className="text-slate-300 fill-slate-300/20" /> : rank === 3 ? <Crown size={18} className="text-orange-400 fill-orange-400/20" /> : rank}
-                </div>
-                
+            <div className="flex items-center gap-4 min-w-0 flex-1 pl-4">
                 <div className="relative flex-none">
                     {/* Live Presence Dots */}
                     <div className="absolute -top-1 -right-1 z-20">
@@ -106,23 +93,14 @@ const FriendRow: React.FC<{
                         )}
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                        {subtitle ? (
-                            <span className="text-[10px] text-slate-500">{subtitle}</span>
-                        ) : (
-                            <>
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${rankInfo.bg} ${rankInfo.color} ${rankInfo.border} uppercase tracking-wider`}>
-                                    {rankInfo.title}
-                                </span>
-                                <span className="text-[10px] text-slate-500 font-mono">Lvl {profile.level || 1}</span>
-                            </>
-                        )}
+                        {subtitle && <span className="text-[10px] text-slate-500">{subtitle}</span>}
                     </div>
                 </div>
             </div>
 
             <div className="text-right flex-none pl-3">
                 <div className={`text-sm font-mono font-bold ${status.isFocusing ? 'text-cyan-400' : 'text-slate-300'}`}>
-                    {(profile.xp || 0).toLocaleString()} <span className="text-[10px] text-slate-500 font-sans">XP</span>
+                    {formatDuration(profile.totalFocusMs || 0)} <span className="text-[10px] text-slate-500 font-sans">Focus</span>
                 </div>
                 {status.isFocusing && (
                     <div className="text-[9px] text-cyan-400 font-bold uppercase tracking-wider animate-pulse flex items-center justify-end gap-1">
@@ -137,10 +115,7 @@ const FriendRow: React.FC<{
 export const SocialPanel: React.FC = () => {
     const { currentUser, isGuest, hasPremium, signInWithGoogle, logout } = useAuth();
     const { accent } = useTheme();
-    const [activeTab, setActiveTab] = useState<'global' | 'friends'>('global');
-    
     // Data States
-    const [leaderboardUsers, setLeaderboardUsers] = useState<UserProfile[]>([]);
     const [friends, setFriends] = useState<Friend[]>([]);
     
     // Add Friend UI State
@@ -164,63 +139,9 @@ export const SocialPanel: React.FC = () => {
         loadMyProfile();
     }, [isGuest]);
 
-    // RTDB Leaderboard Subscription
-    useEffect(() => {
-        if (activeTab !== 'global') return;
-
-        // Query: users sorted by stats/totalXP, limit to last 20 (highest)
-        const leaderboardQuery = query(ref(rtdb, 'users'), orderByChild('stats/totalXP'), limitToLast(20));
-
-        const handleSnapshot = (snapshot: any) => {
-            const users: UserProfile[] = [];
-            snapshot.forEach((childSnap: any) => {
-                const uid = childSnap.key;
-                const stats = childSnap.val().stats;
-                const subscriptionType = childSnap.val().subscriptionType; // Fetch subscription type
-                if (stats) {
-                    users.push({
-                        uid,
-                        displayName: stats.displayName || 'Anonymous',
-                        photoURL: stats.photoURL,
-                        totalFocusMs: stats.totalFocusMs || 0,
-                        xp: stats.totalXP || 0,
-                        level: stats.level || 1,
-                        lastActive: 0, 
-                        email: '',
-                        subscriptionType: subscriptionType
-                    });
-                }
-            });
-
-            // Mock Users if fewer than 10
-            if (users.length < 10) {
-                const MOCK_NAMES = ['FocusBeast', 'DeepWorker99', 'ZenMaster', 'FlowState', 'ProductivityGod'];
-                for (let i = 0; i < 5; i++) {
-                     users.push({
-                        uid: `mock-${i}`,
-                        displayName: MOCK_NAMES[i],
-                        photoURL: undefined,
-                        totalFocusMs: Math.floor(Math.random() * 10000000),
-                        xp: Math.floor(Math.random() * (1500 - 500 + 1)) + 500,
-                        level: Math.floor(Math.random() * 5) + 1,
-                        lastActive: Date.now(),
-                        email: '',
-                        subscriptionType: i === 0 ? 'yearly' : undefined // Give one a badge
-                    });
-                }
-            }
-
-            // Reverse to show highest first
-            setLeaderboardUsers(users.sort((a, b) => (b.xp || 0) - (a.xp || 0)));
-        };
-
-        onValue(leaderboardQuery, handleSnapshot);
-        return () => off(leaderboardQuery);
-    }, [activeTab]);
-
     // Firestore Friends Subscription
     useEffect(() => {
-        if (isGuest || activeTab !== 'friends') return;
+        if (isGuest) return;
 
         const unsubFriends = dbService.subscribeToFriends((friendList) => {
             setFriends(friendList);
@@ -229,7 +150,7 @@ export const SocialPanel: React.FC = () => {
         return () => {
             if (unsubFriends) unsubFriends();
         };
-    }, [activeTab, isGuest]);
+    }, [isGuest]);
 
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -271,12 +192,8 @@ export const SocialPanel: React.FC = () => {
     const acceptedFriends = friends.filter(f => f.status === 'accepted' && f.profile);
     const pendingRequests = friends.filter(f => f.status === 'pending_received' && f.profile);
 
-    // Sort Friends by XP descending
-    const sortedFriends = [...acceptedFriends].sort((a, b) => (b.profile?.xp || 0) - (a.profile?.xp || 0));
-
-    // Calculate Personal Rank
-    const myRank = leaderboardUsers.findIndex(u => u.uid === currentUser?.uid) + 1;
-    const myProfile = leaderboardUsers.find(u => u.uid === currentUser?.uid) || currentUserProfile;
+    // Sort Friends by Focus Time descending
+    const sortedFriends = [...acceptedFriends].sort((a, b) => (b.profile?.totalFocusMs || 0) - (a.profile?.totalFocusMs || 0));
 
     return (
         <div className="flex flex-col h-full bg-slate-900/40 backdrop-blur-md rounded-3xl overflow-hidden relative border border-white/5">
@@ -285,38 +202,23 @@ export const SocialPanel: React.FC = () => {
             <div className="p-6 border-b border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/50 flex-none">
                 <div>
                     <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-                        Social Hub
+                        Friends
                     </h2>
-                    <p className="text-sm text-slate-400">Connect, Compete, Conquer.</p>
-                </div>
-                
-                <div id="arena-tabs" className="flex bg-slate-800/50 p-1 rounded-xl border border-white/5">
-                    <button 
-                        onClick={() => setActiveTab('global')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'global' ? `bg-${accent}-600 text-white shadow-lg` : 'text-slate-400 hover:text-white'}`}
-                    >
-                        <Globe size={14} /> Global Arena
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('friends')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'friends' ? `bg-${accent}-600 text-white shadow-lg` : 'text-slate-400 hover:text-white'}`}
-                    >
-                        <Users size={14} /> Friends
-                    </button>
+                    <p className="text-sm text-slate-400">Connect with others.</p>
                 </div>
             </div>
 
             <div className="flex-1 overflow-hidden relative">
                 
                 {/* Guest Lock Overlay */}
-                {isGuest && activeTab === 'global' && (
+                {isGuest && (
                     <div className="absolute inset-0 z-40 backdrop-blur-md bg-slate-900/60 flex flex-col items-center justify-center text-center p-6">
                         <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-indigo-500/20">
-                            <Trophy size={32} className="text-white" />
+                            <Users size={32} className="text-white" />
                         </div>
-                        <h3 className="text-2xl font-bold text-white mb-2">The Arena is for Legends</h3>
+                        <h3 className="text-2xl font-bold text-white mb-2">Socializing is for Legends</h3>
                         <p className="text-slate-400 max-w-xs mx-auto mb-8">
-                            Sign in to track your rank and compete with friends.
+                            Sign in to compete with friends.
                         </p>
                         <button 
                             onClick={() => logout()}
@@ -367,85 +269,17 @@ export const SocialPanel: React.FC = () => {
                                 </h3>
                                 <p className="text-slate-400 text-sm font-mono mb-6">@{selectedUser.username || 'user'}</p>
                                 
-                                <div className="grid grid-cols-2 gap-4 text-left">
-                                    <div className="bg-slate-900/50 p-4 rounded-xl border border-white/5">
-                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Total XP</p>
-                                        <p className="text-xl font-mono font-bold text-emerald-400">{(selectedUser.xp || 0).toLocaleString()}</p>
-                                    </div>
+                                <div className="grid grid-cols-1 gap-4 text-left">
                                     <div className="bg-slate-900/50 p-4 rounded-xl border border-white/5">
                                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Total Time</p>
                                         <p className="text-xl font-mono font-bold text-blue-400">{formatDuration(selectedUser.totalFocusMs || 0)}</p>
                                     </div>
                                 </div>
-                                
-                                <div className="mt-6 pt-6 border-t border-white/5">
-                                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/5 text-sm font-medium text-slate-300">
-                                        <Trophy size={14} className="text-amber-400" />
-                                        Rank: <span className="text-white font-bold">{getRankInfo(selectedUser.level || 1).title}</span>
-                                    </div>
-                                </div>
                             </div>
                         </motion.div>
                     )}
 
-                    {/* GLOBAL TAB */}
-                    {activeTab === 'global' && (
-                        <motion.div 
-                            key="global"
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: 20 }}
-                            className="h-full flex flex-col"
-                        >
-                            <div id="arena-leaderboard" className="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar">
-                                <div className="max-w-3xl mx-auto space-y-2 pt-4">
-                                    {leaderboardUsers.length === 0 ? (
-                                        <div className="text-center py-20 opacity-50">
-                                            <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                                                <Trophy size={24} className="text-slate-500" />
-                                            </div>
-                                            <p className="text-xs text-slate-400 font-medium">Connecting to Arena...</p>
-                                        </div>
-                                    ) : (
-                                        leaderboardUsers.map((user, i) => (
-                                            <FriendRow 
-                                                key={user.uid} 
-                                                profile={user} 
-                                                rank={i + 1}
-                                                isMe={user.uid === currentUser?.uid}
-                                                onClick={() => setSelectedUser(user)}
-                                            />
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Personal Rank Bar */}
-                            {!isGuest && myProfile && (
-                                <div className="flex-none p-4 bg-slate-800/80 backdrop-blur-md border-t border-white/5 z-30">
-                                    <div className="max-w-3xl mx-auto flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20">
-                                                {myRank > 0 ? `#${myRank}` : '-'}
-                                            </div>
-                                            <div>
-                                                <div className="text-sm font-bold text-white">Your Rank</div>
-                                                <div className="text-[10px] text-slate-400">Keep pushing to reach #1</div>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-lg font-mono font-bold text-white">
-                                                {(myProfile.xp || 0).toLocaleString()} <span className="text-xs text-slate-500">XP</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </motion.div>
-                    )}
-
-                    {/* FRIENDS TAB */}
-                    {activeTab === 'friends' && (
+                    {!isGuest && (
                         <motion.div 
                             key="friends"
                             initial={{ opacity: 0, x: 20 }}
@@ -493,7 +327,6 @@ export const SocialPanel: React.FC = () => {
                                                 </div>
                                                 <div>
                                                     <div className="font-bold text-white text-sm">{searchResult.displayName}</div>
-                                                    <div className="text-[10px] text-indigo-300">Lvl {searchResult.level || 1}</div>
                                                 </div>
                                             </div>
                                             {requestSent ? (

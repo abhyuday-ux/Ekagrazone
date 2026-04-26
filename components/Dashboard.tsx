@@ -14,7 +14,6 @@ import { Play, CheckSquare, BookOpen as BookIcon } from 'lucide-react';
 import { SubjectDonut } from './SubjectDonut';
 import { dbService } from '../services/db';
 import { ConfirmationModal } from './ConfirmationModal';
-import { getLevelProgress, getRankInfo } from '../utils/xp';
 
 // Lazy load ReportAlbum for performance
 const ReportAlbum = React.lazy(() => import('./ReportAlbum').then(module => ({ default: module.ReportAlbum })));
@@ -212,14 +211,6 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
       return `${h}h ${m}m`;
   };
 
-  // XP & Level Logic
-  const levelData = useMemo(() => {
-      const xp = userProfile?.xp || 0;
-      return getLevelProgress(xp);
-  }, [userProfile]);
-
-  const rankInfo = getRankInfo(levelData.currentLevel);
-
   const containerVariants = {
     hidden: { opacity: 0 },
     show: {
@@ -324,44 +315,15 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                     
                     <div className="relative z-10 flex justify-between items-start">
                         <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-4">
-                                {/* Rank Badge */}
-                                <div className="relative">
-                                    <div className={`absolute inset-0 ${rankInfo.bg} blur-md opacity-20 rounded-full`}></div>
-                                    <div className={`relative w-12 h-12 bg-gradient-to-b from-slate-800 to-slate-900 rounded-xl flex items-center justify-center shadow-lg border border-white/10 transform rotate-3 ${rankInfo.border}`}>
-                                        <span className={`font-bold text-lg ${rankInfo.color}`}>{levelData.currentLevel}</span>
-                                    </div>
-                                    <div className={`absolute -bottom-2 left-1/2 -translate-x-1/2 bg-slate-900 text-[8px] font-bold ${rankInfo.color} px-1.5 py-0.5 rounded border border-white/10 uppercase tracking-wider`}>
-                                        Rank
-                                    </div>
-                                </div>
-                                
-                                <div>
-                                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">Current Level</div>
-                                    <div className={`text-white font-bold text-lg ${rankInfo.color}`}>{rankInfo.title}</div>
-                                </div>
+                            <div className="flex flex-col gap-1 mb-4">
+                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">Welcome back</div>
+                                <div className={`text-white font-bold text-3xl`}>{userProfile?.displayName || userName || 'Student'}</div>
                             </div>
 
-                            {/* Level Progress */}
-                            <div className="mb-2">
+                            <div className="mb-2 mt-4">
                                 <div className="flex justify-between text-xs mb-1.5 font-medium">
-                                    <span className="text-slate-300">{levelData.currentXP.toLocaleString()} XP</span>
-                                    <span className="text-slate-500">Next: {levelData.xpForNextLevel.toLocaleString()} XP</span>
-                                </div>
-                                <div className="h-3 w-full bg-slate-800/50 rounded-full overflow-hidden border border-white/5 relative">
-                                    <motion.div 
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${levelData.progressPercent}%` }}
-                                        transition={{ duration: 1.5, ease: "easeOut" }}
-                                        className={`h-full bg-gradient-to-r from-${accent}-600 to-${accent}-400 relative overflow-hidden`}
-                                    >
-                                        <div className="absolute inset-0 bg-white/20 animate-[pulse_2s_infinite]" />
-                                        {/* Sparkles */}
-                                        <div className="absolute top-0 right-0 h-full w-4 bg-white/50 blur-md transform skew-x-12 translate-x-4 animate-[shimmer_2s_infinite]" />
-                                    </motion.div>
-                                </div>
-                                <div className="mt-1 text-[10px] text-slate-500 text-right">
-                                    {levelData.xpRemaining.toLocaleString()} XP to Level {levelData.nextLevel}
+                                    <span className="text-slate-300">Total Focus Time</span>
+                                    <span className="text-blue-400 font-mono text-base">{formatHoursMins(userProfile?.totalFocusMs || 0)}</span>
                                 </div>
                             </div>
                         </div>
@@ -391,7 +353,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                                             : `bg-gradient-to-r from-${accent}-600 to-${accent}-500 hover:from-${accent}-500 hover:to-${accent}-400 text-white shadow-lg shadow-${accent}-500/25 border border-${accent}-400/20`}
                                     `}
                                 >
-                                    <Zap size={18} fill="currentColor" /> {isDayCompleted ? 'Day Complete' : 'Earn XP'}
+                                    <Zap size={18} fill="currentColor" /> {isDayCompleted ? 'Day Complete' : 'Start Timer'}
                                 </motion.button>
 
                                 <motion.button 

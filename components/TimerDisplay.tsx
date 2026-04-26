@@ -7,10 +7,8 @@ import { dbService } from '../services/db';
 import { useSound, SoundType } from '../contexts/SoundContext';
 import { usePerformance } from '../contexts/PerformanceContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { XP_PER_MINUTE } from '../utils/xp';
 
 import { useAuth } from '../contexts/AuthContext';
-import { HeaderAd } from './HeaderAd';
 import { ZenSubjectPanel } from './ZenSubjectPanel';
 
 interface TimerDisplayProps {
@@ -245,9 +243,6 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
   const displayMs = isTimerMode ? remainingMs : elapsedMs;
   const isComplete = isTimerMode && elapsedMs >= targetDuration && mode !== 'pomodoro';
 
-  // Potential XP Calc
-  const potentialXP = Math.floor(elapsedMs / 60000) * XP_PER_MINUTE;
-
   const formatTime = (ms: number) => {
     const isNegative = ms < 0;
     const absMs = Math.abs(ms);
@@ -310,8 +305,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
   if (isWallpaperMode) {
       return (
           <>
-            {!hasPremium && onUpgrade && <HeaderAd onClick={onUpgrade} isZenMode={true} />}
-            <div className={`flex flex-col md:flex-row items-center gap-4 md:gap-6 p-5 md:p-6 bg-black/40 backdrop-blur-xl rounded-[2.5rem] md:rounded-full border border-white/10 shadow-2xl animate-in slide-in-from-bottom-8 relative z-10 ${!hasPremium ? 'mt-24 md:mt-36' : ''}`}>
+            <div className={`flex flex-col md:flex-row items-center gap-4 md:gap-6 p-5 md:p-6 bg-black/40 backdrop-blur-xl rounded-[2.5rem] md:rounded-full border border-white/10 shadow-2xl animate-in slide-in-from-bottom-8 relative z-10`}>
             {/* Timers */}
             <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8 px-2 md:px-4">
                 <div className="flex flex-col items-center md:items-start">
@@ -483,15 +477,9 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
                         {/* Contextual Info */}
                         {mode === 'stopwatch' || mode === 'pomodoro' ? (
                             <div className="flex flex-col items-center mt-2 md:mt-4 gap-2">
-                                {/* Potential XP Pill */}
-                                {status !== 'idle' && (
+                                {isOvertime && (
                                     <div className="animate-in slide-in-from-bottom-2 fade-in flex flex-col items-center gap-1">
-                                        <div className={`flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-full border border-amber-500/30 text-[10px] font-bold text-amber-300`}>
-                                            <span className="animate-pulse">+ {potentialXP} XP</span>
-                                        </div>
-                                        {isOvertime && (
-                                            <span className="text-[10px] font-black text-amber-500 uppercase tracking-tighter animate-bounce">Bonus XP Active</span>
-                                        )}
+                                        <span className="text-[10px] font-black text-amber-500 uppercase tracking-tighter animate-bounce">Overtime Active</span>
                                     </div>
                                 )}
 

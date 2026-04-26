@@ -35,6 +35,7 @@ interface KanbanBoardProps {
   onTaskUpdate: () => void;
   onStartSession: (subjectId: string) => void;
   selectedDate?: string;
+  dayStartHour?: number;
 }
 
 const COLUMNS: { id: TaskStatus; label: string; icon: React.ElementType; color: string }[] = [
@@ -49,7 +50,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   subjects, 
   onTaskUpdate,
   onStartSession,
-  selectedDate
+  selectedDate,
+  dayStartHour
 }) => {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [user, setUser] = useState<User | null>(auth.currentUser);
@@ -62,6 +64,72 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   // Edit Task State
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+  const cleanupRun = React.useRef(false);
+  const [todayStr, setTodayStr] = useState<string>('');
+
+  useEffect(() => {
+    const startHour = dayStartHour || 0;
+    const now = new Date();
+    const logicalDate = new Date(now);
+    if (now.getHours() < startHour) {
+      logicalDate.setDate(logicalDate.getDate() - 1);
+    }
+    setTodayStr(logicalDate.toISOString().split('T')[0]);
+  }, [dayStartHour]);
+
+  useEffect(() => {
+    if (cleanupRun.current || tasks.length === 0 || !todayStr) return;
+    cleanupRun.current = true;
+
+    const tasksToUpdate = tasks.filter(t => 
+      (t.status === 'todo' || t.status === 'doing') && 
+      t.dateString && t.dateString < todayStr
+    );
+
+    const tasksToArchive = tasks.filter(t => 
+      t.status === 'done' && 
+      t.dateString && t.dateString < todayStr
+    );
+
+    if (tasksToUpdate.length === 0 && tasksToArchive.length === 0) return;
+
+    const performCleanup = async () => {
+      try {
+        if (user) {
+          const batch = writeBatch(db);
+          
+          tasksToUpdate.forEach(t => {
+            const ref = doc(db, 'users', user.uid, 'tasks', t.id);
+            batch.update(ref, { status: 'backlog', updatedAt: Date.now() });
+          });
+
+          if (tasksToArchive.length > 0) {
+              const archiveRef = collection(db, 'users', user.uid, 'archived_tasks');
+              tasksToArchive.forEach(t => {
+                const newDocRef = doc(archiveRef);
+                batch.set(newDocRef, { ...t, archivedAt: Date.now() });
+                const taskRef = doc(db, 'users', user.uid, 'tasks', t.id);
+                batch.delete(taskRef);
+              });
+          }
+          
+          await batch.commit();
+        } else {
+          // Guest mode
+          await Promise.all(tasksToUpdate.map(t => 
+             dbService.saveTask({ ...t, status: 'backlog', updatedAt: Date.now() })
+          ));
+          await Promise.all(tasksToArchive.map(t => dbService.deleteTask(t.id)));
+          onTaskUpdate();
+        }
+      } catch (err) {
+        console.error("Day start cleanup failed:", err);
+      }
+    };
+    
+    performCleanup();
+  }, [tasks, user, todayStr, onTaskUpdate]);
 
   // Auth & Realtime Listener
   useEffect(() => {
@@ -328,6 +396,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                         onDelete={handleDelete}
                         onEdit={() => setEditingTask(task)}
                         onStartSession={onStartSession}
+                        todayStr={todayStr}
                       />
                     ))}
                 </AnimatePresence>
@@ -365,11 +434,14 @@ interface KanbanCardProps {
   onDelete: (id: string) => void;
   onEdit: () => void;
   onStartSession: (subjectId: string) => void;
+  todayStr?: string;
 }
 
-const KanbanCard: React.FC<KanbanCardProps> = ({ task, subject, onDragStart, onDelete, onEdit, onStartSession }) => {
+const KanbanCard: React.FC<KanbanCardProps> = ({ task, subject, onDragStart, onDelete, onEdit, onStartSession, todayStr }) => {
   const color = subject?.color || '#64748b';
   const isHex = isHexColor(color);
+  
+  const isAutoMoved = task.status === 'backlog' && task.dateString && todayStr && task.dateString < todayStr;
 
   return (
     <motion.div
@@ -405,6 +477,12 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, subject, onDragStart, onD
             )}
           </div>
         </div>
+
+        {isAutoMoved ? (
+          <div className="mb-2 w-fit flex items-center gap-1 mt-1 bg-amber-500/10 text-amber-500/80 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase border border-amber-500/20">
+            <RotateCcw size={8} /> From Yesterday
+          </div>
+        ) : null}
 
         {/* Title */}
         <h4 className={`text-sm font-medium mb-1 ${task.status === 'done' ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
