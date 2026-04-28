@@ -17,7 +17,6 @@ import { StatsPage } from './components/StatsPage';
 import { PlanPage } from './components/PlanPage'; 
 import { LoginPage } from './components/LoginPage'; 
 import { MaintenanceMode } from './components/MaintenanceMode';
-import { PricingPage } from './components/PricingPage';
 import { ExamList } from './components/ExamList';
 import { SocialPanel } from './components/SocialPanel';
 import { UsernameSetup } from './components/UsernameSetup';
@@ -36,7 +35,7 @@ import { dbService } from './services/db';
 import { useSound } from './contexts/SoundContext';
 import { usePerformance } from './contexts/PerformanceContext';
 import { StudySession, Subject, DEFAULT_SUBJECTS, Task, Exam, isHexColor, TimerDurations, DEFAULT_DURATIONS, UserProfile, getLocalDateString } from './types';
-import { Zap, Wifi, WifiOff, RefreshCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Settings, Timer, BarChart3, CalendarDays, Target, Trash2, AlertCircle, PanelLeftClose, PanelLeftOpen, CheckSquare, Palette, Image as ImageIcon, ToggleLeft, ToggleRight, Maximize2, X, BookOpen, Repeat, Home, Activity, AlertTriangle, Download, Upload, Database, Layout, Rocket, Globe, RotateCcw, LogOut, HardDrive, LogIn, GraduationCap, Volume2, VolumeX, Play, Pause, Hourglass, Users, Bell, Loader2, ShieldCheck, Lock, Clock, Library, HelpCircle, Leaf } from 'lucide-react';
+import { Zap, Wifi, WifiOff, RefreshCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Settings, Timer, BarChart3, CalendarDays, Target, Trash2, AlertCircle, PanelLeftClose, PanelLeftOpen, CheckSquare, Palette, Image as ImageIcon, ToggleLeft, ToggleRight, Maximize2, X, BookOpen, Repeat, Home, Activity, AlertTriangle, Download, Upload, Database, Layout, Rocket, Globe, RotateCcw, LogOut, HardDrive, LogIn, GraduationCap, Volume2, VolumeX, Play, Pause, Hourglass, Users, Bell, Loader2, ShieldCheck, Lock, Clock, Library, HelpCircle } from 'lucide-react';
 import { useTheme, ACCENT_COLORS } from './contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { rtdb, db } from './services/firebase';
@@ -155,7 +154,6 @@ const tabMap: Record<string, MobileTab> = {
   '/plan': 'calendar',
   '/arena': 'social',
   '/settings': 'settings',
-  '/garden': 'garden',
   '/syllabus': 'syllabus'
 };
 
@@ -169,7 +167,6 @@ const reverseTabMap: Record<MobileTab, string> = {
   'calendar': '/plan',
   'social': '/arena',
   'settings': '/settings',
-  'garden': '/garden',
   'syllabus': '/syllabus'
 };
 
@@ -211,8 +208,6 @@ const App: React.FC = () => {
 
   // Animation State
   const [isLogoSpinning, setIsLogoSpinning] = useState(false);
-  const [showPricing, setShowPricing] = useState(false);
-
   // Fix 2 & 3: Orphaned Session and Auto-capped states
   const [orphanedSession, setOrphanedSession] = useState<{ durationMs: number; subjectId: string; show: boolean } | null>(null);
   const [cappedNotification, setCappedNotification] = useState(false);
@@ -248,31 +243,6 @@ const App: React.FC = () => {
       const today = getLocalDateString();
       return allSessions.filter(s => s.dateString === today).reduce((acc, curr) => acc + curr.durationMs, 0);
   }, [allSessions]);
-
-  // Daily Reset for Free Users
-  useEffect(() => {
-      if (loading) return; // Wait until auth state is resolved
-      if (hasPremium) return; // Premium users keep their data
-
-      const checkDailyReset = async () => {
-          const lastOpenDate = localStorage.getItem('ekagrazone_lastOpenDate');
-          const today = getLocalDateString();
-
-          if (lastOpenDate && lastOpenDate !== today) {
-              // It's a new day, clear tasks for free users
-              const allTasks = await dbService.getTasks();
-              for (const task of allTasks) {
-                  await dbService.deleteTask(task.id);
-              }
-              setTasks([]);
-              console.log("Daily reset performed for free user.");
-          }
-          
-          localStorage.setItem('ekagrazone_lastOpenDate', today);
-      };
-
-      checkDailyReset();
-  }, [hasPremium, loading]);
 
   // Init Data Effect
   useEffect(() => {
@@ -477,15 +447,11 @@ const App: React.FC = () => {
   }, []);
 
   const handleZenToggle = useCallback(() => {
-      if (!hasPremium) {
-          setShowPricing(true);
-          return;
-      }
       const newState = !enableZenMode;
       setEnableZenMode(newState);
       localStorage.setItem('ekagrazone_enableZenMode', String(newState));
       dbService.syncSettingsToCloud().catch(console.error);
-  }, [enableZenMode, hasPremium]);
+  }, [enableZenMode]);
 
   const handleWallpaperChange = useCallback((url: string) => {
       setWallpaper(url);
@@ -730,11 +696,6 @@ const App: React.FC = () => {
 
   const handleZenResponse = (shouldEnter: boolean) => {
       setShowZenPrompt(false);
-      if (shouldEnter && !hasPremium) {
-          setShowPricing(true);
-          start();
-          return;
-      }
       start(); 
       if (shouldEnter) setIsZenActive(true);
   };
@@ -1177,7 +1138,6 @@ const App: React.FC = () => {
       { id: 'dashboard', label: 'Home', icon: Home },
       { id: 'timer', label: 'Focus', icon: Timer },
       { id: 'timeline', label: 'Stats', icon: BarChart3 },
-      { id: 'garden', label: 'Oasis', icon: Leaf },
       { id: 'syllabus', label: 'Syllabus', icon: Library },
       { id: 'exams', label: 'Exams', icon: GraduationCap },
       { id: 'habits', label: 'Habits', icon: Repeat },
@@ -1339,7 +1299,6 @@ const App: React.FC = () => {
                         durations={timerDurations}
                         onUpdateDurations={handleUpdateDurations}
                         isWallpaperMode={true}
-                        onUpgrade={() => setShowPricing(true)}
                         subjects={subjects}
                         currentSubjectId={currentSubjectId}
                         onSelectSubject={setSubjectId}
@@ -1387,7 +1346,6 @@ const App: React.FC = () => {
                         durations={timerDurations}
                         onUpdateDurations={handleUpdateDurations}
                         isWallpaperMode={true}
-                        onUpgrade={() => setShowPricing(true)}
                         subjects={subjects}
                         currentSubjectId={currentSubjectId}
                         onSelectSubject={setSubjectId}
@@ -1540,10 +1498,6 @@ const App: React.FC = () => {
                           />
                           {enableZenMode && wallpaper && status === 'running' && !isZenActive && (
                               <button onClick={() => {
-                                  if (!hasPremium) {
-                                      setShowPricing(true);
-                                      return;
-                                  }
                                   setIsZenActive(true);
                               }} className={`mt-6 flex items-center gap-2 px-4 py-2 rounded-full bg-${accent}-500/10 text-${accent}-400 border border-${accent}-500/20 text-xs font-semibold hover:bg-${accent}-500/20 transition-all`}>
                                   <Maximize2 size={14} /> Enter Zen Mode
@@ -1565,8 +1519,6 @@ const App: React.FC = () => {
                             sessions={allSessions} 
                             subjects={subjects} 
                             onDataUpdate={loadSessions} 
-                            hasPremium={hasPremium}
-                            onUpgrade={() => setShowPricing(true)}
                         />
                      </div>
                    )}
@@ -1788,10 +1740,6 @@ const App: React.FC = () => {
                                         />
                                         {enableZenMode && wallpaper && status === 'running' && !isZenActive && (
                                             <button onClick={() => {
-                                                if (!hasPremium) {
-                                                    setShowPricing(true);
-                                                    return;
-                                                }
                                                 setIsZenActive(true)
                                             }} className={`mt-6 flex items-center gap-2 px-4 py-2 rounded-full bg-${accent}-500/10 text-${accent}-400 border border-${accent}-500/20 text-xs font-semibold hover:bg-${accent}-500/20 transition-all`}>
                                                 <Maximize2 size={14} /> Enter Zen Mode
@@ -1807,8 +1755,6 @@ const App: React.FC = () => {
                                         sessions={allSessions} 
                                         subjects={subjects} 
                                         onDataUpdate={loadSessions} 
-                                        hasPremium={hasPremium}
-                                        onUpgrade={() => setShowPricing(true)}
                                     />
                                 </div>
                             )}
@@ -1877,22 +1823,7 @@ const App: React.FC = () => {
 
        {/* Pricing Modal Overlay */}
        <AnimatePresence>
-           {showPricing && (
-               <motion.div 
-                   initial={{ opacity: 0 }}
-                   animate={{ opacity: 1 }}
-                   exit={{ opacity: 0 }}
-                   className="fixed inset-0 z-[9999] bg-slate-950 overflow-y-auto"
-               >
-                   <button 
-                       onClick={() => setShowPricing(false)} 
-                       className="fixed top-6 right-6 z-[10000] p-2 rounded-full bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors border border-white/10"
-                   >
-                       <X size={24} />
-                   </button>
-                   <PricingPage />
-               </motion.div>
-           )}
+           {/* Add any other global modals here */}
        </AnimatePresence>
     </div>
   );

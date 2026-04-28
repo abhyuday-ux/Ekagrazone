@@ -25,7 +25,6 @@ interface TimerDisplayProps {
   onSetMode: (mode: TimerMode) => void;
   sidePanel?: React.ReactNode;
   isWallpaperMode?: boolean; 
-  onUpgrade?: () => void;
   isOvertime?: boolean;
   subjects?: Subject[];
   currentSubjectId?: string;
@@ -58,7 +57,6 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
   onSetMode,
   sidePanel,
   isWallpaperMode = false,
-  onUpgrade,
   isOvertime = false,
   subjects = [],
   currentSubjectId = '',

@@ -216,7 +216,7 @@ export const SocialPanel: React.FC = () => {
                         <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-indigo-500/20">
                             <Users size={32} className="text-white" />
                         </div>
-                        <h3 className="text-2xl font-bold text-white mb-2">Socializing is for Legends</h3>
+                        <h3 className="text-2xl font-bold text-white mb-2">Connect with Friends</h3>
                         <p className="text-slate-400 max-w-xs mx-auto mb-8">
                             Sign in to compete with friends.
                         </p>

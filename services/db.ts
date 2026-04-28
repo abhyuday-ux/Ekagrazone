@@ -1,5 +1,5 @@
 
-import { StudySession, Subject, DEFAULT_SUBJECTS, DailyGoal, Task, Exam, ChatMessage, JournalEntry, DailyNote, CustomSound, UserProfile, Friend, FriendStatus, MockTest, SyllabusSubject, SyllabusTemplate, getLocalDateString } from '../types';
+import { StudySession, Subject, DEFAULT_SUBJECTS, DailyGoal, Task, Exam, ChatMessage, JournalEntry, DailyNote, CustomSound, UserProfile, Friend, FriendStatus, MockTest, SyllabusSubject, getLocalDateString } from '../types';
 import { db, rtdb } from './firebase';
 import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, writeBatch, onSnapshot, Unsubscribe, query, where, updateDoc, increment } from 'firebase/firestore';
 import { ref, update as rtdbUpdate, set as rtdbSet, serverTimestamp, remove as rtdbRemove } from 'firebase/database';
@@ -29,7 +29,6 @@ const STORE_JOURNAL = 'journal';
 const STORE_DAILY_NOTES = 'daily_notes';
 const STORE_CUSTOM_SOUNDS = 'custom_sounds';
 const STORE_MOCK_TESTS = 'mock_tests';
-const STORE_SYLLABUS = 'syllabus';
 
 
 const LOCAL_STORAGE_KEYS = [
@@ -60,6 +59,10 @@ class LocalDB {
     } else {
         this.ensureUserProfile();
     }
+  }
+
+  getUserId(): string | null {
+    return this.userId;
   }
 
   async connect(): Promise<IDBDatabase> {
@@ -93,7 +96,6 @@ class LocalDB {
         createStore(STORE_DAILY_NOTES, 'id', 'dateString');
         createStore(STORE_CUSTOM_SOUNDS);
         createStore(STORE_MOCK_TESTS, 'id', 'date');
-        createStore(STORE_SYLLABUS);
       };
     });
   }
@@ -104,7 +106,7 @@ class LocalDB {
       this.stopRealtimeSync(); 
       console.log("Starting real-time sync for user:", this.userId);
 
-      const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_MOCK_TESTS, STORE_SYLLABUS];
+      const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_MOCK_TESTS];
 
       collections.forEach(colName => {
           const q = collection(db, 'users', this.userId!, colName);
@@ -440,7 +442,7 @@ class LocalDB {
   async syncLocalToCloud() {
       if (!this.userId) return;
       await this.syncSettingsToCloud();
-      const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_MOCK_TESTS, STORE_SYLLABUS];
+      const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_MOCK_TESTS];
       
       // Merge Strategy: Prefer Local (Guest) data if it exists, then sync to cloud
       for (const colName of collections) {
@@ -662,7 +664,55 @@ class LocalDB {
       const updated = current.filter(s => s.id !== id);
       await this.saveSubjects(updated);
   }
-  
+
+  async getSyllabusSubjects(): Promise<SyllabusSubject[]> {
+    if (!this.userId) {
+      const data = localStorage.getItem('ekagrazone_syllabus');
+      return data ? JSON.parse(data) : [];
+    }
+    try {
+      const snap = await getDoc(doc(db, 'users', this.userId));
+      if (snap.exists() && snap.data().syllabus) {
+        return snap.data().syllabus as SyllabusSubject[];
+      }
+      return [];
+    } catch (e) {
+      console.error("Failed to get syllabus:", e);
+      return [];
+    }
+  }
+
+  private async _saveSyllabusArray(items: SyllabusSubject[]): Promise<void> {
+    if (!this.userId) {
+      localStorage.setItem('ekagrazone_syllabus', JSON.stringify(items));
+      return;
+    }
+    try {
+      await setDoc(
+        doc(db, 'users', this.userId),
+        { syllabus: items },
+        { merge: true }
+      );
+    } catch (e) {
+      console.error("Failed to save syllabus:", e);
+      throw e;
+    }
+  }
+
+  async saveSyllabusSubject(item: SyllabusSubject): Promise<void> {
+    const current = await this.getSyllabusSubjects();
+    const idx = current.findIndex(s => s.id === item.id);
+    if (idx > -1) current[idx] = item;
+    else current.push(item);
+    await this._saveSyllabusArray(current);
+  }
+
+  async deleteSyllabusSubject(id: string): Promise<void> {
+    const current = await this.getSyllabusSubjects();
+    const updated = current.filter(s => s.id !== id);
+    await this._saveSyllabusArray(updated);
+  }
+
   async getGoalsByDate(dateString: string): Promise<DailyGoal[]> { return this.getByDateFromStore(STORE_GOALS, dateString); }
   async getAllGoals(): Promise<DailyGoal[]> { return this.getAllFromStore(STORE_GOALS); }
   async saveGoal(item: DailyGoal) { await this.saveToStore(STORE_GOALS, item); }
@@ -714,10 +764,6 @@ class LocalDB {
   async getMockTests(): Promise<MockTest[]> { return this.getAllFromStore(STORE_MOCK_TESTS); }
   async saveMockTest(item: MockTest) { await this.saveToStore(STORE_MOCK_TESTS, item); }
   
-  async getSyllabusSubjects(): Promise<SyllabusSubject[]> { return this.getAllFromStore(STORE_SYLLABUS); }
-  async saveSyllabusSubject(item: SyllabusSubject) { await this.saveToStore(STORE_SYLLABUS, item); }
-  async deleteSyllabusSubject(id: string) { await this.deleteFromStore(STORE_SYLLABUS, id); }
-
   async deleteMockTest(id: string) {
     if (!this.userId) {
         let tests = await this.getMockTests();
@@ -856,7 +902,7 @@ class LocalDB {
   async factoryReset(): Promise<void> {
       if (this.userId) {
           // 1. Wipe Firestore Collections
-          const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_MOCK_TESTS, STORE_SYLLABUS];
+          const collections = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_MOCK_TESTS];
           const batch = writeBatch(db);
           for (const col of collections) {
               const snapshot = await getDocs(collection(db, 'users', this.userId, col));
@@ -884,7 +930,7 @@ class LocalDB {
       
       // 4. Wipe Local IndexedDB
       const dbInstance = await this.connect();
-      const stores = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_CUSTOM_SOUNDS, STORE_MOCK_TESTS, STORE_SYLLABUS];
+      const stores = [STORE_SESSIONS, STORE_SUBJECTS, STORE_GOALS, STORE_TASKS, STORE_EXAMS, STORE_JOURNAL, STORE_CHATS, STORE_DAILY_NOTES, STORE_CUSTOM_SOUNDS, STORE_MOCK_TESTS];
       const existingStores = stores.filter(s => dbInstance.objectStoreNames.contains(s));
       const tx = dbInstance.transaction(existingStores, 'readwrite');
       existingStores.forEach(s => tx.objectStore(s).clear());

@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { EkagraLogo } from './EkagraLogo';
 import { Zap, BarChart2, Timer, Workflow, CheckCircle2, Shield, ArrowRight, Layout, Calendar, CheckSquare, Sparkles, ChevronDown, ChevronUp, Star, Users, Globe, Smartphone, Laptop, Cloud, CloudOff } from 'lucide-react';
 import { motion, useScroll, useTransform, Variants, AnimatePresence } from 'framer-motion';
-import { LandingPricing } from './LandingPricing';
 import { ContainerScroll } from './ContainerScroll';
 import { Footer } from './Footer';
 import { ScienceSection } from './ScienceSection';
@@ -45,7 +44,7 @@ const SHOWCASE_ITEMS = [
 const FAQS = [
   {
     question: "Is EkagraZone really free?",
-    answer: "Yes! The core features including the focus timer, basic analytics, and task planner are completely free. We offer a premium 'Legend' tier for advanced analytics and cloud sync."
+    answer: "Yes! All features including the focus timer, advanced analytics, and task planner are completely free."
   },
   {
     question: "Does it work offline?",
@@ -723,9 +722,6 @@ export const LoginPage: React.FC = () => {
           </div>
       </div>
 
-      {/* Pricing Section */}
-      <LandingPricing />
-
       {/* Trust Signal: Privacy by Design */}
       <div className="w-full max-w-7xl mx-auto px-6 pb-24 relative z-10">
           <div className="flex flex-col items-center text-center space-y-6 max-w-3xl mx-auto bg-slate-900/40 border border-emerald-500/20 rounded-3xl p-8 md:p-12 backdrop-blur-sm">
@@ -786,7 +782,6 @@ export const LoginPage: React.FC = () => {
             <div className="space-y-4 text-sm text-slate-300">
               <p>EkagraZone is a productivity tool provided "as is". Users agree not to use bots or scripts to manipulate the leaderboard.</p>
               <p>We reserve the right to remove accounts that engage in unfair play or harassment in the community Arena.</p>
-              <p>The "Legend" status is a one-time/subscription-based digital upgrade and is non-refundable.</p>
             </div>
             <button 
               onClick={() => setShowTerms(false)}

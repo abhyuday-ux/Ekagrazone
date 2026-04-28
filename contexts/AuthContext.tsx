@@ -43,27 +43,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
-  const [hasPremium, setHasPremium] = useState(false);
+  const [hasPremium, setHasPremium] = useState(true);
 
   const checkSubscriptionStatus = async (user: User) => {
     try {
       const docRef = doc(db, 'users', user.uid);
       const snapshot = await getDoc(docRef);
-      if (snapshot.exists() && snapshot.data().hasPremium) {
-        setHasPremium(true);
-        localStorage.setItem('ekagrazone_hasPremium', 'true');
-      } else {
-        setHasPremium(false);
-        localStorage.setItem('ekagrazone_hasPremium', 'false');
-      }
+      // Premium features are now free for everyone
+      setHasPremium(true);
+      localStorage.setItem('ekagrazone_hasPremium', 'true');
     } catch (e) {
       console.error("Error checking premium status", e);
-      const cached = localStorage.getItem('ekagrazone_hasPremium');
-      if (cached === 'true') {
-          setHasPremium(true);
-      } else {
-          setHasPremium(false);
-      }
+      setHasPremium(true);
+      localStorage.setItem('ekagrazone_hasPremium', 'true');
     }
   };
 
@@ -150,7 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       dbService.stopRealtimeSync();
       await signOut(auth);
       setIsGuest(false);
-      setHasPremium(false);
+      setHasPremium(true);
       localStorage.removeItem('ekagrazone_guest_mode');
       dbService.setUserId(null);
       window.location.reload(); 

@@ -1,627 +1,794 @@
 import React, { useState, useEffect } from 'react';
-import { Subject, SyllabusSubject, SyllabusChapter, SyllabusTopic, TopicStatus } from '../types';
 import { dbService } from '../services/db';
-import { BookOpen, ChevronRight, ChevronDown, Check, Circle, CircleDashed, RotateCcw, Pencil, Trash2, Plus, Download, Upload, Copy, X } from 'lucide-react';
+import { Subject, SyllabusSubject, SyllabusChapter, SyllabusTopic, TopicStatus } from '../types';
+import { BookOpen, Plus, Trash2, ChevronDown, ChevronRight, Check, Download, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../contexts/ThemeContext';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { PREBUILT_SYLLABUSES } from '../utils/syllabusPresets';
 import { db } from '../services/firebase';
-import { useAuth } from '../contexts/AuthContext';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 interface SyllabusPageProps {
   subjects: Subject[];
 }
 
 export const SyllabusPage: React.FC<SyllabusPageProps> = ({ subjects }) => {
-  const { accent } = useTheme();
-  const { currentUser } = useAuth();
   const [syllabusSubjects, setSyllabusSubjects] = useState<SyllabusSubject[]>([]);
-  const [activeSubjectId, setActiveSubjectId] = useState<string | null>(null);
-
-  // Modals
-  const [showAddSubjectModal, setShowAddSubjectModal] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  const [showAddSubject, setShowAddSubject] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
+  const { accentColor } = useTheme();
 
-  // Load Data
-  const loadData = async () => {
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareCode, setShareCode] = useState('');
+  const [exportLoading, setExportLoading] = useState(false);
+
+  const handleExport = async () => {
+    const userId = dbService.getUserId();
+    if (!userId) {
+      alert('Please sign in to export your syllabus and get a share code.');
+      return;
+    }
+    
+    if (syllabusSubjects.length === 0) {
+      alert('No syllabus to export!');
+      return;
+    }
+    setExportLoading(true);
+    try {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      const code = 'EKA-' + Array.from({ length: 8 }, () => 
+        chars[Math.floor(Math.random() * chars.length)]
+      ).join('');
+  
+      await setDoc(doc(db, 'shared_syllabuses', code), {
+        code,
+        syllabusSubjects,
+        createdAt: Date.now(),
+        createdBy: dbService.getUserId() || 'guest'
+      });
+  
+      setShareCode(code);
+      setShowShareModal(true);
+    } catch (e) {
+      console.error('Export failed:', e);
+      alert('Export failed. Please try again.');
+    }
+    setExportLoading(false);
+  };
+
+  const loadSyllabus = async () => {
+    setLoading(true);
     const data = await dbService.getSyllabusSubjects();
     setSyllabusSubjects(data);
-    if (!activeSubjectId && data.length > 0) {
-      setActiveSubjectId(data[0].id);
-    }
+    setLoading(false);
   };
 
   useEffect(() => {
-    loadData();
+    loadSyllabus();
   }, []);
 
-  const activeSyllabus = syllabusSubjects.find(s => s.id === activeSubjectId);
-  const activeSubjectMeta = subjects.find(s => s.id === activeSyllabus?.subjectId);
-
-  // Stats
-  let totalTopics = 0;
-  let doneTopics = 0;
-  syllabusSubjects.forEach(s => {
-    s.chapters.forEach(c => {
-      totalTopics += c.topics.length;
-      doneTopics += c.topics.filter(t => t.status === 'done').length;
-    });
-  });
-  const overallProgress = totalTopics === 0 ? 0 : Math.round((doneTopics / totalTopics) * 100);
-
-  const saveAndRefresh = async (updatedSyllabus: SyllabusSubject) => {
-    updatedSyllabus.updatedAt = Date.now();
-    await dbService.saveSyllabusSubject(updatedSyllabus);
-    await loadData();
-  };
-
-  // Actions
-  const addSubject = async (subjectId: string) => {
+  const handleAddSubject = async (subjectId: string) => {
     const newSub: SyllabusSubject = {
-      id: crypto.randomUUID(),
+      id: Date.now().toString(),
       subjectId,
       chapters: [],
       createdAt: Date.now(),
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
     };
     await dbService.saveSyllabusSubject(newSub);
-    setShowAddSubjectModal(false);
-    setActiveSubjectId(newSub.id);
-    await loadData();
+    setShowAddSubject(false);
+    setSelectedId(newSub.id);
+    await loadSyllabus();
   };
 
-  const addChapter = async (name: string) => {
-    if (!activeSyllabus || !name.trim()) return;
-    const newChapter: SyllabusChapter = {
-      id: crypto.randomUUID(),
-      name: name.trim(),
-      topics: [],
-      order: activeSyllabus.chapters.length,
-      isOpen: true
-    };
-    const updated = {
-      ...activeSyllabus,
-      chapters: [...activeSyllabus.chapters, newChapter]
-    };
-    await saveAndRefresh(updated);
+  const handleDeleteSubject = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('Are you sure you want to remove this subject from syllabus?')) {
+      await dbService.deleteSyllabusSubject(id);
+      if (selectedId === id) setSelectedId(null);
+      await loadSyllabus();
+    }
   };
 
-  const toggleChapter = async (chapterId: string) => {
-    if (!activeSyllabus) return;
-    const updated = {
-      ...activeSyllabus,
-      chapters: activeSyllabus.chapters.map(c => c.id === chapterId ? { ...c, isOpen: !c.isOpen } : c)
-    };
-    await saveAndRefresh(updated);
+  const selectedSyllabus = syllabusSubjects.find(s => s.id === selectedId);
+
+  const calculateProgress = (chapters: SyllabusChapter[]) => {
+    let total = 0;
+    let done = 0;
+    chapters.forEach(ch => {
+      total += ch.topics.length;
+      done += ch.topics.filter(t => t.status === 'done').length;
+    });
+    return total === 0 ? 0 : Math.round((done / total) * 100);
   };
 
-  const renameChapter = async (chapterId: string, newName: string) => {
-    if (!activeSyllabus || !newName.trim()) return;
-    const updated = {
-      ...activeSyllabus,
-      chapters: activeSyllabus.chapters.map(c => c.id === chapterId ? { ...c, name: newName.trim() } : c)
-    };
-    await saveAndRefresh(updated);
+  const overallProgress = () => {
+    let total = 0;
+    let done = 0;
+    syllabusSubjects.forEach(s => {
+      s.chapters.forEach(ch => {
+        total += ch.topics.length;
+        done += ch.topics.filter(t => t.status === 'done').length;
+      });
+    });
+    return total === 0 ? 0 : Math.round((done / total) * 100);
   };
 
-  const deleteChapter = async (chapterId: string) => {
-    if (!activeSyllabus || !confirm('Delete chapter and all its topics?')) return;
-    const updated = {
-      ...activeSyllabus,
-      chapters: activeSyllabus.chapters.filter(c => c.id !== chapterId)
-    };
-    await saveAndRefresh(updated);
+  return (
+    <div className="flex flex-col h-full bg-slate-900/40 backdrop-blur-sm rounded-3xl border border-white/10 overflow-hidden">
+      {/* Top Bar */}
+      <div className="p-4 md:p-6 border-b border-white/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-xl bg-${accentColor}-500/20 text-${accentColor}-400`}>
+            <BookOpen size={24} />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white tracking-tight">Syllabus Tracker</h2>
+            <p className="text-sm text-slate-400">Track your course progression</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="flex-1 sm:w-48">
+            <div className="flex justify-between text-xs mb-1">
+              <span className="text-slate-400">Overall Progress</span>
+              <span className="text-emerald-400 font-medium">{overallProgress()}%</span>
+            </div>
+            <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-emerald-500 rounded-full transition-all duration-500" 
+                style={{ width: `${overallProgress()}%` }}
+              />
+            </div>
+          </div>
+          <button
+            onClick={handleExport}
+            disabled={exportLoading}
+            className={`px-3 py-1.5 flex items-center gap-1.5 text-sm font-medium rounded-lg bg-white/5 text-slate-300 hover:bg-white/10 transition-colors whitespace-nowrap border border-white/10 ${exportLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <Upload size={16} />
+            <span className="hidden sm:inline">{exportLoading ? 'Exporting...' : 'Export'}</span>
+          </button>
+          <button
+            onClick={() => setShowImportModal(true)}
+            className={`px-3 py-1.5 flex items-center gap-1.5 text-sm font-medium rounded-lg bg-${accentColor}-500/20 text-${accentColor}-300 hover:bg-${accentColor}-500/30 transition-colors whitespace-nowrap`}
+          >
+            <Download size={16} />
+            <span className="hidden sm:inline">Import</span>
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="p-8 text-center text-slate-400">Loading syllabus...</div>
+      ) : (
+        <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
+          {/* Left Column: Subjects List */}
+          <div className="w-full md:w-64 lg:w-72 border-b md:border-b-0 md:border-r border-white/10 overflow-y-auto bg-black/20 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-medium text-slate-300">Subjects</h3>
+              <button 
+                onClick={() => setShowAddSubject(true)}
+                className={`p-1.5 rounded-lg bg-${accentColor}-500/20 text-${accentColor}-400 hover:bg-${accentColor}-500/30 transition-colors`}
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {syllabusSubjects.length === 0 ? (
+                <div className="text-sm text-slate-500 text-center py-4">No subjects added yet.</div>
+              ) : (
+                syllabusSubjects.map(s => {
+                  const baseSub = subjects.find(bs => bs.id === s.subjectId);
+                  const isSelected = selectedId === s.id;
+                  const progress = calculateProgress(s.chapters);
+                  
+                  return (
+                    <div 
+                      key={s.id}
+                      onClick={() => setSelectedId(s.id)}
+                      className={`group p-3 rounded-xl cursor-pointer transition-all ${
+                        isSelected 
+                          ? `bg-${accentColor}-500/10 border border-${accentColor}-500/30` 
+                          : 'bg-white/5 border border-white/5 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <span className={`font-medium text-sm ${isSelected ? 'text-white' : 'text-slate-300'}`}>
+                          {baseSub?.name || 'Unknown Subject'}
+                        </span>
+                        <button 
+                          onClick={(e) => handleDeleteSubject(s.id, e)}
+                          className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-opacity"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full ${progress === 100 ? 'bg-emerald-500' : `bg-${accentColor}-500`}`}
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-slate-400">{progress}%</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Right Column: Chapters & Topics */}
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-20">
+            {selectedSyllabus ? (
+              <SyllabusDetail 
+                syllabus={selectedSyllabus} 
+                loadSyllabus={loadSyllabus} 
+                accentColor={accentColor} 
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-500 flex-col gap-3">
+                <BookOpen size={48} className="opacity-20" />
+                <p>Select a subject to view its syllabus</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Add Subject Modal */}
+      <AnimatePresence>
+        {showAddSubject && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddSubject(false)} />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden"
+            >
+              <div className="p-4 border-b border-white/10">
+                <h3 className="font-bold text-white text-lg">Add to Syllabus</h3>
+              </div>
+              <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
+                {subjects
+                  .filter(sub => !syllabusSubjects.some(s => s.subjectId === sub.id))
+                  .map(sub => (
+                    <button
+                      key={sub.id}
+                      onClick={() => handleAddSubject(sub.id)}
+                      className="w-full text-left px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors"
+                    >
+                      {sub.name}
+                    </button>
+                  ))}
+                  {subjects.filter(sub => !syllabusSubjects.some(s => s.subjectId === sub.id)).length === 0 && (
+                    <div className="text-center text-slate-400 py-4 text-sm">
+                      All subjects are already in the tracker.
+                    </div>
+                  )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showShareModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-slate-900 border border-white/10 rounded-2xl p-6 max-w-sm w-full"
+            >
+              <h3 className="text-lg font-bold text-white mb-2">Syllabus Exported!</h3>
+              <p className="text-slate-400 text-sm mb-4">
+                Share this code so others can import your syllabus instantly.
+              </p>
+              
+              <div className="bg-black/40 border border-white/10 rounded-xl p-4 text-center mb-4">
+                <span className="font-mono text-2xl font-bold text-emerald-400 tracking-widest">
+                  {shareCode}
+                </span>
+              </div>
+              
+              <button
+                onClick={() => navigator.clipboard.writeText(shareCode)}
+                className="w-full py-2.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-xl font-medium mb-3 hover:bg-emerald-500/30 transition-colors"
+              >
+                Copy Code
+              </button>
+              
+              <p className="text-xs text-slate-500 text-center mb-4">
+                Share on WhatsApp, Telegram, or Reddit so others can import it!
+              </p>
+              
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="w-full py-2.5 bg-white/5 text-slate-400 rounded-xl font-medium hover:bg-white/10 transition-colors"
+              >
+                Done
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <ImportPresetsModal 
+        isOpen={showImportModal} 
+        onClose={() => setShowImportModal(false)}
+        subjects={subjects}
+        loadSyllabus={loadSyllabus}
+        accentColor={accentColor}
+      />
+    </div>
+  );
+};
+
+const ImportPresetsModal = ({
+  isOpen,
+  onClose,
+  subjects,
+  loadSyllabus,
+  accentColor
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  subjects: Subject[];
+  loadSyllabus: () => void;
+  accentColor: string;
+}) => {
+  const [importing, setImporting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'code' | 'preset'>('code');
+  const [importCode, setImportCode] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState('');
+
+  const handleImportCode = async () => {
+    const code = importCode.trim().toUpperCase();
+    if (!code) return;
+    
+    setImportLoading(true);
+    setImportError('');
+    
+    try {
+      const snap = await getDoc(doc(db, 'shared_syllabuses', code));
+      
+      if (!snap.exists()) {
+        setImportError('Code not found. Please check and try again.');
+        setImportLoading(false);
+        return;
+      }
+      
+      const data = snap.data();
+      const imported: SyllabusSubject[] = data.syllabusSubjects || [];
+      
+      for (const sub of imported) {
+        const newSub: SyllabusSubject = {
+          ...sub,
+          id: crypto.randomUUID(),
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          chapters: sub.chapters.map(ch => ({
+            ...ch,
+            id: crypto.randomUUID(),
+            topics: ch.topics.map(t => ({
+              ...t,
+              id: crypto.randomUUID(),
+              status: 'none' as TopicStatus
+            }))
+          }))
+        };
+        await dbService.saveSyllabusSubject(newSub);
+      }
+      
+      await loadSyllabus();
+      onClose();
+      setImportCode('');
+    } catch (e) {
+      console.error('Import failed:', e);
+      setImportError('Import failed. Please try again.');
+    }
+    setImportLoading(false);
   };
 
-  const addTopic = async (chapterId: string, name: string) => {
-    if (!activeSyllabus || !name.trim()) return;
-    const newTopic: SyllabusTopic = {
-      id: crypto.randomUUID(),
-      name: name.trim(),
-      status: 'none',
-      order: 0 // Will fix when rendering
-    };
-    const updated = {
-      ...activeSyllabus,
-      chapters: activeSyllabus.chapters.map(c => {
-        if (c.id === chapterId) {
-          return { ...c, topics: [...c.topics, { ...newTopic, order: c.topics.length }] };
-        }
-        return c;
-      })
-    };
-    await saveAndRefresh(updated);
+  const handleImport = async (presetKey: 'jee' | 'neet') => {
+    setImporting(true);
+    const preset = PREBUILT_SYLLABUSES[presetKey];
+    
+    for (const presetSub of preset.subjects) {
+      // Find matching subject by name (case insensitive)
+      const existingMatch = subjects.find(s => s.name.toLowerCase() === presetSub.name.toLowerCase());
+      const mappedSubjectId = existingMatch ? existingMatch.id : `preset_${presetSub.name.toLowerCase()}`;
+      
+      const newSyllabus: SyllabusSubject = {
+        id: crypto.randomUUID(),
+        subjectId: mappedSubjectId,
+        chapters: presetSub.chapters.map((ch: any, index: number) => ({
+          id: crypto.randomUUID(),
+          name: ch.name,
+          topics: ch.topics.map((t: any, tIndex: number) => ({ ...t, id: crypto.randomUUID(), order: tIndex })), // ensure fresh IDs
+          order: index
+        })),
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      
+      await dbService.saveSyllabusSubject(newSyllabus);
+    }
+    
+    await loadSyllabus();
+    setImporting(false);
+    onClose();
   };
 
-  const cycleTopicStatus = async (chapterId: string, topicId: string, currentStatus: TopicStatus) => {
-    if (!activeSyllabus) return;
-    const cycleMap: Record<TopicStatus, TopicStatus> = {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="relative bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden"
+      >
+        <div className="p-5 border-b border-white/10 flex justify-between items-center bg-slate-800/50">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-xl bg-${accentColor}-500/20 text-${accentColor}-400`}>
+              <Download size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-white text-lg">Import Syllabus</h3>
+              <p className="text-xs text-slate-400">Import your syllabus right away.</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+
+        <div className="flex border-b border-white/10">
+          <button 
+            className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'code' ? `text-${accentColor}-400 border-b-2 border-${accentColor}-500 bg-white/5` : 'text-slate-400 hover:bg-white/5'}`}
+            onClick={() => setActiveTab('code')}
+          >
+            Enter Code
+          </button>
+          <button 
+            className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'preset' ? `text-${accentColor}-400 border-b-2 border-${accentColor}-500 bg-white/5` : 'text-slate-400 hover:bg-white/5'}`}
+            onClick={() => setActiveTab('preset')}
+          >
+            Browse Presets
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {activeTab === 'code' ? (
+            <div className="space-y-4">
+              <p className="text-sm text-slate-300">Enter a share code below to import syllabus structure.</p>
+              <div>
+                <input 
+                  type="text" 
+                  value={importCode}
+                  onChange={(e) => setImportCode(e.target.value.toUpperCase())}
+                  placeholder="Enter share code (e.g. EKA-ABCD1234)"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:border-white/20 font-mono tracking-wide"
+                />
+                {importError && (
+                  <p className="text-red-400 text-xs mt-2">{importError}</p>
+                )}
+              </div>
+              <button 
+                onClick={handleImportCode}
+                disabled={importLoading || !importCode.trim()}
+                className={`w-full py-2.5 rounded-xl font-medium transition-all ${
+                  importLoading || !importCode.trim()
+                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                  : `bg-${accentColor}-600 hover:bg-${accentColor}-500 text-white shadow-lg shadow-${accentColor}-500/20`
+                }`}
+              >
+                {importLoading ? 'Importing...' : 'Import'}
+              </button>
+            </div>
+          ) : (
+            <>
+              <h4 className="text-sm font-medium text-slate-400 mb-2">Prebuilt Presets</h4>
+          
+          <div className="grid sm:grid-cols-2 gap-4">
+            {/* JEE Preset */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col pt-5 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none transition-transform group-hover:scale-110">
+                <BookOpen size={80} />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-1">JEE</h3>
+              <p className="text-sm text-slate-400 mb-4">{PREBUILT_SYLLABUSES.jee.subjects.length} Subjects</p>
+              
+              <div className="space-y-1 mb-6 text-xs text-slate-500 flex-1">
+                {PREBUILT_SYLLABUSES.jee.subjects.map(s => (
+                  <div key={s.name} className="flex justify-between">
+                    <span>{s.name}</span>
+                    <span className="text-slate-400 font-medium">{s.chapters.length} ch</span>
+                  </div>
+                ))}
+              </div>
+              
+              <button 
+                onClick={() => handleImport('jee')}
+                disabled={importing}
+                className={`w-full py-2.5 rounded-lg font-medium transition-all ${
+                  importing 
+                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                  : `bg-${accentColor}-600 hover:bg-${accentColor}-500 text-white shadow-lg shadow-${accentColor}-500/20`
+                }`}
+              >
+                {importing ? 'Importing...' : 'Import JEE Syllabus'}
+              </button>
+            </div>
+
+            {/* NEET Preset */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col pt-5 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none transition-transform group-hover:scale-110">
+                <BookOpen size={80} />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-1">NEET</h3>
+              <p className="text-sm text-slate-400 mb-4">{PREBUILT_SYLLABUSES.neet.subjects.length} Subjects</p>
+              
+              <div className="space-y-1 mb-6 text-xs text-slate-500 flex-1">
+                {PREBUILT_SYLLABUSES.neet.subjects.map(s => (
+                  <div key={s.name} className="flex justify-between">
+                    <span>{s.name}</span>
+                    <span className="text-slate-400 font-medium">{s.chapters.length} ch</span>
+                  </div>
+                ))}
+              </div>
+              
+              <button 
+                onClick={() => handleImport('neet')}
+                disabled={importing}
+                className={`w-full py-2.5 rounded-lg font-medium transition-all ${
+                  importing 
+                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                  : `bg-${accentColor}-600 hover:bg-${accentColor}-500 text-white shadow-lg shadow-${accentColor}-500/20`
+                }`}
+              >
+                {importing ? 'Importing...' : 'Import NEET Syllabus'}
+              </button>
+            </div>
+          </div>
+          
+          <p className="text-xs text-center text-slate-500 mt-2">
+            Importing a preset will add new subjects to your tracker. Existing tracker progress will not be overwritten.
+          </p>
+            </>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const SyllabusDetail = ({ 
+  syllabus, 
+  loadSyllabus, 
+  accentColor 
+}: { 
+  syllabus: SyllabusSubject; 
+  loadSyllabus: () => void;
+  accentColor: string;
+}) => {
+  const [newChapter, setNewChapter] = useState('');
+
+  const handleAddChapter = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && newChapter.trim()) {
+      const chapter: SyllabusChapter = {
+        id: Date.now().toString(),
+        name: newChapter.trim(),
+        topics: [],
+        order: syllabus.chapters.length
+      };
+      const updated = { ...syllabus, chapters: [...syllabus.chapters, chapter], updatedAt: Date.now() };
+      await dbService.saveSyllabusSubject(updated);
+      setNewChapter('');
+      await loadSyllabus();
+    }
+  };
+
+  const handleDeleteChapter = async (chapterId: string) => {
+    if (confirm('Delete this chapter?')) {
+      const updated = { 
+        ...syllabus, 
+        chapters: syllabus.chapters.filter(c => c.id !== chapterId),
+        updatedAt: Date.now()
+      };
+      await dbService.saveSyllabusSubject(updated);
+      await loadSyllabus();
+    }
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      <div className="space-y-4">
+        {syllabus.chapters.map(chapter => (
+          <ChapterView 
+            key={chapter.id} 
+            chapter={chapter} 
+            syllabus={syllabus} 
+            onDelete={() => handleDeleteChapter(chapter.id)}
+            loadSyllabus={loadSyllabus}
+            accentColor={accentColor}
+          />
+        ))}
+      </div>
+
+      <div className="mt-6 flex items-center gap-2 px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus-within:border-white/20 transition-colors">
+        <Plus size={18} className="text-slate-400" />
+        <input 
+          type="text"
+          value={newChapter}
+          onChange={e => setNewChapter(e.target.value)}
+          onKeyDown={handleAddChapter}
+          placeholder="Add chapter (Press Enter)"
+          className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-slate-500 text-sm"
+        />
+      </div>
+    </div>
+  );
+};
+
+const ChapterView = ({ 
+  chapter, 
+  syllabus, 
+  onDelete, 
+  loadSyllabus,
+  accentColor
+}: { 
+  chapter: SyllabusChapter; 
+  syllabus: SyllabusSubject; 
+  onDelete: () => void;
+  loadSyllabus: () => void;
+  accentColor: string;
+}) => {
+  const [expanded, setExpanded] = useState(true);
+  const [newTopic, setNewTopic] = useState('');
+
+  const progress = chapter.topics.length === 0 ? 0 : 
+    Math.round((chapter.topics.filter(t => t.status === 'done').length / chapter.topics.length) * 100);
+
+  const handleAddTopic = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && newTopic.trim()) {
+      const topic: SyllabusTopic = {
+        id: Date.now().toString(),
+        name: newTopic.trim(),
+        status: 'none',
+        order: chapter.topics.length
+      };
+      const updatedChapters = syllabus.chapters.map(c => 
+        c.id === chapter.id ? { ...c, topics: [...c.topics, topic] } : c
+      );
+      await dbService.saveSyllabusSubject({ ...syllabus, chapters: updatedChapters, updatedAt: Date.now() });
+      setNewTopic('');
+      await loadSyllabus();
+    }
+  };
+
+  const handleDeleteTopic = async (topicId: string) => {
+    const updatedChapters = syllabus.chapters.map(c => 
+      c.id === chapter.id ? { ...c, topics: c.topics.filter(t => t.id !== topicId) } : c
+    );
+    await dbService.saveSyllabusSubject({ ...syllabus, chapters: updatedChapters, updatedAt: Date.now() });
+    await loadSyllabus();
+  };
+
+  const handleToggleStatus = async (topic: SyllabusTopic) => {
+    const statusCycle: Record<TopicStatus, TopicStatus> = {
       'none': 'progress',
       'progress': 'done',
       'done': 'revision',
       'revision': 'none'
     };
-    const nextStatus = cycleMap[currentStatus];
-    const updated = {
-      ...activeSyllabus,
-      chapters: activeSyllabus.chapters.map(c => {
-        if (c.id === chapterId) {
-          return {
-            ...c,
-            topics: c.topics.map(t => t.id === topicId ? { ...t, status: nextStatus } : t)
-          };
-        }
-        return c;
-      })
-    };
-    await saveAndRefresh(updated);
+    const newStatus = statusCycle[topic.status];
+    
+    const updatedChapters = syllabus.chapters.map(c => 
+      c.id === chapter.id 
+        ? { ...c, topics: c.topics.map(t => t.id === topic.id ? { ...t, status: newStatus } : t) }
+        : c
+    );
+    await dbService.saveSyllabusSubject({ ...syllabus, chapters: updatedChapters, updatedAt: Date.now() });
+    await loadSyllabus();
   };
 
-  const deleteTopic = async (chapterId: string, topicId: string) => {
-    if (!activeSyllabus) return;
-    const updated = {
-      ...activeSyllabus,
-      chapters: activeSyllabus.chapters.map(c => {
-        if (c.id === chapterId) {
-          return { ...c, topics: c.topics.filter(t => t.id !== topicId) };
-        }
-        return c;
-      })
-    };
-    await saveAndRefresh(updated);
+  const getStatusColor = (status: TopicStatus) => {
+    switch (status) {
+      case 'none': return 'border-slate-600 bg-transparent';
+      case 'progress': return 'border-amber-500 bg-amber-500/20';
+      case 'done': return 'border-emerald-500 bg-emerald-500';
+      case 'revision': return 'border-purple-500 bg-purple-500/20';
+    }
   };
-
-  const unaddedSubjects = subjects.filter(s => !syllabusSubjects.some(ss => ss.subjectId === s.id));
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 border-l border-white/10 overflow-hidden relative">
-      {/* Top Bar */}
-      <div className="p-6 border-b border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 bg-slate-900/60 backdrop-blur-xl z-20">
+    <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+      <div 
+        className="flex items-center justify-between p-3 md:p-4 cursor-pointer hover:bg-white/5 transition-colors group"
+        onClick={() => setExpanded(!expanded)}
+      >
         <div className="flex items-center gap-3">
-          <div className={`p-2 bg-${accent}-500/20 text-${accent}-400 rounded-xl`}>
-            <BookOpen size={24} />
+          <div className="text-slate-400">
+            {expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
           </div>
-          <div>
-            <h2 className="text-xl font-bold text-white tracking-tight">Syllabus Tracker</h2>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="w-32 h-1.5 bg-slate-800 rounded-full overflow-hidden flex">
-                <div className={`h-full bg-${accent}-500 transition-all duration-300`} style={{ width: `${overallProgress}%` }} />
-              </div>
-              <span className="text-xs font-mono text-slate-400">{overallProgress}% Done</span>
-            </div>
-          </div>
+          <h4 className="font-medium text-white">{chapter.name}</h4>
+          <span className="text-xs text-slate-500 px-2 py-0.5 rounded-full bg-black/20">
+            {progress}%
+          </span>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowImportModal(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-sm font-medium transition-colors border border-white/5">
-            <Download size={16} /> Import
-          </button>
-          <button onClick={() => setShowExportModal(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-sm font-medium transition-colors border border-white/5">
-            <Upload size={16} /> Export
-          </button>
-        </div>
+        <button 
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 transition-all p-1"
+        >
+          <Trash2 size={16} />
+        </button>
       </div>
 
-      {/* Main Layout */}
-      <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
-        {/* Left Col - Subject List */}
-        <div className={`w-full md:w-64 border-r border-white/10 bg-slate-900/50 flex flex-col overflow-y-auto shrink-0 ${activeSubjectId && 'hidden md:flex'}`}>
-          <div className="p-4 flex flex-col gap-2">
-            {syllabusSubjects.map(ss => {
-              const meta = subjects.find(s => s.id === ss.subjectId);
-              if (!meta) return null;
-              const isActive = activeSubjectId === ss.id;
-              
-              let sTot = 0; let sDone = 0;
-              ss.chapters.forEach(c => {
-                sTot += c.topics.length;
-                sDone += c.topics.filter(t => t.status === 'done').length;
-              });
-              const pct = sTot > 0 ? Math.round((sDone / sTot) * 100) : 0;
-
-              return (
-                <button
-                  key={ss.id}
-                  onClick={() => setActiveSubjectId(ss.id)}
-                  className={`flex flex-col gap-2 p-3 rounded-xl transition-all border ${isActive ? `bg-${accent}-500/10 border-${accent}-500/50` : 'bg-slate-800/80 border-white/5 hover:bg-slate-800 hover:border-white/20'}`}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: meta.color.startsWith('#') ? meta.color : undefined }} />
-                      <span className="text-sm font-semibold text-white whitespace-nowrap overflow-hidden text-ellipsis">{meta.name}</span>
-                    </div>
-                    <span className="text-xs font-mono text-slate-400">{pct}%</span>
-                  </div>
-                  <div className="w-full h-1 bg-slate-900 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: meta.color.startsWith('#') ? meta.color : '#3b82f6' }} />
-                  </div>
-                </button>
-              );
-            })}
-            {unaddedSubjects.length > 0 && (
-              <button 
-                onClick={() => setShowAddSubjectModal(true)}
-                className="mt-2 flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-white/20 hover:border-white/40 hover:bg-white/5 transition-all text-slate-400 hover:text-white"
-              >
-                <Plus size={16} /> Add Subject
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Right Col - Chapter Tree */}
-        <div className={`flex-1 flex flex-col bg-slate-900 ${!activeSubjectId && 'hidden md:flex'}`}>
-          {activeSyllabus && activeSubjectMeta ? (
-            <>
-              {/* Mobile Back Button */}
-              <div className="md:hidden p-4 border-b border-white/10 bg-slate-900/80 sticky top-0 z-10 flex items-center gap-2">
-                <button onClick={() => setActiveSubjectId(null)} className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white">
-                  <ChevronRight size={20} className="rotate-180" />
-                </button>
-                <span className="font-semibold text-white">{activeSubjectMeta.name} Chapters</span>
-              </div>
-              
-              <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-24">
-                <div className="flex flex-col gap-3 max-w-3xl mx-auto">
-                  {/* Delete Subject Button */}
-                  <div className="flex justify-end mb-2">
-                     <button onClick={async () => {
-                         if (confirm('Remove this subject from syllabus tracker?')) {
-                             await dbService.deleteSyllabusSubject(activeSyllabus.id);
-                             setActiveSubjectId(null);
-                             loadData();
-                         }
-                     }} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 opacity-70 hover:opacity-100">
-                         <Trash2 size={12} /> Remove Subject from Syllabus
-                     </button>
-                  </div>
-
-                  {activeSyllabus.chapters.map(chapter => (
-                    <div key={chapter.id} className="bg-slate-800/50 border border-white/5 rounded-xl overflow-hidden">
-                      <div className="flex items-center gap-2 p-3 hover:bg-white/5 group border-b border-white/5">
-                        <button onClick={() => toggleChapter(chapter.id)} className="p-1 text-slate-400 hover:text-white transition-all">
-                          <ChevronRight size={18} className={`transition-transform ${chapter.isOpen ? 'rotate-90' : ''}`} />
-                        </button>
-                        <span className="font-semibold text-slate-200 flex-1" 
-                              onDoubleClick={() => {
-                                const newName = prompt('Rename chapter:', chapter.name);
-                                if (newName) renameChapter(chapter.id, newName);
-                              }}>
-                          {chapter.name}
-                        </span>
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => {
-                                const newName = prompt('Rename chapter:', chapter.name);
-                                if (newName) renameChapter(chapter.id, newName);
-                            }} className="p-1.5 text-slate-400 hover:text-emerald-400">
-                                <Pencil size={14} />
-                            </button>
-                            <button onClick={() => deleteChapter(chapter.id)} className="p-1.5 text-slate-400 hover:text-red-400">
-                                <Trash2 size={14} />
-                            </button>
-                        </div>
-                        <div className="px-2 py-0.5 rounded-full bg-slate-900 border border-white/10 text-xs font-mono text-slate-400">
-                          {chapter.topics.filter(t => t.status === 'done').length}/{chapter.topics.length}
-                        </div>
-                      </div>
-
-                      <AnimatePresence>
-                        {chapter.isOpen && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="bg-slate-900/30 pl-10 pr-3 py-2 flex flex-col gap-1"
-                          >
-                            {chapter.topics.map(topic => {
-                              const StatusIcon = () => {
-                                if (topic.status === 'done') return <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0"><Check size={12} className="text-white" /></div>;
-                                if (topic.status === 'progress') return <div className="w-5 h-5 rounded-full border-2 border-blue-500 bg-blue-500/20 shrink-0" />;
-                                if (topic.status === 'revision') return <div className="w-5 h-5 rounded-full border-2 border-amber-500 bg-amber-500/10 flex items-center justify-center shrink-0"><RotateCcw size={10} className="text-amber-500" /></div>;
-                                return <div className="w-5 h-5 rounded-full border-2 border-slate-600 bg-transparent shrink-0" />;
-                              };
-
-                              return (
-                                <div key={topic.id} className="flex items-center gap-3 py-2 px-2 hover:bg-white/5 rounded-lg group">
-                                  <button onClick={() => cycleTopicStatus(chapter.id, topic.id, topic.status)} className="flex items-center gap-3 flex-1 text-left">
-                                    <StatusIcon />
-                                    <span className={`text-sm ${topic.status === 'done' ? 'line-through text-slate-500' : 'text-slate-300'}`}>
-                                      {topic.name}
-                                    </span>
-                                  </button>
-                                  <button onClick={() => deleteTopic(chapter.id, topic.id)} className="p-1.5 opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 transition-opacity">
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              );
-                            })}
-                            <div className="mt-2 mb-1">
-                               <AddInlineInput placeholder="Add topic..." onSave={(val) => addTopic(chapter.id, val)} />
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  ))}
-
-                  <div className="mt-4">
-                     <AddInlineInput placeholder="Add new chapter..." onSave={(val) => addChapter(val)} />
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-6 text-center">
-               <BookOpen size={48} className="mb-4 opacity-20" />
-               <p>Select a subject from the left to view its syllabus.</p>
-               <p className="text-sm mt-2 opacity-70">Or add a new subject to start tracking.</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Add Subject Modal */}
       <AnimatePresence>
-        {showAddSubjectModal && (
-          <Modal onClose={() => setShowAddSubjectModal(false)} title="Add Subject">
-            <div className="flex flex-col gap-2">
-              {unaddedSubjects.map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => addSubject(s.id)}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-slate-800 border border-white/5 hover:border-white/20 transition-all text-left"
-                >
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color.startsWith('#') ? s.color : undefined }} />
-                  <span className="font-medium text-white">{s.name}</span>
-                </button>
+        {expanded && (
+          <motion.div 
+            initial={{ height: 0 }}
+            animate={{ height: 'auto' }}
+            exit={{ height: 0 }}
+            className="overflow-hidden border-t border-white/5"
+          >
+            <div className="p-3 md:p-4 bg-black/10 space-y-2">
+              {chapter.topics.map(topic => (
+                <div key={topic.id} className="flex items-center justify-between group p-2 rounded-lg hover:bg-white/5 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => handleToggleStatus(topic)}
+                      className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${getStatusColor(topic.status)}`}
+                    >
+                      {topic.status === 'done' && <Check size={12} className="text-white" />}
+                    </button>
+                    <span className={`text-sm ${topic.status === 'done' ? 'text-slate-400 line-through' : 'text-slate-200'}`}>
+                      {topic.name}
+                    </span>
+                    {topic.status !== 'none' && topic.status !== 'done' && (
+                      <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
+                        topic.status === 'progress' ? 'bg-amber-500/20 text-amber-400' : 'bg-purple-500/20 text-purple-400'
+                      }`}>
+                        {topic.status}
+                      </span>
+                    )}
+                  </div>
+                  <button 
+                    onClick={() => handleDeleteTopic(topic.id)}
+                    className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 transition-all p-1"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               ))}
-              {unaddedSubjects.length === 0 && (
-                 <p className="text-slate-400 text-center py-4 text-sm">All subjects have been added to the syllabus!</p>
-              )}
+
+              <div className="flex items-center gap-2 pl-2 pr-4 py-2 mt-2">
+                <Plus size={16} className="text-slate-500" />
+                <input 
+                  type="text"
+                  value={newTopic}
+                  onChange={e => setNewTopic(e.target.value)}
+                  onKeyDown={handleAddTopic}
+                  placeholder="Add topic (Press Enter)"
+                  className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-slate-600 text-sm"
+                />
+              </div>
             </div>
-          </Modal>
+          </motion.div>
         )}
       </AnimatePresence>
-
-      <ImportModal isOpen={showImportModal} onClose={() => setShowImportModal(false)} onImport={loadData} subjects={subjects} />
-      <ExportModal isOpen={showExportModal} onClose={() => setShowExportModal(false)} syllabusSubjects={syllabusSubjects} />
     </div>
   );
-};
-
-// Inline Input Helper
-const AddInlineInput = ({ placeholder, onSave }: { placeholder: string, onSave: (val: string) => void }) => {
-    const [isAdding, setIsAdding] = useState(false);
-    const [val, setVal] = useState('');
-
-    if (!isAdding) {
-        return (
-            <button onClick={() => setIsAdding(true)} className="flex items-center gap-2 text-sm text-slate-400 hover:text-white py-1.5 px-2 rounded-lg hover:bg-white/5 transition-colors">
-                <Plus size={14} /> {placeholder}
-            </button>
-        );
-    }
-    return (
-        <form onSubmit={(e) => { e.preventDefault(); if (val.trim()) { onSave(val); setVal(''); setIsAdding(false); } }} className="flex items-center gap-2">
-            <input 
-                autoFocus
-                type="text"
-                value={val}
-                onChange={e => setVal(e.target.value)}
-                onBlur={() => { if (!val.trim()) setIsAdding(false); }}
-                placeholder={placeholder}
-                className="bg-slate-950 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white w-full max-w-[300px] outline-none focus:border-blue-500"
-            />
-            <button type="submit" className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 rounded-lg text-white text-sm font-medium transition-colors">Save</button>
-        </form>
-    );
-};
-
-// Generic Modal Base
-const Modal = ({ children, onClose, title }: { children: React.ReactNode, onClose: () => void, title: string }) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-        <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            onClick={e => e.stopPropagation()}
-            className="bg-slate-900 border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl relative"
-        >
-            <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white"><X size={20} /></button>
-            <h3 className="text-xl font-bold text-white mb-4">{title}</h3>
-            {children}
-        </motion.div>
-    </div>
-);
-
-// Import Modal
-const ImportModal = ({ isOpen, onClose, onImport, subjects }: { isOpen: boolean, onClose: () => void, onImport: () => void, subjects: Subject[] }) => {
-    const [input, setInput] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const { accent } = useTheme();
-
-    const handleImport = async () => {
-        if (!input.trim()) return;
-        setLoading(true); setError('');
-        try {
-            let data: any = null;
-            if (input.trim().startsWith('EKA-')) {
-                const docRef = doc(db, 'shared_syllabuses', input.trim());
-                const snap = await getDoc(docRef);
-                if (!snap.exists()) throw new Error('Share code not found');
-                data = snap.data();
-            } else {
-                data = JSON.parse(input);
-            }
-            
-            if (!data || !data.subjects || !Array.isArray(data.subjects)) throw new Error('Invalid syllabus format');
-
-            // Map imported subjects to existing user subjects
-            const existingSyllabus = await dbService.getSyllabusSubjects();
-            
-            for (const impSub of data.subjects) {
-                // Find matching subject by ID or Name
-                const matchedSubject = subjects.find(s => s.name.toLowerCase() === impSub.name?.toLowerCase());
-                if (matchedSubject) {
-                    // Check if we already have a syllabus entry for it
-                    if (!existingSyllabus.some(es => es.subjectId === matchedSubject.id)) {
-                        const newSyllabus: SyllabusSubject = {
-                            id: crypto.randomUUID(),
-                            subjectId: matchedSubject.id,
-                            chapters: impSub.chapters.map((c: any) => ({
-                                id: crypto.randomUUID(),
-                                name: c.name,
-                                order: c.order || 0,
-                                isOpen: true,
-                                topics: c.topics.map((t: any) => ({
-                                    id: crypto.randomUUID(),
-                                    name: t.name,
-                                    status: 'none',
-                                    order: t.order || 0
-                                }))
-                            })),
-                            createdAt: Date.now(),
-                            updatedAt: Date.now()
-                        };
-                        await dbService.saveSyllabusSubject(newSyllabus);
-                    }
-                }
-            }
-            onImport();
-            onClose();
-            setInput('');
-        } catch (e: any) {
-            setError(e.message || 'Failed to parse JSON or fetch code');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    if (!isOpen) return null;
-    return (
-        <Modal onClose={onClose} title="Import Syllabus">
-            <div className="flex flex-col gap-4">
-                <textarea 
-                    value={input}
-                    onChange={e => setInput(e.target.value)}
-                    placeholder="Paste share code (EKA-XXXXXXXX) or JSON..."
-                    className="w-full h-32 bg-slate-950 border border-white/10 rounded-xl p-3 text-sm text-white resize-none outline-none focus:border-white/30 font-mono"
-                />
-                {error && <p className="text-red-400 text-sm">{error}</p>}
-                <button 
-                    disabled={loading || !input.trim()}
-                    onClick={handleImport}
-                    className={`w-full py-3 rounded-xl font-bold bg-${accent}-500 hover:bg-${accent}-600 text-white transition-colors disabled:opacity-50 flex justify-center items-center`}
-                >
-                    {loading ? 'Importing...' : 'Import'}
-                </button>
-            </div>
-        </Modal>
-    );
-};
-
-// Export Modal
-const ExportModal = ({ isOpen, onClose, syllabusSubjects }: { isOpen: boolean, onClose: () => void, syllabusSubjects: SyllabusSubject[] }) => {
-    const { currentUser } = useAuth();
-    const [code, setCode] = useState('');
-    const [loading, setLoading] = useState(false);
-    const { accent } = useTheme();
-
-    useEffect(() => {
-        if (isOpen) {
-            setCode('');
-            generateAndUpload();
-        }
-    }, [isOpen]);
-
-    const generateAndUpload = async () => {
-        setLoading(true);
-        try {
-            const newCode = 'EKA-' + Math.random().toString(36).substring(2, 10).toUpperCase();
-            
-            // Enrich subjects with names for export compatibility
-            const enrichedSubjects = await Promise.all(syllabusSubjects.map(async ss => {
-                const subs = await dbService.getSubjects();
-                const matched = subs.find(s => s.id === ss.subjectId);
-                return {
-                    name: matched?.name || 'Unknown Subject',
-                    chapters: ss.chapters
-                };
-            }));
-
-            const template = {
-                name: "Exported Syllabus",
-                exam: "Custom",
-                createdBy: currentUser?.uid || 'guest',
-                createdAt: serverTimestamp(),
-                subjects: enrichedSubjects
-            };
-
-            await setDoc(doc(db, 'shared_syllabuses', newCode), template);
-            setCode(newCode);
-        } catch (e) {
-            console.error("Export failed", e);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const downloadJson = async () => {
-        // Enriched JSON for file download
-        const enrichedSubjects = await Promise.all(syllabusSubjects.map(async ss => {
-            const subs = await dbService.getSubjects();
-            const matched = subs.find(s => s.id === ss.subjectId);
-            return {
-                name: matched?.name || 'Unknown Subject',
-                chapters: ss.chapters
-            };
-        }));
-        
-        const template = {
-            name: "Exported Syllabus",
-            subjects: enrichedSubjects
-        };
-
-        const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `syllabus_export.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-    };
-
-    if (!isOpen) return null;
-    return (
-        <Modal onClose={onClose} title="Export Syllabus">
-            <div className="flex flex-col gap-4 items-center">
-                <div className="p-4 bg-slate-950 border border-white/10 rounded-xl w-full text-center">
-                    <p className="text-sm text-slate-400 mb-2">Share Code</p>
-                    {loading ? (
-                        <div className="h-8 animate-pulse bg-white/5 rounded mx-auto w-48" />
-                    ) : (
-                        <div className="flex items-center justify-center gap-3">
-                            <span className="text-2xl font-mono font-bold text-white tracking-wider">{code}</span>
-                            <button 
-                                onClick={() => navigator.clipboard.writeText(code)}
-                                className="p-1.5 text-slate-400 hover:text-white bg-white/5 rounded-lg transition-colors"
-                            >
-                                <Copy size={16} />
-                            </button>
-                        </div>
-                    )}
-                </div>
-                <p className="text-sm text-center text-slate-400">
-                    Share this code on Reddit or WhatsApp so others can import your syllabus!
-                </p>
-                <button 
-                    onClick={downloadJson}
-                    className="w-full py-3 mt-2 rounded-xl font-bold bg-white/10 hover:bg-white/15 text-white transition-colors border border-white/5 flex items-center justify-center gap-2"
-                >
-                    <Download size={18} /> Download as JSON
-                </button>
-            </div>
-        </Modal>
-    );
 };

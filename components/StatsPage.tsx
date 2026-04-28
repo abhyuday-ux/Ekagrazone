@@ -9,20 +9,17 @@ import { DailyTimeline } from './DailyTimeline';
 import { HistoryList } from './HistoryList';
 import { YearlyHeatmap } from './YearlyHeatmap';
 import { dbService } from '../services/db';
-import { PremiumLock } from './PremiumLock';
 
 interface StatsPageProps {
   sessions: StudySession[];
   subjects: Subject[];
   onDataUpdate?: () => void;
-  hasPremium?: boolean;
-  onUpgrade?: () => void;
 }
 
 type TimeRange = 'today' | 'week' | 'month' | 'all';
 type ViewMode = 'overview' | 'daily';
 
-export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onDataUpdate, hasPremium = false, onUpgrade }) => {
+export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onDataUpdate }) => {
   const { accent } = useTheme();
   const [range, setRange] = useState<TimeRange>('today');
   const [viewMode, setViewMode] = useState<ViewMode>('overview');
@@ -299,14 +296,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                 exit={{ opacity: 0, y: -20 }}
                 className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar relative"
             >
-                {!hasPremium && range !== 'today' && (
-                    <PremiumLock 
-                        onUpgrade={onUpgrade || (() => {})} 
-                        title="Historical Stats Locked" 
-                        description="Upgrade to Premium to view your weekly, monthly, and all-time statistics." 
-                    />
-                )}
-                <div className={!hasPremium && range !== 'today' ? 'blur-md pointer-events-none select-none opacity-50' : ''}>
+                <div className="">
                     {/* 1. Key Metrics Cards */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-slate-900/40 border border-white/5 p-5 rounded-2xl relative overflow-hidden group">
@@ -550,14 +540,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                 </div>
 
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar relative">
-                    {!hasPremium && selectedDate !== getLocalDateString() && (
-                        <PremiumLock 
-                            onUpgrade={onUpgrade || (() => {})} 
-                            title="Historical Log Locked" 
-                            description="Upgrade to Premium to view your daily logs from the past." 
-                        />
-                    )}
-                    <div className={!hasPremium && selectedDate !== getLocalDateString() ? 'blur-md pointer-events-none select-none opacity-50' : ''}>
+                    <div className="">
                         <div className="h-[400px] mb-8 bg-slate-950/30 rounded-2xl border border-white/5 p-4">
                             <DailyTimeline 
                                 sessions={selectedDateSessions} 

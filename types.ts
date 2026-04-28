@@ -112,7 +112,6 @@ export interface SyllabusChapter {
   name: string;
   topics: SyllabusTopic[];
   order: number;
-  isOpen?: boolean;
 }
 
 export interface SyllabusSubject {
@@ -121,16 +120,6 @@ export interface SyllabusSubject {
   chapters: SyllabusChapter[];
   createdAt: number;
   updatedAt: number;
-}
-
-export interface SyllabusTemplate {
-  id: string;
-  name: string;
-  exam: string;
-  subjects: Omit<SyllabusSubject, 'id' | 'createdAt' | 'updatedAt'>[];
-  createdBy: string;
-  shareCode?: string;
-  createdAt: number;
 }
 
 export interface ChatMessage {
