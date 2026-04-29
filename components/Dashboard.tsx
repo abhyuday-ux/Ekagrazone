@@ -252,6 +252,23 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
       return Math.max(1, diffDays);
   }, [userProfile]);
 
+  const today = new Date();
+  const isSunday = today.getDay() === 0;
+
+  const weekSessions = useMemo(() => {
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - 6);
+    return sessions.filter(s => 
+      new Date(s.dateString + 'T00:00:00') >= weekStart
+    );
+  }, [sessions]);
+
+  const weekDaysStudied = new Set(
+    weekSessions.map(s => s.dateString)
+  ).size;
+
+  const showWeeklySummary = isSunday || weekDaysStudied >= 5;
+
   return (
     <div className="h-full overflow-y-auto custom-scrollbar flex flex-col pb-20 lg:pb-0">
         <motion.div 
@@ -300,6 +317,37 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                     </div>
                 </div>
             </motion.div>
+
+            {/* Weekly Summary Card */}
+            {showWeeklySummary && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`bg-gradient-to-r from-${accent}-500/10 to-purple-500/10 border border-${accent}-500/20 rounded-2xl p-4 mb-6`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl bg-${accent}-500/20 flex items-center justify-center`}>
+                        <Trophy size={20} className={`text-${accent}-400`} />
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+                          {isSunday ? "Weekly Wrap-up 🎉" : "Almost there! 🔥"}
+                        </div>
+                        <div className="text-sm font-bold text-white">
+                          {weekDaysStudied} days studied this week · {(weekSessions.reduce((a,s) => a+s.durationMs,0)/3600000).toFixed(1)}h total
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => onNavigate('timeline')}
+                      className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
+                    >
+                      Full Stats <ArrowRight size={12} />
+                    </button>
+                  </div>
+                </motion.div>
+            )}
 
             {/* 2. Main Dashboard Grid - Responsive Columns */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">

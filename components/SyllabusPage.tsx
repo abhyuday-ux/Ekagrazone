@@ -15,6 +15,7 @@ interface SyllabusPageProps {
 export const SyllabusPage: React.FC<SyllabusPageProps> = ({ subjects }) => {
   const [syllabusSubjects, setSyllabusSubjects] = useState<SyllabusSubject[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileView, setMobileView] = useState<'subjects' | 'chapters'>('subjects');
   const [loading, setLoading] = useState(true);
   
   const [showAddSubject, setShowAddSubject] = useState(false);
@@ -121,13 +122,30 @@ export const SyllabusPage: React.FC<SyllabusPageProps> = ({ subjects }) => {
     <div className="flex flex-col h-full bg-slate-900/40 backdrop-blur-sm rounded-3xl border border-white/10 overflow-hidden">
       {/* Top Bar */}
       <div className="p-4 md:p-6 border-b border-white/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-xl bg-${accentColor}-500/20 text-${accentColor}-400`}>
-            <BookOpen size={24} />
+        <div className="flex items-center justify-between w-full sm:w-auto">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-xl bg-${accentColor}-500/20 text-${accentColor}-400`}>
+              <BookOpen size={24} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white tracking-tight">Syllabus Tracker</h2>
+              <p className="text-sm text-slate-400 hidden sm:block">Track your course progression</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold text-white tracking-tight">Syllabus Tracker</h2>
-            <p className="text-sm text-slate-400">Track your course progression</p>
+          <div className="flex sm:hidden items-center gap-2">
+            <button
+              onClick={handleExport}
+              disabled={exportLoading}
+              className={`p-2 rounded-lg bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10 ${exportLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <Upload size={18} />
+            </button>
+            <button
+              onClick={() => setShowImportModal(true)}
+              className={`p-2 rounded-lg bg-${accentColor}-500/20 text-${accentColor}-300 hover:bg-${accentColor}-500/30 transition-colors`}
+            >
+              <Download size={18} />
+            </button>
           </div>
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -143,43 +161,45 @@ export const SyllabusPage: React.FC<SyllabusPageProps> = ({ subjects }) => {
               />
             </div>
           </div>
-          <button
-            onClick={handleExport}
-            disabled={exportLoading}
-            className={`px-3 py-1.5 flex items-center gap-1.5 text-sm font-medium rounded-lg bg-white/5 text-slate-300 hover:bg-white/10 transition-colors whitespace-nowrap border border-white/10 ${exportLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            <Upload size={16} />
-            <span className="hidden sm:inline">{exportLoading ? 'Exporting...' : 'Export'}</span>
-          </button>
-          <button
-            onClick={() => setShowImportModal(true)}
-            className={`px-3 py-1.5 flex items-center gap-1.5 text-sm font-medium rounded-lg bg-${accentColor}-500/20 text-${accentColor}-300 hover:bg-${accentColor}-500/30 transition-colors whitespace-nowrap`}
-          >
-            <Download size={16} />
-            <span className="hidden sm:inline">Import</span>
-          </button>
+          <div className="hidden sm:flex items-center gap-2">
+            <button
+              onClick={handleExport}
+              disabled={exportLoading}
+              className={`px-3 py-1.5 flex items-center gap-1.5 text-sm font-medium rounded-lg bg-white/5 text-slate-300 hover:bg-white/10 transition-colors whitespace-nowrap border border-white/10 ${exportLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <Upload size={16} />
+              <span>{exportLoading ? 'Exporting...' : 'Export'}</span>
+            </button>
+            <button
+              onClick={() => setShowImportModal(true)}
+              className={`px-3 py-1.5 flex items-center gap-1.5 text-sm font-medium rounded-lg bg-${accentColor}-500/20 text-${accentColor}-300 hover:bg-${accentColor}-500/30 transition-colors whitespace-nowrap`}
+            >
+              <Download size={16} />
+              <span>Import</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {loading ? (
         <div className="p-8 text-center text-slate-400">Loading syllabus...</div>
       ) : (
-        <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
+        <div className="flex flex-1 min-h-0 md:overflow-hidden flex-col md:flex-row">
           {/* Left Column: Subjects List */}
-          <div className="w-full md:w-64 lg:w-72 border-b md:border-b-0 md:border-r border-white/10 overflow-y-auto bg-black/20 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-slate-300">Subjects</h3>
+          <div className={`w-full md:w-64 lg:w-72 md:border-r border-white/10 overflow-y-auto bg-black/20 p-3 md:p-4 md:flex-shrink-0 ${mobileView === 'subjects' ? 'flex flex-col flex-1 min-h-0 md:flex-none' : 'hidden md:flex md:flex-col'}`}>
+            <div className="flex items-center justify-between mb-3 md:mb-4">
+              <h3 className="font-medium text-slate-300 px-1">Subjects</h3>
               <button 
                 onClick={() => setShowAddSubject(true)}
-                className={`p-1.5 rounded-lg bg-${accentColor}-500/20 text-${accentColor}-400 hover:bg-${accentColor}-500/30 transition-colors`}
+                className={`hidden md:block p-1.5 rounded-lg bg-${accentColor}-500/20 text-${accentColor}-400 hover:bg-${accentColor}-500/30 transition-colors mr-1`}
               >
                 <Plus size={16} />
               </button>
             </div>
 
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2 px-1">
               {syllabusSubjects.length === 0 ? (
-                <div className="text-sm text-slate-500 text-center py-4">No subjects added yet.</div>
+                <div className="text-sm text-slate-500 text-center py-4 w-full">No subjects added yet.</div>
               ) : (
                 syllabusSubjects.map(s => {
                   const baseSub = subjects.find(bs => bs.id === s.subjectId);
@@ -189,25 +209,25 @@ export const SyllabusPage: React.FC<SyllabusPageProps> = ({ subjects }) => {
                   return (
                     <div 
                       key={s.id}
-                      onClick={() => setSelectedId(s.id)}
-                      className={`group p-3 rounded-xl cursor-pointer transition-all ${
+                      onClick={() => { setSelectedId(s.id); setMobileView('chapters'); }}
+                      className={`group p-2.5 md:p-3 rounded-xl cursor-pointer transition-all w-full flex flex-col justify-between ${
                         isSelected 
                           ? `bg-${accentColor}-500/10 border border-${accentColor}-500/30` 
                           : 'bg-white/5 border border-white/5 hover:bg-white/10'
                       }`}
                     >
-                      <div className="flex justify-between items-start mb-2">
-                        <span className={`font-medium text-sm ${isSelected ? 'text-white' : 'text-slate-300'}`}>
+                      <div className="flex justify-between items-start mb-3 md:mb-2">
+                        <span className={`font-medium text-sm ${isSelected ? 'text-white' : 'text-slate-300'} line-clamp-1`}>
                           {baseSub?.name || 'Unknown Subject'}
                         </span>
                         <button 
                           onClick={(e) => handleDeleteSubject(s.id, e)}
-                          className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-opacity"
+                          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-red-500 md:text-red-400 hover:text-red-300 transition-opacity ml-2 shrink-0 p-1"
                         >
                           <Trash2 size={14} />
                         </button>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 mt-auto">
                         <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
                           <div 
                             className={`h-full ${progress === 100 ? 'bg-emerald-500' : `bg-${accentColor}-500`}`}
@@ -220,19 +240,36 @@ export const SyllabusPage: React.FC<SyllabusPageProps> = ({ subjects }) => {
                   );
                 })
               )}
+              <button
+                onClick={() => setShowAddSubject(true)}
+                className="md:hidden w-full mt-2 p-3 rounded-xl border border-dashed border-white/20 text-slate-400 text-sm flex items-center justify-center gap-2 hover:border-white/30 hover:text-slate-300 transition-colors"
+              >
+                <Plus size={16} /> Add Subject
+              </button>
             </div>
           </div>
 
           {/* Right Column: Chapters & Topics */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-20">
+          <div className={`flex-1 min-h-0 overflow-y-auto p-4 md:p-6 pb-20 ${mobileView === 'chapters' && selectedId ? 'block' : 'hidden md:block'}`}>
             {selectedSyllabus ? (
-              <SyllabusDetail 
-                syllabus={selectedSyllabus} 
-                loadSyllabus={loadSyllabus} 
-                accentColor={accentColor} 
-              />
+              <>
+                <button
+                  onClick={() => setMobileView('subjects')}
+                  className="md:hidden flex items-center gap-2 text-slate-400 hover:text-white text-sm font-medium mb-4 transition-colors"
+                >
+                  ← Back to Subjects
+                </button>
+                <h3 className="md:hidden text-lg font-bold text-white mb-4">
+                  {subjects.find(s => s.id === selectedSyllabus?.subjectId)?.name || 'Syllabus'}
+                </h3>
+                <SyllabusDetail 
+                  syllabus={selectedSyllabus} 
+                  loadSyllabus={loadSyllabus} 
+                  accentColor={accentColor} 
+                />
+              </>
             ) : (
-              <div className="h-full flex items-center justify-center text-slate-500 flex-col gap-3">
+              <div className="h-full hidden md:flex items-center justify-center text-slate-500 flex-col gap-3">
                 <BookOpen size={48} className="opacity-20" />
                 <p>Select a subject to view its syllabus</p>
               </div>
@@ -649,9 +686,10 @@ const ChapterView = ({
   loadSyllabus,
   accentColor
 }: { 
+  key?: string;
   chapter: SyllabusChapter; 
   syllabus: SyllabusSubject; 
-  onDelete: () => void;
+  onDelete: () => Promise<void> | void;
   loadSyllabus: () => void;
   accentColor: string;
 }) => {
@@ -730,7 +768,7 @@ const ChapterView = ({
         </div>
         <button 
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 transition-all p-1"
+          className="text-slate-500/50 hover:text-red-400 p-1 transition-all flex-shrink-0"
         >
           <Trash2 size={16} />
         </button>
@@ -746,19 +784,19 @@ const ChapterView = ({
           >
             <div className="p-3 md:p-4 bg-black/10 space-y-2">
               {chapter.topics.map(topic => (
-                <div key={topic.id} className="flex items-center justify-between group p-2 rounded-lg hover:bg-white/5 transition-colors">
-                  <div className="flex items-center gap-3">
+                <div key={topic.id} className="flex items-center justify-between group p-2.5 md:p-2 rounded-lg hover:bg-white/5 active:bg-white/10 transition-colors">
+                  <div className="flex items-center gap-3 w-full">
                     <button 
                       onClick={() => handleToggleStatus(topic)}
-                      className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${getStatusColor(topic.status)}`}
+                      className={`w-6 h-6 md:w-5 md:h-5 rounded-md border-2 flex shrink-0 items-center justify-center transition-colors ${getStatusColor(topic.status)}`}
                     >
                       {topic.status === 'done' && <Check size={12} className="text-white" />}
                     </button>
-                    <span className={`text-sm ${topic.status === 'done' ? 'text-slate-400 line-through' : 'text-slate-200'}`}>
+                    <span className={`text-sm break-words flex-1 ${topic.status === 'done' ? 'text-slate-400 line-through' : 'text-slate-200'}`}>
                       {topic.name}
                     </span>
                     {topic.status !== 'none' && topic.status !== 'done' && (
-                      <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
+                      <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-md shrink-0 ${
                         topic.status === 'progress' ? 'bg-amber-500/20 text-amber-400' : 'bg-purple-500/20 text-purple-400'
                       }`}>
                         {topic.status}
@@ -767,15 +805,15 @@ const ChapterView = ({
                   </div>
                   <button 
                     onClick={() => handleDeleteTopic(topic.id)}
-                    className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 transition-all p-1"
+                    className="text-slate-500/50 hover:text-red-400 p-1.5 transition-all flex-shrink-0 ml-2"
                   >
                     <Trash2 size={14} />
                   </button>
                 </div>
               ))}
 
-              <div className="flex items-center gap-2 pl-2 pr-4 py-2 mt-2">
-                <Plus size={16} className="text-slate-500" />
+              <div className="flex items-center gap-2 pl-2 pr-4 py-3 md:py-2 mt-2 border-t border-white/5">
+                <Plus size={16} className="text-slate-500 flex-shrink-0" />
                 <input 
                   type="text"
                   value={newTopic}

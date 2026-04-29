@@ -289,6 +289,21 @@ export const SocialPanel: React.FC = () => {
                         >
                             <div className="max-w-3xl mx-auto space-y-8 pt-4">
                                 
+                                <button
+                                  onClick={() => window.dispatchEvent(new Event('open_study_room'))}
+                                  className="w-full flex items-center gap-3 p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/15 transition-all text-left mb-4"
+                                >
+                                  <div className="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-400">
+                                    <Users size={20} />
+                                  </div>
+                                  <div>
+                                    <div className="text-sm font-bold text-white">Study Rooms</div>
+                                    <div className="text-xs text-slate-400">
+                                      Study with friends in real-time
+                                    </div>
+                                  </div>
+                                </button>
+                                
                                 {/* Search Section */}
                                 <div className="bg-slate-800/30 p-4 rounded-2xl border border-white/5">
                                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">

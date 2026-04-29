@@ -9,7 +9,8 @@ import {
   onAuthStateChanged,
   signInAnonymously,
   linkWithPopup,
-  GoogleAuthProvider
+  GoogleAuthProvider,
+  browserPopupRedirectResolver
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../services/firebase';
@@ -44,6 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
   const [hasPremium, setHasPremium] = useState(true);
+  const [isAuthActionPending, setIsAuthActionPending] = useState(false);
 
   const checkSubscriptionStatus = async (user: User) => {
     try {
@@ -108,17 +110,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signInWithGoogle = async () => {
+    if (isAuthActionPending) return;
+    setIsAuthActionPending(true);
     try {
       if (currentUser && currentUser.isAnonymous) {
         // Link Guest account to Google so XP isn't lost
-        await linkWithPopup(currentUser, googleProvider);
+        await linkWithPopup(currentUser, googleProvider, browserPopupRedirectResolver);
         // Refresh premium status after link/upgrade
         await checkSubscriptionStatus(auth.currentUser!);
       } else {
-        await signInWithPopup(auth, googleProvider);
+        await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
       }
-    } catch (error) {
-      console.error("Error signing in with Google", error);
+    } catch (error: any) {
+      if (error?.code !== 'auth/cancelled-popup-request') {
+        console.error("Error signing in with Google", error);
+      }
+      if (error?.code === 'auth/popup-blocked') {
+         alert("Popup was blocked by your browser. Please allow popups for this site, or try again.");
+      }
+    } finally {
+      setIsAuthActionPending(false);
     }
   };
 

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { StudySession, Subject, isHexColor, getLocalDateString } from '../types';
-import { BarChart2, TrendingUp, Clock, Activity, Zap, Calendar, ArrowRight, Layout, List, PieChart, AlertTriangle, Layers, Flame, Target, Trophy } from 'lucide-react';
+import { BarChart2, TrendingUp, Clock, Activity, Zap, Calendar, ArrowRight, Layout, List, PieChart, AlertTriangle, Layers, Flame, Target, Trophy, Sparkles } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SubjectDonut } from './SubjectDonut';
@@ -252,6 +252,73 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
     setSelectedDate(getLocalDateString(date));
   };
 
+  // --- Weekly Stats Check ---
+  const weeklyStats = useMemo(() => {
+    if (range !== 'week') return null;
+    const totalMs = filteredSessions.reduce((acc, s) => acc + s.durationMs, 0);
+    
+    const byDay: Record<string, number> = {};
+    filteredSessions.forEach(s => {
+      byDay[s.dateString] = (byDay[s.dateString] || 0) + s.durationMs;
+    });
+    const bestDay = Object.entries(byDay).sort((a,b) => b[1] - a[1])[0];
+    const bestDayName = bestDay ? new Date(bestDay[0] + 'T00:00:00').toLocaleDateString(undefined, {weekday: 'long'}) : 'N/A';
+    
+    const bySubject: Record<string, number> = {};
+    filteredSessions.forEach(s => {
+      bySubject[s.subjectId] = (bySubject[s.subjectId] || 0) + s.durationMs;
+    });
+    const topSubjectId = Object.entries(bySubject).sort((a,b) => b[1] - a[1])[0]?.[0];
+    const topSub = subjects.find(s => s.id === topSubjectId);
+    
+    const weakSubjectId = Object.entries(bySubject).sort((a,b) => a[1] - b[1])[0]?.[0];
+    const weakSub = subjects.find(s => s.id === weakSubjectId);
+    
+    const daysStudied = Object.keys(byDay).length;
+    
+    const lastWeekStart = new Date();
+    lastWeekStart.setDate(lastWeekStart.getDate() - 13);
+    const lastWeekEnd = new Date();
+    lastWeekEnd.setDate(lastWeekEnd.getDate() - 7);
+    const lastWeekMs = sessions
+      .filter(s => {
+        const t = new Date(s.dateString + 'T00:00:00').getTime();
+        return t >= lastWeekStart.getTime() && t <= lastWeekEnd.getTime();
+      })
+      .reduce((acc, s) => acc + s.durationMs, 0);
+    
+    const vsLastWeek = lastWeekMs === 0 ? null : ((totalMs - lastWeekMs) / lastWeekMs) * 100;
+
+    return { 
+      totalMs, bestDayName, topSub, weakSub, 
+      daysStudied, vsLastWeek, bestDayMs: bestDay?.[1] || 0
+    };
+  }, [filteredSessions, sessions, subjects, range]);
+
+  // --- Focus Quality by day ---
+  const focusQualityByDay = useMemo(() => {
+    const byDay: Record<string, number[]> = {};
+    filteredSessions.forEach(s => {
+      if (s.focusScore) {
+        if (!byDay[s.dateString]) byDay[s.dateString] = [];
+        byDay[s.dateString].push(s.focusScore);
+      }
+    });
+    return Object.entries(byDay).map(([date, scores]) => ({
+      date,
+      avg: scores.reduce((a,b) => a+b, 0) / scores.length,
+      label: new Date(date + 'T00:00:00').toLocaleDateString(undefined, {weekday: 'narrow'})
+    })).sort((a,b) => a.date.localeCompare(b.date));
+  }, [filteredSessions]);
+
+  // --- Consistency Score ---
+  const consistencyScore = useMemo(() => {
+    if (range === 'today') return null;
+    const days = range === 'week' ? 7 : range === 'month' ? 30 : new Set(sessions.map(s => s.dateString)).size || 1;
+    const activeDays = new Set(filteredSessions.map(s => s.dateString)).size;
+    return Math.round((activeDays / days) * 100);
+  }, [filteredSessions, sessions, range]);
+
   return (
     <div className="flex flex-col h-full space-y-6">
         
@@ -296,9 +363,86 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                 exit={{ opacity: 0, y: -20 }}
                 className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar relative"
             >
+                {filteredSessions.length === 0 ? (
+                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 mt-12">
+                        <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex flex-col items-center justify-center mb-4 text-slate-500">
+                            <BarChart2 size={32} />
+                        </div>
+                        <h3 className="text-xl font-bold text-white mb-2">No study sessions yet</h3>
+                        <p className="text-sm max-w-sm mx-auto mb-6">
+                            {range !== 'all' ? "Try switching to 'All Time' or start a study session!" : "Your stats will appear here once you start studying."}
+                        </p>
+                        <button 
+                            onClick={() => { if (onDataUpdate) onDataUpdate() }}
+                            className={`px-6 py-3 rounded-xl bg-${accent}-600 text-white font-bold text-sm shadow-lg shadow-${accent}-500/20 hover:bg-${accent}-500 transition-colors flex items-center gap-2`}
+                        >
+                            Start Studying <ArrowRight size={16} />
+                        </button>
+                    </div>
+                ) : (
                 <div className="">
+                    {/* Weekly Summary */}
+                    {range === 'week' && weeklyStats && (
+                        <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/40 border border-white/10 rounded-2xl p-5 mb-6">
+  
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className={`text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2`}>
+                                <Sparkles size={14} className={`text-${accent}-400`} />
+                                Weekly Summary
+                                </h3>
+                                {weeklyStats.vsLastWeek !== null && (
+                                <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg ${weeklyStats.vsLastWeek >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                                    {weeklyStats.vsLastWeek >= 0 ? '↑' : '↓'}
+                                    {Math.abs(weeklyStats.vsLastWeek).toFixed(0)}% vs last week
+                                </div>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="bg-black/20 rounded-xl p-3">
+                                <div className="text-xs text-slate-500 mb-1">Total Hours</div>
+                                <div className="text-2xl font-mono font-bold text-white">
+                                    {(weeklyStats.totalMs / 3600000).toFixed(1)}h
+                                </div>
+                                </div>
+                                <div className="bg-black/20 rounded-xl p-3">
+                                <div className="text-xs text-slate-500 mb-1">Days Studied</div>
+                                <div className="text-2xl font-mono font-bold text-white">
+                                    {weeklyStats.daysStudied}/7
+                                </div>
+                                </div>
+                                <div className="bg-black/20 rounded-xl p-3">
+                                <div className="text-xs text-slate-500 mb-1">Best Day</div>
+                                <div className="text-sm font-bold text-white truncate">
+                                    {weeklyStats.bestDayName}
+                                </div>
+                                <div className="text-xs text-slate-500 mt-0.5">
+                                    {weeklyStats.bestDayMs > 0 ? (weeklyStats.bestDayMs/3600000).toFixed(1)+'h' : '–'}
+                                </div>
+                                </div>
+                                <div className="bg-black/20 rounded-xl p-3">
+                                <div className="text-xs text-slate-500 mb-1">Top Subject</div>
+                                <div className="text-sm font-bold text-white truncate">
+                                    {weeklyStats.topSub?.name || '–'}
+                                </div>
+                                </div>
+                            </div>
+
+                            {weeklyStats.weakSub && weeklyStats.topSub && weeklyStats.weakSub.id !== weeklyStats.topSub.id && (
+                                <div className="mt-3 p-3 bg-amber-500/5 border border-amber-500/15 rounded-xl flex items-start gap-2">
+                                <AlertTriangle size={14} className="text-amber-400 mt-0.5 shrink-0" />
+                                <p className="text-xs text-amber-300/80">
+                                    <span className="font-bold text-amber-300">
+                                    {weeklyStats.weakSub.name}
+                                    </span> needs more attention this week. You spent the least time on it.
+                                </p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* 1. Key Metrics Cards */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                     <div className="bg-slate-900/40 border border-white/5 p-5 rounded-2xl relative overflow-hidden group">
                         <div className={`absolute top-0 right-0 p-8 bg-${accent}-500/10 rounded-full blur-xl -mr-4 -mt-4 transition-opacity group-hover:opacity-100 opacity-50`} />
                         <div className="relative z-10">
@@ -333,6 +477,65 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                             <h3 className="text-2xl font-mono font-bold text-white">{sessionQuality.long.toFixed(0)}<span className="text-sm text-slate-500 ml-1">%</span></h3>
                         </div>
                         <Zap className="absolute bottom-4 right-4 text-blue-500/20" size={32} />
+                    </div>
+
+                    {consistencyScore !== null && (
+                    <div className="bg-slate-900/40 border border-white/5 p-5 rounded-2xl relative overflow-hidden group">
+                        <div className={`absolute top-0 right-0 p-8 rounded-full blur-xl -mr-4 -mt-4 transition-opacity group-hover:opacity-100 opacity-50 ${consistencyScore > 70 ? 'bg-emerald-500/10' : consistencyScore > 40 ? 'bg-amber-500/10' : 'bg-red-500/10'}`} />
+                        <div className="relative z-10">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Consistency</p>
+                            <h3 className={`text-2xl font-mono font-bold ${consistencyScore > 70 ? 'text-emerald-400' : consistencyScore > 40 ? 'text-amber-400' : 'text-red-400'}`}>{consistencyScore}<span className="text-sm text-slate-500 ml-1">%</span></h3>
+                        </div>
+                        <Calendar className="absolute bottom-4 right-4 text-slate-500/20" size={32} />
+                    </div>
+                    )}
+                </div>
+
+                {/* Activity Trend Bar Chart (New) */}
+                <div className="bg-slate-900/40 border border-white/5 rounded-3xl p-6 flex flex-col my-6">
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-2">
+                            <div className={`p-2 bg-${accent}-500/20 rounded-lg text-${accent}-400`}>
+                                <BarChart2 size={18} />
+                            </div>
+                            <h3 className="font-bold text-slate-200">Activity Trend</h3>
+                        </div>
+                    </div>
+                    <div className="h-48 w-full relative flex items-end gap-2 pb-6 px-2">
+                        {dailyAverage > 0 && (
+                            <div 
+                                className="absolute left-0 w-full border-t border-dashed border-white/20 z-0 flex items-center justify-end pr-2"
+                                style={{ bottom: `calc(1.5rem + ${(dailyAverage / (maxTrendValue || 1)) * 100}% - 1px)` }}
+                            >
+                                <div className="text-[10px] text-slate-400 font-mono bg-slate-900 px-1 -translate-y-1/2">Avg: {dailyAverage.toFixed(1)}h</div>
+                            </div>
+                        )}
+                        
+                        {trendData.map((d, i) => {
+                            const isAboveAvg = d.value >= dailyAverage;
+                            const isToday = d.date === getLocalDateString();
+                            return (
+                                <div key={i} className="flex-1 flex flex-col items-center justify-end h-full relative z-10 group min-w-[20px]">
+                                    <motion.div 
+                                        initial={{ height: 0 }}
+                                        animate={{ height: `${(d.value / (maxTrendValue || 1)) * 100}%` }}
+                                        transition={{ duration: 0.6, delay: i * 0.02 }}
+                                        className={`w-full rounded-t-md transition-all duration-300 min-h-[4px]
+                                            ${isAboveAvg ? `bg-${accent}-500` : 'bg-slate-600'}
+                                            ${isToday ? 'ring-2 ring-white shadow-[0_0_15px_rgba(255,255,255,0.3)]' : ''}
+                                        `}
+                                    />
+                                    <div className="absolute -bottom-6 text-[10px] text-slate-500 uppercase font-bold text-center w-full truncate">
+                                        {range === 'week' ? d.weekDay : d.label}
+                                    </div>
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-20">
+                                        <div className="bg-slate-900 border border-white/10 px-2 py-1 rounded text-[10px] whitespace-nowrap text-white font-mono">
+                                            {d.fullDate}: {d.value.toFixed(1)}h
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        })}
                     </div>
                 </div>
 
@@ -479,7 +682,8 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
 
                 </div>
 
-                {/* 4. Session Quality (Existing but polished) */}
+                {/* 4. Session Quality & Focus Quality */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 <div className="bg-slate-900/40 border border-white/5 rounded-3xl p-6">
                     <div className="flex items-center gap-2 mb-6">
                         <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400"><Zap size={18} /></div>
@@ -519,7 +723,43 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                         </div>
                     </div>
                 </div>
+
+                {/* Focus Quality Trend */}
+                {(range === 'week' || range === 'month') && focusQualityByDay.length > 0 && (
+                    <div className="bg-slate-900/40 border border-white/5 rounded-3xl p-6 flex flex-col">
+                        <div className="flex items-center gap-2 mb-6">
+                            <div className="p-2 bg-purple-500/20 rounded-lg text-purple-400"><Activity size={18} /></div>
+                            <h3 className="font-bold text-slate-200">Focus Quality</h3>
+                        </div>
+                        <div className="flex-1 flex items-end gap-2 h-full py-4 pb-0">
+                            {focusQualityByDay.map((d, i) => {
+                                const roundedVal = Math.round(d.avg);
+                                const vColor = roundedVal === 3 ? 'bg-emerald-500' : roundedVal === 2 ? 'bg-amber-500' : 'bg-red-500';
+                                return (
+                                    <div key={i} className="flex-1 flex flex-col items-center justify-end h-full group relative gap-2 min-w-[12px]">
+                                        <div className="w-full relative flex-1 flex items-end bg-slate-800/30 rounded-t-lg overflow-hidden">
+                                            <motion.div 
+                                                initial={{ height: 0 }}
+                                                animate={{ height: `${(d.avg / 3) * 100}%` }}
+                                                transition={{ duration: 0.6, delay: i * 0.05 }}
+                                                className={`w-full ${vColor} opacity-80 rounded-t-lg transition-all`}
+                                            />
+                                        </div>
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase">{d.label}</span>
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-20">
+                                            <div className="bg-slate-900 border border-white/10 px-2 py-1 rounded text-[10px] whitespace-nowrap text-white font-mono">
+                                                {d.date}: Score {d.avg.toFixed(1)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+                )}
                 </div>
+                </div>
+                )}
             </motion.div>
         ) : (
             <motion.div 

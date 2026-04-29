@@ -215,6 +215,39 @@ export interface Friend {
   };
 }
 
+export interface StudyRoom {
+  id: string;
+  name: string;
+  code: string;
+  hostUid: string;
+  createdAt: number;
+}
+
+export interface RoomMember {
+  uid: string;
+  displayName: string;
+  photoURL?: string;
+  isOnline: boolean;
+  isFocusing: boolean;
+  joinedAt: number;
+}
+
+export interface RoomMessage {
+  id: string;
+  uid: string;
+  displayName: string;
+  photoURL?: string;
+  text: string;
+  timestamp: number;
+}
+
+export interface RoomTimerState {
+  mode: 'pomodoro' | 'break' | 'idle';
+  startedAt: number | null; // timestamp
+  duration: number; // in seconds
+  isRunning: boolean;
+}
+
 export const DEFAULT_SUBJECTS: Subject[] = [
   { id: 'math', name: 'Mathematics', color: '#3b82f6' },
   { id: 'cs', name: 'Computer Science', color: '#10b981' },

@@ -27,6 +27,7 @@ import { NotificationCenter } from './components/NotificationCenter';
 import { ChallengeSettings } from './components/ChallengeSettings';
 import { ExamTracker } from './components/ExamTracker/ExamTracker';
 import { SyllabusPage } from './components/SyllabusPage';
+import { StudyRoom } from './components/StudyRoom';
 
 import { EkagraLogo } from './components/EkagraLogo';
 import { ZenSubjectPanel } from './components/ZenSubjectPanel';
@@ -211,6 +212,14 @@ const App: React.FC = () => {
   // Fix 2 & 3: Orphaned Session and Auto-capped states
   const [orphanedSession, setOrphanedSession] = useState<{ durationMs: number; subjectId: string; show: boolean } | null>(null);
   const [cappedNotification, setCappedNotification] = useState(false);
+  
+  const [showStudyRoom, setShowStudyRoom] = useState(false);
+
+  useEffect(() => {
+    const handleOpenRoom = () => setShowStudyRoom(true);
+    window.addEventListener('open_study_room', handleOpenRoom);
+    return () => window.removeEventListener('open_study_room', handleOpenRoom);
+  }, []);
 
   const { accent, setAccent } = useTheme();
   
@@ -1444,6 +1453,26 @@ const App: React.FC = () => {
                 onCancel={() => setSessionToSave(null)} 
               />
           )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showStudyRoom && currentUser && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-slate-950"
+          >
+            <StudyRoom
+              onClose={() => setShowStudyRoom(false)}
+              currentUser={{
+                uid: currentUser.uid,
+                displayName: currentUser.displayName,
+                photoURL: currentUser.photoURL
+              }}
+            />
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* --- Mobile Layout (< md) --- */}

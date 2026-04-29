@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { HeroAnimation } from './HeroAnimation';
 
 export const ContainerScroll: React.FC = () => {
     const [scrollProgress, setScrollProgress] = useState(0);
@@ -82,12 +83,8 @@ export const ContainerScroll: React.FC = () => {
                         boxShadow: '0 50px 100px -20px rgba(0, 0, 0, 0.7)' // Deep shadow
                     }}
                 >
-                    <div className="h-[300px] md:h-[700px] w-full overflow-hidden rounded-[24px] bg-slate-950 relative border border-white/5 shadow-inner group">
-                        <img 
-                            src="https://i.ibb.co/vvq9GkpG/image.png" 
-                            alt="Deep Work Dashboard"
-                            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                        />
+                    <div className="h-[420px] sm:h-[500px] md:h-[700px] w-full overflow-hidden rounded-[24px] bg-slate-950 relative border border-white/5 shadow-inner group">
+                        <HeroAnimation />
                         {/* Reflection/Sheen effect */}
                         <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-transparent pointer-events-none mix-blend-overlay" />
                         
