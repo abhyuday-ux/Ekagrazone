@@ -10,25 +10,29 @@ import { GoalChecklist } from './GoalChecklist';
 import { YearlyHeatmap } from './YearlyHeatmap';
 import { KanbanBoard } from './KanbanBoard';
 import { ExamList } from './ExamList';
+import { SmartPlanner } from './SmartPlanner';
 import { dbService } from '../services/db';
+import { SyllabusSubject } from '../types';
 
 interface PlanPageProps {
   sessions: StudySession[];
   subjects: Subject[];
   exams: Exam[];
   tasks: Task[];
+  syllabusSubjects: SyllabusSubject[];
   onTaskUpdate: () => void;
   onStartSession: (subjectId: string) => void;
   targetHours: number;
 }
 
-type ViewMode = 'calendar' | 'tasks' | 'year';
+type ViewMode = 'calendar' | 'tasks' | 'year' | 'planner';
 
 export const PlanPage: React.FC<PlanPageProps> = ({
   sessions,
   subjects,
   exams,
   tasks,
+  syllabusSubjects,
   onTaskUpdate,
   onStartSession,
   targetHours
@@ -117,7 +121,7 @@ export const PlanPage: React.FC<PlanPageProps> = ({
     <div className="flex flex-col h-full bg-slate-900/0">
       
       {/* Immersive Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 flex-none p-4 md:p-6 pb-2">
+      <div className="flex flex-col gap-3 flex-none p-4 md:p-6 pb-2">
           <div className="space-y-1 px-2 md:px-0">
             <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight flex items-center gap-3">
                 <Calendar size={28} className={`text-${accent}-400`} />
@@ -126,14 +130,14 @@ export const PlanPage: React.FC<PlanPageProps> = ({
             <p className="text-slate-400 text-sm font-medium">Master your schedule, own your time.</p>
           </div>
           
-          <div className="bg-white/5 p-1 rounded-xl border border-white/5 flex relative backdrop-blur-md shadow-lg overflow-x-auto no-scrollbar max-w-[calc(100vw-2rem)] mx-auto sm:mx-0">
-              {['calendar', 'tasks', 'year'].map((tab) => {
+          <div className="bg-white/5 p-1 rounded-xl border border-white/5 flex relative backdrop-blur-md shadow-lg w-full sm:w-auto">
+              {['calendar', 'tasks', 'planner', 'year'].map((tab) => {
                   const isActive = view === tab;
                   return (
                       <button
                           key={tab}
                           onClick={() => setView(tab as ViewMode)}
-                          className={`relative px-4 md:px-5 py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all z-10 flex items-center gap-2 whitespace-nowrap ${isActive ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                          className={`relative flex-1 sm:flex-none px-3 md:px-5 py-2.5 rounded-lg text-[10px] md:text-xs font-bold transition-all z-10 flex items-center justify-center gap-2 whitespace-nowrap ${isActive ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
                       >
                           {isActive && (
                               <motion.div 
@@ -143,7 +147,7 @@ export const PlanPage: React.FC<PlanPageProps> = ({
                               />
                           )}
                           <span className="relative z-10 flex items-center gap-2 uppercase tracking-wide">
-                              {tab === 'calendar' ? 'Schedule' : tab === 'tasks' ? 'Tasks' : 'Insights'}
+                              {tab === 'calendar' ? 'Schedule' : tab === 'tasks' ? 'Tasks' : tab === 'planner' ? 'Planner' : 'Insights'}
                           </span>
                       </button>
                   )
@@ -158,7 +162,7 @@ export const PlanPage: React.FC<PlanPageProps> = ({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-12 gap-0 overflow-y-auto custom-scrollbar pb-20 lg:pb-0"
+                className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-12 gap-0 overflow-y-auto custom-scrollbar pb-32 md:pb-0"
             >
                 {/* Left Column: Calendar Area */}
                 <div className="lg:col-span-8 flex flex-col p-6 pt-0 lg:border-r border-white/5">
@@ -212,7 +216,7 @@ export const PlanPage: React.FC<PlanPageProps> = ({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="flex-1 min-h-0 overflow-hidden px-4 md:px-6 pb-20 lg:pb-6"
+                    className="flex-1 min-h-0 overflow-hidden px-4 md:px-6 pb-32 md:pb-6"
                 >
                     <KanbanBoard 
                         tasks={tasks} // Pass ALL tasks to Board for project view
@@ -226,13 +230,30 @@ export const PlanPage: React.FC<PlanPageProps> = ({
             );
         })()}
 
+        {view === 'planner' && (
+          <motion.div
+            key="planner"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 md:px-6 pb-32 md:pb-6"
+          >
+            <SmartPlanner
+              exams={exams}
+              subjects={subjects}
+              syllabusSubjects={syllabusSubjects}
+              targetHours={targetHours}
+            />
+          </motion.div>
+        )}
+
         {view === 'year' && (
             <motion.div 
                 key="year"
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.98 }}
-                className="flex-1 space-y-8 overflow-y-auto custom-scrollbar p-6 pt-2 pb-20 lg:pb-6"
+                className="flex-1 space-y-8 overflow-y-auto custom-scrollbar p-6 pt-2 pb-32 md:pb-6"
             >
                 {/* Stats Row */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

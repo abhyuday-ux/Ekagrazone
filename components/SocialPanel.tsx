@@ -285,7 +285,7 @@ export const SocialPanel: React.FC = () => {
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -20 }}
-                            className="h-full overflow-y-auto px-6 pb-6 custom-scrollbar"
+                            className="h-full overflow-y-auto px-6 pb-32 md:pb-6 custom-scrollbar"
                         >
                             <div className="max-w-3xl mx-auto space-y-8 pt-4">
                                 

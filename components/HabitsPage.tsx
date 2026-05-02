@@ -234,7 +234,7 @@ export const HabitsPage: React.FC = () => {
           <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-emerald-900/10 blur-[100px] rounded-full mix-blend-screen" />
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar px-4 lg:px-0 pb-20 relative z-10">
+      <div className="flex-1 overflow-y-auto custom-scrollbar px-4 lg:px-0 pb-32 lg:pb-0 relative z-10">
           
           <motion.div 
             initial={{ opacity: 0, y: -20 }}

@@ -177,6 +177,7 @@ const App: React.FC = () => {
   const { graphicsQuality, setGraphicsQuality, isHighQuality } = usePerformance();
 
   const [subjects, setSubjects] = useState<Subject[]>(DEFAULT_SUBJECTS);
+  const [syllabusSubjects, setSyllabusSubjects] = useState<SyllabusSubject[]>([]);
   const [allSessions, setAllSessions] = useState<StudySession[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
@@ -291,6 +292,7 @@ const App: React.FC = () => {
         }
 
         await refreshSubjects();
+        await refreshSyllabusSubjects();
         loadSessions();
         loadTasks();
         loadExams();
@@ -395,6 +397,11 @@ const App: React.FC = () => {
       setSubjects(storedSubjects.length ? storedSubjects : DEFAULT_SUBJECTS);
   };
 
+  const refreshSyllabusSubjects = async () => {
+      const data = await dbService.getSyllabusSubjects();
+      setSyllabusSubjects(data);
+  };
+
   const loadSessions = async () => {
     const sessions = await dbService.getAllSessions();
     setAllSessions(sessions);
@@ -416,6 +423,7 @@ const App: React.FC = () => {
       dbService.syncLocalToCloud().then(() => {
           console.log("Synced local data to cloud");
           refreshSubjects();
+          refreshSyllabusSubjects();
           loadSessions();
           loadTasks();
           loadExams();
@@ -488,6 +496,7 @@ const App: React.FC = () => {
     await loadTasks();
     await loadExams();
     await refreshSubjects();
+    await refreshSyllabusSubjects();
     setTimeout(() => { setIsSyncing(false); }, 800);
   }, [isOnline, isGuest]);
 
@@ -1499,6 +1508,7 @@ const App: React.FC = () => {
                         userName={displayName}
                         onNavigate={setActiveTab}
                         tasks={tasks}
+                        exams={exams}
                     />
                    )}
 
@@ -1508,7 +1518,7 @@ const App: React.FC = () => {
                         <div className="flex-none mt-2 mb-2 relative z-10">
                           <SubjectPicker subjects={subjects} selectedId={currentSubjectId} onSelect={setSubjectId} disabled={status !== 'idle'} variant="horizontal" />
                         </div>
-                        <div className="flex-1 flex flex-col relative z-10 justify-center items-center pb-24">
+                        <div className="flex-1 flex flex-col relative z-10 justify-center items-center pb-32 md:pb-24">
                           <TimerDisplay 
                             elapsedMs={elapsedMs} 
                             status={status} 
@@ -1543,7 +1553,7 @@ const App: React.FC = () => {
                    )}
 
                    {activeTab === 'timeline' && (
-                     <div className="flex-1 flex flex-col px-4 overflow-y-auto pb-4">
+                     <div className="flex-1 flex flex-col px-4 overflow-y-auto pb-32 md:pb-4">
                         <StatsPage 
                             sessions={allSessions} 
                             subjects={subjects} 
@@ -1553,7 +1563,7 @@ const App: React.FC = () => {
                    )}
 
                    {activeTab === 'exams' && (
-                     <div className="flex-1 flex flex-col px-4 overflow-y-auto pb-4">
+                     <div className="flex-1 flex flex-col px-4 overflow-y-auto pb-32 md:pb-4">
                         <ExamTracker subjects={subjects} exams={exams} onUpdate={loadExams} />
                      </div>
                    )}
@@ -1577,12 +1587,13 @@ const App: React.FC = () => {
                    {activeTab === 'habits' && <div className="flex-1 flex flex-col overflow-hidden"><HabitsPage /></div>}
 
                    {activeTab === 'calendar' && (
-                     <div className="flex-1 px-4 overflow-y-auto pt-4 pb-4">
+                     <div className="flex-1 px-4 overflow-y-auto pt-4 pb-32 md:pb-4">
                         <PlanPage 
                             sessions={allSessions}
                             subjects={subjects}
                             exams={exams}
                             tasks={tasks}
+                            syllabusSubjects={syllabusSubjects}
                             onTaskUpdate={loadTasks}
                             onStartSession={setSubjectId}
                             targetHours={targetHours}
@@ -1591,7 +1602,7 @@ const App: React.FC = () => {
                    )}
                    
                    {activeTab === 'settings' && (
-                     <div className="flex-1 p-6 overflow-y-auto">
+                     <div className="flex-1 p-6 overflow-y-auto pb-32 md:pb-6">
                        <h2 className="text-xl font-bold mb-6">Settings</h2>
                        <SettingsContent />
                        <div className="mt-12 text-center pb-8">
@@ -1693,6 +1704,7 @@ const App: React.FC = () => {
                                         userName={displayName}
                                         onNavigate={setActiveTab}
                                         tasks={tasks}
+                                        exams={exams}
                                     />
                                 </div>
                             )}
@@ -1818,6 +1830,7 @@ const App: React.FC = () => {
                                         subjects={subjects}
                                         exams={exams}
                                         tasks={tasks}
+                                        syllabusSubjects={syllabusSubjects}
                                         onTaskUpdate={loadTasks}
                                         onStartSession={setSubjectId}
                                         targetHours={targetHours}

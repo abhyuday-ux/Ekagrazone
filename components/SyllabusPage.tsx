@@ -250,7 +250,7 @@ export const SyllabusPage: React.FC<SyllabusPageProps> = ({ subjects }) => {
           </div>
 
           {/* Right Column: Chapters & Topics */}
-          <div className={`flex-1 min-h-0 overflow-y-auto p-4 md:p-6 pb-20 ${mobileView === 'chapters' && selectedId ? 'block' : 'hidden md:block'}`}>
+          <div className={`flex-1 min-h-0 overflow-y-auto p-4 md:p-6 pb-32 md:pb-6 ${mobileView === 'chapters' && selectedId ? 'block' : 'hidden md:block'}`}>
             {selectedSyllabus ? (
               <>
                 <button

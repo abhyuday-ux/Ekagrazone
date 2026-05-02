@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Crown, Copy, Play, Pause, MessageCircle, Lock, Timer, X, LogOut, Loader2, Zap } from 'lucide-react';
+import { Users, Crown, Copy, Play, Pause, MessageCircle, Lock, Timer, X, LogOut, Loader2, Zap, Target, Trophy, Settings, PenLine } from 'lucide-react';
 import { rtdb } from '../services/firebase';
 import { ref, set, onValue, off, remove, get } from 'firebase/database';
 import { StudyRoom as StudyRoomType, RoomMember, RoomMessage, RoomTimerState } from '../types';
@@ -31,7 +31,64 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({ onClose, currentUser }) =>
   const [messageInput, setMessageInput] = useState('');
   const [remainingTime, setRemainingTime] = useState(0);
   const [copied, setCopied] = useState(false);
-  const [mobileTab, setMobileTab] = useState<'members' | 'timer' | 'chat'>('timer');
+  const [mobileTab, setMobileTab] = useState<'members' | 'timer' | 'chat' | 'leaderboard' | 'whiteboard'>('timer');
+
+  const [mySubject, setMySubject] = useState('');
+  const [editingSubject, setEditingSubject] = useState(false);
+  
+  const [showCompletion, setShowCompletion] = useState(false);
+  const [completedMode, setCompletedMode] = useState<'pomodoro'|'break'>('pomodoro');
+  const [pomodoroCount, setPomodoroCount] = useState(0);
+  
+  const [roomGoal, setRoomGoal] = useState<{target: number, completed: number} | null>(null);
+  const [showGoalInput, setShowGoalInput] = useState(false);
+  const [goalInput, setGoalInput] = useState('4');
+  
+  const [showSettings, setShowSettings] = useState(false);
+  const [pomoDuration, setPomoDuration] = useState(25);
+  const [breakDuration, setBreakDuration] = useState(5);
+  
+  const [memberStats, setMemberStats] = useState<Record<string, number>>({});
+
+  // Whiteboard
+  const [whiteboardPermissions, setWhiteboardPermissions] = useState<Record<string, boolean>>({});
+  const [canDraw, setCanDraw] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawingRef = useRef(false);
+  const lastPosRef = useRef<{x:number, y:number} | null>(null);
+  const [tool, setTool] = useState<'pen'|'eraser'|'text'|'rect'|'circle'|'sticky'>('pen');
+  const [color, setColor] = useState('#06b6d4');
+  const [brushSize, setBrushSize] = useState(3);
+  const [strokes, setStrokes] = useState<any[]>([]);
+  const [undoStack, setUndoStack] = useState<any[][]>([]);
+  const [redoStack, setRedoStack] = useState<any[][]>([]);
+  const [stickyNotes, setStickyNotes] = useState<{
+    id: string; x: number; y: number; 
+    text: string; color: string;
+  }[]>([]);
+  const [textInput, setTextInput] = useState('');
+  const [textPos, setTextPos] = useState<{x:number,y:number}|null>(null);
+  const [images, setImages] = useState<{
+    id: string; src: string; 
+    x: number; y: number; w: number; h: number;
+  }[]>([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [centerTab, setCenterTab] = useState<'timer'|'board'>('timer');
+
+  const STICKY_COLORS = [
+    '#fef08a', '#bbf7d0', '#bfdbfe',
+    '#fecaca', '#e9d5ff', '#fed7aa'
+  ];
+  const [nextStickyColor, setNextStickyColor] = useState(0);
+
+  const [draggingImage, setDraggingImage] = useState<string|null>(null);
+  const [dragOffset, setDragOffset] = useState<{x:number,y:number}>({x:0,y:0});
+  const [selectedImage, setSelectedImage] = useState<string|null>(null);
+  const [resizingImage, setResizingImage] = useState<string|null>(null);
+  const [editingStickyId, setEditingStickyId] = useState<string|null>(null);
+  const [editingStickyText, setEditingStickyText] = useState('');
+  const [draggingSticky, setDraggingSticky] = useState<string|null>(null);
+  const [stickyDragOffset, setStickyDragOffset] = useState<{x:number,y:number}>({x:0,y:0});
 
   const isGuest = !currentUser.uid || currentUser.uid.startsWith('guest-') || currentUser.uid.startsWith('mock-');
   const isHost = roomInfo?.hostUid === currentUser.uid;
@@ -73,15 +130,101 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({ onClose, currentUser }) =>
           setMessages([]);
         }
       });
+      const goalRef = ref(rtdb, `rooms/${roomId}/goal`);
+      onValue(goalRef, (snap) => setRoomGoal(snap.val()));
+
+      const strokesRef = ref(rtdb, `rooms/${roomId}/whiteboard/strokes`);
+      onValue(strokesRef, snap => {
+        const vals = snap.val();
+        setStrokes(vals ? Object.values(vals) : []);
+      });
+
+      const permsRef = ref(rtdb, `rooms/${roomId}/whiteboard/permissions`);
+      onValue(permsRef, snap => {
+        const vals = snap.val() || {};
+        setWhiteboardPermissions(vals);
+      });
+
+      const stickiesRef = ref(rtdb, `rooms/${roomId}/whiteboard/stickies`);
+      onValue(stickiesRef, snap => {
+        const vals = snap.val();
+        setStickyNotes(vals ? Object.values(vals) : []);
+      });
+
+      const imagesRef = ref(rtdb, `rooms/${roomId}/whiteboard/images`);
+      onValue(imagesRef, snap => {
+        const vals = snap.val();
+        setImages(vals ? Object.values(vals) : []);
+      });
 
       return () => {
         off(infoRef);
         off(membersRef);
         off(timerRef);
         off(messagesRef);
+        off(goalRef);
+        off(strokesRef);
+        off(permsRef);
+        off(stickiesRef);
+        off(imagesRef);
       };
     }
   }, [view, roomId]);
+
+  useEffect(() => {
+    if (isHost) setCanDraw(true);
+    else setCanDraw(whiteboardPermissions[currentUser.uid] === true);
+  }, [isHost, whiteboardPermissions, currentUser.uid]);
+
+  const playTimerSound = useCallback(() => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContext();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      oscillator.frequency.setValueAtTime(800, ctx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.5);
+      
+      gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1);
+      
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 1);
+    } catch (e) {
+      console.warn('Sound not available', e);
+    }
+  }, []);
+
+  const updateActivity = useCallback(async () => {
+    if (!roomId || !currentUser.uid) return;
+    await set(ref(rtdb, `rooms/${roomId}/members/${currentUser.uid}/lastActive`), Date.now());
+  }, [roomId, currentUser.uid]);
+
+  const lastActivityUpdate = useRef(0);
+  const throttledUpdateActivity = useCallback(() => {
+    const now = Date.now();
+    if (now - lastActivityUpdate.current > 30000) {
+      lastActivityUpdate.current = now;
+      updateActivity();
+    }
+  }, [updateActivity]);
+
+  useEffect(() => {
+    if (members.length === 0) return;
+    members.forEach(async member => {
+      const snap = await get(ref(rtdb, `users/${member.uid}/publicStatus/todayBaseMs`));
+      if (snap.exists()) {
+        setMemberStats(prev => ({
+          ...prev,
+          [member.uid]: snap.val()
+        }));
+      }
+    });
+  }, [members]);
 
   // Local Timer sync
   useEffect(() => {
@@ -91,18 +234,34 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({ onClose, currentUser }) =>
       if (timerState.isRunning && timerState.startedAt) {
         let elapsedSecs = (Date.now() - timerState.startedAt) / 1000;
         let rem = Math.max(0, timerState.duration - elapsedSecs);
-        setRemainingTime(rem);
         
-        if (rem === 0 && isHost) {
-           const nextMode = timerState.mode === 'pomodoro' ? 'break' : 'pomodoro';
-           const nextDuration = nextMode === 'pomodoro' ? 1500 : 300;
-           set(ref(rtdb, `rooms/${roomId}/timer`), {
-             mode: nextMode,
-             startedAt: Date.now(),
-             duration: nextDuration,
-             isRunning: true
-           });
-        }
+        setRemainingTime(prevRem => {
+          if (prevRem > 0 && rem === 0) {
+            setCompletedMode(timerState.mode as any);
+            if (timerState.mode === 'pomodoro') {
+              setPomodoroCount(prev => prev + 1);
+              if (isHost && roomGoal) {
+                set(ref(rtdb, `rooms/${roomId}/goal/completed`), (roomGoal.completed || 0) + 1);
+              }
+            }
+            setShowCompletion(true);
+            setTimeout(() => setShowCompletion(false), 3000);
+            playTimerSound();
+            
+            if (isHost) {
+               const nextMode = timerState.mode === 'pomodoro' ? 'break' : 'pomodoro';
+               const nextDuration = nextMode === 'pomodoro' ? pomoDuration * 60 : breakDuration * 60;
+               set(ref(rtdb, `rooms/${roomId}/timer`), {
+                 mode: nextMode,
+                 startedAt: Date.now(),
+                 duration: nextDuration,
+                 isRunning: true
+               });
+            }
+          }
+          return rem;
+        });
+
       } else {
         setRemainingTime(timerState.duration);
       }
@@ -111,7 +270,7 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({ onClose, currentUser }) =>
     calculateRemaining();
     const iv = setInterval(calculateRemaining, 1000);
     return () => clearInterval(iv);
-  }, [timerState, isHost, roomId]);
+  }, [timerState, isHost, roomId, roomGoal, pomoDuration, breakDuration, playTimerSound]);
 
   useEffect(() => {
     const handleUnload = () => {
@@ -278,16 +437,29 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({ onClose, currentUser }) =>
         await set(ref(rtdb, `rooms/${roomId}/timer`), {
           mode,
           startedAt: null,
-          duration: mode === 'pomodoro' ? 1500 : 300,
+          duration: mode === 'pomodoro' ? pomoDuration * 60 : breakDuration * 60,
           isRunning: false
         });
     } catch(e) {}
   };
 
+  const handleReact = async (msgId: string, emoji: string) => {
+    if (!roomId || !currentUser.uid) return;
+    const reactionRef = ref(rtdb, `rooms/${roomId}/messages/${msgId}/reactions/${emoji}`);
+    const snap = await get(reactionRef);
+    const uids: string[] = snap.val() || [];
+    
+    if (uids.includes(currentUser.uid)) {
+      await set(reactionRef, uids.filter(uid => uid !== currentUser.uid));
+    } else {
+      await set(reactionRef, [...uids, currentUser.uid]);
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = messageInput.trim();
-    if (!text || !roomId || (timerState?.mode === 'pomodoro' && timerState.isRunning)) return;
+    if (!text || !roomId) return;
     
     try {
       const msgId = crypto.randomUUID();
@@ -324,8 +496,643 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({ onClose, currentUser }) =>
     }
   };
 
+  const currentStrokeRef = useRef<any[]>([]);
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!canDraw || tool === 'text' || tool === 'sticky') return;
+    isDrawingRef.current = true;
+    currentStrokeRef.current = [];
+    const pos = getCanvasPos(e);
+    lastPosRef.current = pos;
+    currentStrokeRef.current.push(pos);
+  };
+
+  const renderStrokes = useCallback((ctx: CanvasRenderingContext2D, allStrokes: any[]) => {
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    allStrokes.forEach(stroke => {
+      if (!stroke.points || stroke.points.length < 2) return;
+      ctx.beginPath();
+      const start = stroke.points[0];
+      const end = stroke.points[stroke.points.length - 1];
+      ctx.strokeStyle = stroke.color;
+      ctx.lineWidth = stroke.size;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      if (stroke.tool === 'rect') {
+         ctx.strokeRect(start.x, start.y, end.x - start.x, end.y - start.y);
+      } else if (stroke.tool === 'circle') {
+         const radius = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
+         ctx.arc(start.x, start.y, radius, 0, 2 * Math.PI);
+         ctx.stroke();
+      } else {
+         ctx.moveTo(start.x, start.y);
+         stroke.points.forEach((pt: any) => ctx.lineTo(pt.x, pt.y));
+         ctx.stroke();
+      }
+    });
+  }, []);
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawingRef.current || !canDraw) return;
+    const pos = getCanvasPos(e);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx || !lastPosRef.current) return;
+    
+    currentStrokeRef.current.push(pos);
+
+    if (tool === 'rect' || tool === 'circle') {
+      const previewStroke = {
+        points: currentStrokeRef.current,
+        color,
+        size: brushSize,
+        tool
+      };
+      renderStrokes(ctx, [...strokes, previewStroke]);
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(lastPosRef.current.x, lastPosRef.current.y);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.strokeStyle = tool === 'eraser' ? '#0f172a' : color;
+      ctx.lineWidth = tool === 'eraser' ? brushSize * 4 : brushSize;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+      lastPosRef.current = pos;
+    }
+  };
+
+  const endDrawing = async () => {
+    if (!isDrawingRef.current || !roomId) return;
+    isDrawingRef.current = false;
+    
+    if (currentStrokeRef.current.length > 1) {
+      const strokeId = crypto.randomUUID();
+      const stroke = {
+        id: strokeId,
+        points: currentStrokeRef.current,
+        color: tool === 'eraser' ? '#0f172a' : color,
+        size: tool === 'eraser' ? brushSize * 4 : brushSize,
+        tool,
+        uid: currentUser.uid,
+        timestamp: Date.now()
+      };
+      setUndoStack(prev => [...prev, strokes]);
+      setRedoStack([]);
+      await set(ref(rtdb, `rooms/${roomId}/whiteboard/strokes/${strokeId}`), stroke);
+    }
+    currentStrokeRef.current = [];
+    lastPosRef.current = null;
+  };
+
+  const getCanvasPos = (e: any) => {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    if (e.touches && e.touches.length > 0) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY
+      };
+    }
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
+    };
+  };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    renderStrokes(ctx, strokes);
+  }, [strokes, renderStrokes]);
+
+  const handleUndo = async () => {
+    if (undoStack.length === 0 || !roomId) return;
+    const prev = undoStack[undoStack.length - 1];
+    setRedoStack(r => [...r, strokes]);
+    setUndoStack(u => u.slice(0, -1));
+    const strokesObj: Record<string,any> = {};
+    prev.forEach((s: any) => { strokesObj[s.id] = s; });
+    await set(ref(rtdb, `rooms/${roomId}/whiteboard/strokes`), strokesObj);
+  };
+
+  const handleRedo = async () => {
+    if (redoStack.length === 0 || !roomId) return;
+    const next = redoStack[redoStack.length - 1];
+    setUndoStack(u => [...u, strokes]);
+    setRedoStack(r => r.slice(0, -1));
+    const strokesObj: Record<string,any> = {};
+    next.forEach((s: any) => { strokesObj[s.id] = s; });
+    await set(ref(rtdb, `rooms/${roomId}/whiteboard/strokes`), strokesObj);
+  };
+
+  const handleClearCanvas = async () => {
+    if (!isHost || !roomId) return;
+    setUndoStack(prev => [...prev, strokes]);
+    await set(ref(rtdb, `rooms/${roomId}/whiteboard/strokes`), null);
+    await set(ref(rtdb, `rooms/${roomId}/whiteboard/texts`), null);
+    await set(ref(rtdb, `rooms/${roomId}/whiteboard/stickies`), null);
+    await set(ref(rtdb, `rooms/${roomId}/whiteboard/cleared`), Date.now());
+  };
+
+  const handleSaveImage = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const link = document.createElement('a');
+    link.download = 'whiteboard.png';
+    link.href = canvas.toDataURL();
+    link.click();
+  };
+
+  const handleCanvasClick = async (e: React.MouseEvent) => {
+    if (tool !== 'text' && tool !== 'sticky') return;
+    const pos = getCanvasPos(e);
+    if (tool === 'text') {
+      setTextPos(pos);
+    } else if (tool === 'sticky' && roomId) {
+      const id = crypto.randomUUID();
+      const newColor = STICKY_COLORS[nextStickyColor % STICKY_COLORS.length];
+      setNextStickyColor(c => c+1);
+      await set(ref(rtdb, `rooms/${roomId}/whiteboard/stickies/${id}`), {
+        id, x: pos.x - 75, y: pos.y - 50, 
+        text: '', color: newColor,
+        uid: currentUser.uid
+      });
+      setEditingStickyId(id);
+      setEditingStickyText('');
+    }
+  };
+
+  const handleTextSubmit = async () => {
+    if (!textPos || !textInput.trim() || !roomId) return;
+    const id = crypto.randomUUID();
+    await set(ref(rtdb, `rooms/${roomId}/whiteboard/texts/${id}`), {
+      id, x: textPos.x, y: textPos.y,
+      text: textInput, color, size: brushSize * 4 + 8,
+      uid: currentUser.uid, timestamp: Date.now()
+    });
+    setTextInput('');
+    setTextPos(null);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !roomId) return;
+    
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const src = ev.target?.result as string;
+      const id = crypto.randomUUID();
+      await set(ref(rtdb, `rooms/${roomId}/whiteboard/images/${id}`), {
+        id, src, x: 50, y: 50, w: 300, h: 200,
+        uid: currentUser.uid
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const toggleDrawPermission = async (uid: string) => {
+    if (!isHost || !roomId) return;
+    const current = whiteboardPermissions[uid] || false;
+    await set(ref(rtdb, `rooms/${roomId}/whiteboard/permissions/${uid}`), !current);
+  };
+
+  const handleImageMouseDown = (e: React.MouseEvent, imgId: string) => {
+    if (!canDraw) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const img = images.find(i => i.id === imgId);
+    if (!img) return;
+    setDraggingImage(imgId);
+    setSelectedImage(imgId);
+    setDragOffset({
+      x: e.clientX - img.x,
+      y: e.clientY - img.y
+    });
+  };
+
+  const handleImageMouseMove = (e: React.MouseEvent) => {
+    if (!draggingImage || !roomId) return;
+    const newX = e.clientX - dragOffset.x;
+    const newY = e.clientY - dragOffset.y;
+    setImages(prev => prev.map(i => 
+      i.id === draggingImage ? {...i, x: newX, y: newY} : i
+    ));
+  };
+
+  const handleImageMouseUp = async () => {
+    if (!draggingImage || !roomId) return;
+    const img = images.find(i => i.id === draggingImage);
+    if (img) {
+      await set(ref(rtdb, `rooms/${roomId}/whiteboard/images/${draggingImage}`), img);
+    }
+    setDraggingImage(null);
+  };
+
+  const handleDeleteImage = async (imgId: string) => {
+    if (!roomId || !canDraw) return;
+    await remove(ref(rtdb, `rooms/${roomId}/whiteboard/images/${imgId}`));
+    setSelectedImage(null);
+  };
+
+  const handleResizeMouseDown = (e: React.MouseEvent, imgId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setResizingImage(imgId);
+    setDragOffset({x: e.clientX, y: e.clientY});
+  };
+
+  const handleStickyMouseDown = (e: React.MouseEvent, stickyId: string) => {
+    if (!canDraw) return;
+    e.stopPropagation();
+    const sticky = stickyNotes.find(s => s.id === stickyId);
+    if (!sticky) return;
+    setDraggingSticky(stickyId);
+    setStickyDragOffset({
+      x: e.clientX - sticky.x,
+      y: e.clientY - sticky.y
+    });
+  };
+
+  const handleDeleteSticky = async (id: string) => {
+    if (!roomId) return;
+    await remove(ref(rtdb, `rooms/${roomId}/whiteboard/stickies/${id}`));
+  };
+
+  const handleStickySave = async (id: string, text: string) => {
+    const sticky = stickyNotes.find(s => s.id === id);
+    if (!sticky || !roomId) return;
+    await set(ref(rtdb, `rooms/${roomId}/whiteboard/stickies/${id}`), {...sticky, text});
+    setEditingStickyId(null);
+  };
+
+  const WhiteboardPanel = () => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    
+    return (
+      <div className="flex flex-col h-full select-none">
+        
+        {/* Professional Toolbar */}
+        <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 border-b border-white/5 overflow-x-auto no-scrollbar flex-shrink-0">
+          
+          {/* Tools group */}
+          <div className="flex items-center gap-0.5 bg-slate-800/80 rounded-xl p-1 border border-white/5">
+            {([
+              {id:'pen', emoji:'✏️', title:'Pen (draw)'},
+              {id:'eraser', emoji:'◻', title:'Eraser'},
+              {id:'text', emoji:'T', title:'Add text'},
+              {id:'rect', emoji:'▭', title:'Rectangle'},
+              {id:'circle', emoji:'◯', title:'Circle'},
+              {id:'sticky', emoji:'📝', title:'Sticky note'},
+            ] as const).map(t => (
+              <button key={t.id}
+                onClick={() => canDraw && setTool(t.id)}
+                disabled={!canDraw}
+                title={t.title}
+                className={`w-8 h-8 rounded-lg text-sm flex items-center justify-center transition-all duration-150 font-bold ${tool === t.id ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30' : 'text-slate-400 hover:bg-white/10 hover:text-white'} disabled:opacity-25 disabled:cursor-not-allowed`}
+              >{t.emoji}</button>
+            ))}
+          </div>
+
+          <div className="w-px h-6 bg-white/10 mx-0.5 flex-shrink-0" />
+
+          {/* Color palette */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {['#ffffff','#06b6d4','#a78bfa','#f87171',
+              '#34d399','#fbbf24','#fb923c','#000000'
+            ].map(c => (
+              <button key={c}
+                onClick={() => setColor(c)}
+                disabled={!canDraw}
+                className={`w-5 h-5 rounded-full border-2 transition-all duration-150 flex-shrink-0 ${color === c ? 'border-white scale-125 shadow-md' : 'border-transparent hover:scale-110'}`}
+                style={{background: c}}
+              />
+            ))}
+            <input type="color" value={color}
+              onChange={e => setColor(e.target.value)}
+              disabled={!canDraw}
+              className="w-5 h-5 rounded-full cursor-pointer border-2 border-white/20 flex-shrink-0"
+              title="Custom color"
+            />
+          </div>
+
+          <div className="w-px h-6 bg-white/10 mx-0.5 flex-shrink-0" />
+
+          {/* Brush size */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-[9px] text-slate-500">Size</span>
+            <input type="range" min="1" max="30"
+              value={brushSize}
+              onChange={e => setBrushSize(parseInt(e.target.value))}
+              disabled={!canDraw}
+              className="w-16 accent-cyan-400 h-1"
+            />
+            <div 
+              className="rounded-full bg-current flex-shrink-0"
+              style={{
+                width: Math.min(16, Math.max(4, brushSize))+'px',
+                height: Math.min(16, Math.max(4, brushSize))+'px',
+                background: color
+              }}
+            />
+          </div>
+
+          <div className="w-px h-6 bg-white/10 mx-0.5 flex-shrink-0" />
+
+          {/* Image upload */}
+          <button
+            onClick={() => canDraw && imageInputRef.current?.click()}
+            disabled={!canDraw}
+            title="Upload image"
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-slate-800 border border-white/10 text-[10px] text-slate-300 hover:bg-slate-700 transition-colors flex-shrink-0 disabled:opacity-25 disabled:cursor-not-allowed"
+          >
+            🖼️ <span className="hidden sm:inline">Image</span>
+          </button>
+          <input ref={imageInputRef} type="file"
+            accept="image/*" onChange={handleImageUpload}
+            className="hidden" />
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Actions */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button onClick={handleUndo}
+              disabled={undoStack.length === 0}
+              title="Undo"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-sm text-slate-400 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+            >↩</button>
+            <button onClick={handleRedo}
+              disabled={redoStack.length === 0}
+              title="Redo"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-sm text-slate-400 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+            >↪</button>
+            <button onClick={handleSaveImage}
+              title="Save as PNG"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/25 text-[10px] text-emerald-300 hover:bg-emerald-500/25 transition-colors"
+            >💾 <span className="hidden sm:inline">Save</span></button>
+            {isHost && (
+              <button onClick={handleClearCanvas}
+                title="Clear all (host only)"
+                className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-[10px] text-red-400 hover:bg-red-500/20 transition-colors"
+              >🗑️ <span className="hidden sm:inline">Clear</span>
+              </button>
+            )}
+          </div>
+
+          {/* Draw permissions (host only) */}
+          {isHost && members.filter(m => m.uid !== currentUser.uid).length > 0 && (
+            <div className="flex items-center gap-1 flex-shrink-0 ml-1 pl-1 border-l border-white/10">
+              <span className="text-[9px] text-slate-600 whitespace-nowrap">Can draw:</span>
+              {members
+                .filter(m => m.uid !== currentUser.uid)
+                .map(m => (
+                  <button key={m.uid}
+                    onClick={() => toggleDrawPermission(m.uid)}
+                    className={`text-[9px] px-1.5 py-0.5 rounded-md border transition-colors whitespace-nowrap ${whiteboardPermissions[m.uid] ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300' : 'bg-white/5 border-white/10 text-slate-500 hover:border-white/20'}`}
+                  >
+                    {(m.displayName||'User').split(' ')[0]}
+                    {whiteboardPermissions[m.uid] ? ' ✓' : ' +'}
+                  </button>
+                ))}
+            </div>
+          )}
+
+          {/* Can't draw badge */}
+          {!canDraw && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-400 flex-shrink-0">
+              🔒 View only
+            </div>
+          )}
+        </div>
+
+        {/* Canvas container */}
+        <div 
+          ref={containerRef}
+          className="flex-1 relative overflow-hidden bg-white"
+          onMouseMove={(e) => {
+            handleImageMouseMove(e);
+            if (resizingImage) {
+              const dx = e.clientX - dragOffset.x;
+              const dy = e.clientY - dragOffset.y;
+              setImages(prev => prev.map(i => 
+                i.id === resizingImage 
+                  ? {...i, w: Math.max(80, i.w+dx), h: Math.max(60, i.h+dy)}
+                  : i
+              ));
+              setDragOffset({x: e.clientX, y: e.clientY});
+            }
+            if (draggingSticky) {
+              setStickyNotes(prev => prev.map(s =>
+                s.id === draggingSticky
+                  ? {...s, 
+                      x: e.clientX - stickyDragOffset.x,
+                      y: e.clientY - stickyDragOffset.y}
+                  : s
+              ));
+            }
+          }}
+          onMouseUp={async (e) => {
+            await handleImageMouseUp();
+            if (resizingImage && roomId) {
+              const img = images.find(i => i.id === resizingImage);
+              if (img) await set(ref(rtdb, `rooms/${roomId}/whiteboard/images/${resizingImage}`), img);
+              setResizingImage(null);
+            }
+            if (draggingSticky && roomId) {
+              const sticky = stickyNotes.find(s => s.id === draggingSticky);
+              if (sticky) {
+                await set(ref(rtdb, `rooms/${roomId}/whiteboard/stickies/${draggingSticky}`), sticky);
+              }
+              setDraggingSticky(null);
+            }
+          }}
+        >
+          {/* Main canvas — white background for drawing */}
+          <canvas
+            ref={canvasRef}
+            width={1600}
+            height={900}
+            className="absolute inset-0 w-full h-full"
+            style={{
+              cursor: !canDraw ? 'default' : tool === 'eraser' ? 'cell' : tool === 'text' ? 'text' : tool === 'sticky' ? 'copy' : 'crosshair',
+              touchAction: 'none',
+              background: 'white'
+            }}
+            onMouseDown={startDrawing}
+            onMouseMove={draw}
+            onMouseUp={endDrawing}
+            onMouseLeave={endDrawing}
+            onTouchStart={startDrawing}
+            onTouchMove={draw}
+            onTouchEnd={endDrawing}
+            onClick={handleCanvasClick}
+          />
+
+          {/* Images overlay — draggable */}
+          {images.map(img => (
+            <div key={img.id}
+              className={`absolute group ${canDraw ? 'cursor-move' : 'cursor-default'}`}
+              style={{
+                left: img.x+'px', top: img.y+'px',
+                width: img.w+'px', height: img.h+'px',
+                zIndex: draggingImage === img.id ? 50 : 10,
+                userSelect: 'none'
+              }}
+              onMouseDown={e => handleImageMouseDown(e, img.id)}
+              onClick={() => setSelectedImage(img.id)}
+            >
+              <img 
+                src={img.src} alt="shared"
+                className="w-full h-full object-contain rounded-lg shadow-lg pointer-events-none"
+                draggable={false}
+              />
+              {/* Selection border */}
+              {selectedImage === img.id && (
+                <div className="absolute inset-0 rounded-lg border-2 border-cyan-500 pointer-events-none">
+                  {/* Delete button */}
+                  {canDraw && (
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleDeleteImage(img.id);
+                      }}
+                      className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center hover:bg-red-400 transition-colors pointer-events-auto shadow-lg z-10"
+                    >×</button>
+                  )}
+                  {/* Resize handle */}
+                  {canDraw && (
+                    <div
+                      onMouseDown={e => handleResizeMouseDown(e, img.id)}
+                      className="absolute -bottom-2 -right-2 w-5 h-5 rounded bg-cyan-500 cursor-se-resize flex items-center justify-center pointer-events-auto shadow-lg"
+                    >
+                      <div className="w-2 h-2 border-b-2 border-r-2 border-white" />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Sticky notes overlay */}
+          {stickyNotes.map(sticky => (
+            <div key={sticky.id}
+              className="absolute group shadow-lg rounded-lg overflow-hidden"
+              style={{
+                left: sticky.x+'px', top: sticky.y+'px',
+                width: '150px', minHeight: '120px',
+                background: sticky.color,
+                cursor: canDraw ? (draggingSticky === sticky.id ? 'grabbing' : 'grab') : 'default',
+                zIndex: draggingSticky === sticky.id ? 50 : 20,
+                userSelect: 'none'
+              }}
+              onMouseDown={e => handleStickyMouseDown(e, sticky.id)}
+            >
+              {/* Sticky header bar */}
+              <div className="flex items-center justify-between px-2 py-1 bg-black/10">
+                <div className="flex gap-1">
+                  {STICKY_COLORS.map((c, i) => (
+                    <button key={i}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!roomId || !canDraw) return;
+                        await set(ref(rtdb, `rooms/${roomId}/whiteboard/stickies/${sticky.id}`), {...sticky, color: c});
+                      }}
+                      className="w-3 h-3 rounded-full border border-black/20 hover:scale-110 transition-transform"
+                      style={{background: c}}
+                    />
+                  ))}
+                </div>
+                {canDraw && (
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      handleDeleteSticky(sticky.id);
+                    }}
+                    className="text-black/40 hover:text-black/70 text-xs leading-none transition-colors"
+                  >×</button>
+                )}
+              </div>
+
+              {/* Sticky content */}
+              {editingStickyId === sticky.id ? (
+                <textarea
+                  autoFocus
+                  value={editingStickyText}
+                  onChange={e => setEditingStickyText(e.target.value)}
+                  onBlur={() => handleStickySave(sticky.id, editingStickyText)}
+                  onKeyDown={e => {
+                    if (e.key === 'Escape') {
+                      handleStickySave(sticky.id, editingStickyText);
+                    }
+                  }}
+                  onClick={e => e.stopPropagation()}
+                  onMouseDown={e => e.stopPropagation()}
+                  className="w-full p-2 text-xs text-slate-800 bg-transparent resize-none focus:outline-none min-h-[80px]"
+                  placeholder="Write something..."
+                />
+              ) : (
+                <div
+                  className="p-2 text-xs text-slate-800 min-h-[80px] whitespace-pre-wrap break-words cursor-text"
+                  onDoubleClick={e => {
+                    e.stopPropagation();
+                    if (!canDraw) return;
+                    setEditingStickyId(sticky.id);
+                    setEditingStickyText(sticky.text);
+                  }}
+                >
+                  {sticky.text || (canDraw ? <span className="text-black/30 italic">Double-click to edit</span> : null)}
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Text input overlay */}
+          {textPos && tool === 'text' && (
+            <div className="absolute z-30"
+              style={{
+                left: textPos.x + 'px',
+                top: textPos.y + 'px'
+              }}
+            >
+              <input
+                autoFocus
+                value={textInput}
+                onChange={e => setTextInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleTextSubmit();
+                  if (e.key === 'Escape') {
+                    setTextPos(null); setTextInput('');
+                  }
+                }}
+                className="bg-white/90 backdrop-blur border-2 border-cyan-500 rounded px-3 py-1.5 text-slate-900 text-sm font-medium focus:outline-none min-w-[150px] shadow-xl"
+                placeholder="Type text, press Enter"
+                style={{fontSize: Math.max(12, brushSize*3)+'px'}}
+              />
+            </div>
+          )}
+
+          {/* Click outside to deselect image */}
+          {selectedImage && (
+            <div 
+              className="absolute inset-0 z-0"
+              onClick={() => setSelectedImage(null)}
+            />
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="w-full h-full flex flex-col pointer-events-auto bg-slate-950 text-white">
+    <div className="w-full h-full flex flex-col pointer-events-auto bg-slate-950 text-white" onMouseMove={throttledUpdateActivity} onClick={throttledUpdateActivity}>
       {/* Global Top Bar in Lobby */}
       {view === 'lobby' && (
         <div className="flex-none p-6 flex justify-between items-center bg-slate-950">
@@ -440,6 +1247,14 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({ onClose, currentUser }) =>
                </div>
              </div>
              <div className="flex items-center gap-4">
+                {isHost && (
+                  <button
+                    onClick={() => setShowSettings(s => !s)}
+                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                  >
+                    <Settings size={14} className="text-slate-400" />
+                  </button>
+                )}
                 <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-800/80 border border-white/5 rounded-full text-sm font-medium text-slate-300">
                   <Users size={14} className={`text-${accent}-400`} /> {members.length} members
                 </div>
@@ -449,51 +1264,190 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({ onClose, currentUser }) =>
              </div>
           </div>
 
+          <AnimatePresence>
+            {showSettings && isHost && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="border-b border-white/5 bg-black/20 px-4 py-3 flex items-center gap-6 flex-wrap z-20 relative"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500">🍅 Pomodoro</span>
+                  <input
+                    type="number" min="1" max="60"
+                    value={pomoDuration}
+                    onChange={e => setPomoDuration(parseInt(e.target.value) || 25)}
+                    className="w-14 text-center bg-slate-800 border border-white/10 rounded-lg px-2 py-1 text-white text-sm font-mono focus:outline-none focus:border-cyan-500"
+                  />
+                  <span className="text-xs text-slate-600">min</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500">☕ Break</span>
+                  <input
+                    type="number" min="1" max="30"
+                    value={breakDuration}
+                    onChange={e => setBreakDuration(parseInt(e.target.value) || 5)}
+                    className="w-14 text-center bg-slate-800 border border-white/10 rounded-lg px-2 py-1 text-white text-sm font-mono focus:outline-none focus:border-cyan-500"
+                  />
+                  <span className="text-xs text-slate-600">min</span>
+                </div>
+                <button
+                  onClick={async () => {
+                    await set(ref(rtdb, `rooms/${roomId}/timer`), {
+                      mode: 'pomodoro',
+                      startedAt: null,
+                      duration: pomoDuration * 60,
+                      isRunning: false
+                    });
+                    setShowSettings(false);
+                  }}
+                  className="text-xs bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-3 py-1.5 rounded-lg hover:bg-cyan-500/30 transition-colors"
+                >
+                  Apply
+                </button>
+                <span className="text-[10px] text-slate-600">Only host can change durations.</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
              
              {/* LEFT PANEL - Members */}
-             <div className={`w-full md:w-52 md:border-r border-white/5 bg-slate-950/50 flex-col shrink-0 transition-transform ${mobileTab === 'members' ? 'flex absolute inset-0 z-10 md:relative' : 'hidden md:flex'}`}>
-               <div className="p-4 flex-none border-b border-white/5">
-                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">In this room</h4>
+             <div className={`w-full md:w-52 md:border-r border-white/5 bg-slate-950/50 flex-col shrink-0 transition-transform ${['members', 'leaderboard'].includes(mobileTab) ? 'flex absolute inset-0 z-10 md:relative' : 'hidden md:flex'}`}>
+               
+               <div className={`flex-1 flex-col overflow-hidden min-h-0 ${mobileTab === 'leaderboard' ? 'hidden md:flex' : 'flex'}`}>
+                 <div className="p-4 flex-none border-b border-white/5">
+                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">In this room</h4>
+                 </div>
+                 <div className="flex-1 overflow-y-auto p-3 space-y-2 relative custom-scrollbar">
+                    {members.map(m => {
+                       const mHost = roomInfo?.hostUid === m.uid;
+                       const isIdle = m.lastActive ? Date.now() - m.lastActive > 300000 : false;
+                       const isMe = m.uid === currentUser.uid;
+                       return (
+                         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} key={m.uid} className={`bg-slate-900/40 rounded-xl p-3 border border-white/5 flex flex-col gap-2 ${isIdle ? 'opacity-40' : 'opacity-100'}`}>
+                            <div className="flex items-center gap-3">
+                               <div className="relative shrink-0">
+                                  {m.photoURL ? (
+                                      <img src={m.photoURL} alt={m.displayName} className="w-9 h-9 rounded-full object-cover border border-white/10" />
+                                  ) : (
+                                      <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 font-bold border border-white/10">
+                                          {m.displayName?.[0] || '?'}
+                                      </div>
+                                  )}
+                                  <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-900 ${m.isFocusing ? 'bg-cyan-400 animate-pulse' : (!isIdle && m.isOnline) ? 'bg-emerald-500' : 'bg-slate-500'}`} />
+                               </div>
+                               <div className="overflow-hidden flex-1">
+                                  <div className="text-sm font-medium flex items-center gap-1 text-slate-200">
+                                     <span className="truncate">{m.displayName}</span>
+                                     {mHost && <Crown size={12} className="text-amber-400 shrink-0" />}
+                                  </div>
+                                  <div className="mt-0.5 flex flex-wrap gap-1">
+                                     {m.isFocusing ? (
+                                       <span className="inline-block px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 text-[9px] font-bold tracking-wider">FOCUSING</span>
+                                     ) : (
+                                       <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold tracking-widest ${isIdle ? 'bg-slate-800 text-slate-600' : m.isOnline ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-400'}`}>
+                                         {isIdle ? 'IDLE' : m.isOnline ? 'ONLINE' : 'OFFLINE'}
+                                       </span>
+                                     )}
+                                  </div>
+                               </div>
+                            </div>
+                            {isMe ? (
+                              editingSubject ? (
+                                <input
+                                  autoFocus
+                                  value={mySubject}
+                                  onChange={e => setMySubject(e.target.value)}
+                                  onBlur={async () => {
+                                    setEditingSubject(false);
+                                    if (roomId && currentUser.uid) {
+                                      await set(ref(rtdb, `rooms/${roomId}/members/${currentUser.uid}/currentSubject`), mySubject);
+                                      throttledUpdateActivity();
+                                    }
+                                  }}
+                                  onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
+                                  className="text-[10px] bg-slate-800 border border-white/10 rounded-md px-2 py-1 text-white w-full mt-1 focus:outline-none focus:border-cyan-500"
+                                  placeholder="What are you studying?"
+                                  maxLength={30}
+                                />
+                              ) : (
+                                <div 
+                                  onClick={() => setEditingSubject(true)}
+                                  className="text-[10px] cursor-pointer hover:bg-white/10 text-slate-400 truncate bg-white/5 border border-white/5 px-2 py-0.5 rounded-md mt-1 transition-colors"
+                                >
+                                  📚 {m.currentSubject || 'Tap to set subject'}
+                                </div>
+                              )
+                            ) : (
+                              m.currentSubject && (
+                                <div className="text-[10px] text-slate-400 truncate bg-white/5 border border-white/5 px-2 py-0.5 rounded-md mt-1">
+                                  📚 {m.currentSubject}
+                                </div>
+                              )
+                            )}
+                         </motion.div>
+                       );
+                    })}
+                 </div>
                </div>
-               <div className="flex-1 overflow-y-auto p-3 space-y-2 relative custom-scrollbar">
-                  {members.map(m => {
-                     const mHost = roomInfo?.hostUid === m.uid;
-                     return (
-                       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} key={m.uid} className="bg-slate-900/40 rounded-xl p-3 border border-white/5 flex items-center gap-3">
-                          <div className="relative shrink-0">
-                             {m.photoURL ? (
-                                 <img src={m.photoURL} alt={m.displayName} className="w-9 h-9 rounded-full object-cover border border-white/10" />
-                             ) : (
-                                 <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 font-bold border border-white/10">
-                                     {m.displayName?.[0] || '?'}
-                                 </div>
-                             )}
-                             <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-900 ${m.isFocusing ? 'bg-cyan-400 animate-pulse' : m.isOnline ? 'bg-emerald-500' : 'bg-slate-500'}`} />
+
+               {/* Leaderboard Section */}
+               <div className={`flex-1 flex-col overflow-hidden border-t border-white/5 bg-slate-950/20 ${mobileTab === 'members' ? 'hidden md:flex' : 'flex'}`}>
+                 <div className="p-3 flex-none border-b border-white/5 flex items-center gap-2">
+                    <Trophy size={14} className="text-amber-500" />
+                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Today's Leaderboard</h4>
+                 </div>
+                 <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+                  {[...members].sort((a,b) => (memberStats[b.uid] || 0) - (memberStats[a.uid] || 0)).map((member, i) => {
+                    const ms = memberStats[member.uid] || 0;
+                    const hours = (ms / 3600000).toFixed(1);
+                    const medals = ['🥇', '🥈', '🥉'];
+                    return (
+                      <div key={member.uid} className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5 mb-2 shadow-sm">
+                        <span className="text-lg w-6 text-center">
+                          {medals[i] || `${i+1}`}
+                        </span>
+                        <div className="w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-inner" style={{background: `hsl(${member.uid.charCodeAt(0)*5}, 60%, 40%)`}}>
+                          {member.photoURL ? (
+                            <img src={member.photoURL} alt="" className="w-full h-full rounded-full object-cover" />
+                          ) : (
+                            member.displayName?.[0]?.toUpperCase() || '?'
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-bold text-white truncate">
+                            {member.displayName}
+                            {member.uid === currentUser.uid && <span className="text-cyan-400 ml-1 font-medium text-[10px]">(you)</span>}
                           </div>
-                          <div className="overflow-hidden flex-1">
-                             <div className="text-sm font-medium flex items-center gap-1 text-slate-200">
-                                <span className="truncate">{m.displayName}</span>
-                                {mHost && <Crown size={12} className="text-amber-400 shrink-0" />}
-                             </div>
-                             <div className="mt-0.5 flex flex-wrap gap-1">
-                                {m.isFocusing ? (
-                                  <span className="inline-block px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 text-[9px] font-bold tracking-wider">FOCUSING</span>
-                                ) : (
-                                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold tracking-widest ${m.isOnline ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-400'}`}>
-                                    {m.isOnline ? 'ONLINE' : 'IDLE'}
-                                  </span>
-                                )}
-                             </div>
-                          </div>
-                       </motion.div>
-                     );
+                        </div>
+                        <div className="text-[10px] font-mono text-slate-400 shrink-0">
+                          {hours}h
+                        </div>
+                      </div>
+                    );
                   })}
+                 </div>
                </div>
              </div>
 
-             {/* CENTER PANEL - Timer */}
-             <div className={`flex-1 flex-col items-center justify-center bg-slate-950 p-6 relative transition-transform ${mobileTab === 'timer' ? 'flex absolute inset-0 z-10 md:relative' : 'hidden md:flex'}`}>
+             {/* CENTER PANEL */}
+             <div className={`flex-1 flex-col bg-slate-950 relative transition-transform ${['timer', 'whiteboard'].includes(mobileTab) ? 'flex absolute inset-0 z-10 md:relative' : 'hidden md:flex'}`}>
+                 <div className="hidden md:flex border-b border-white/5 shrink-0 flex-none h-11">
+                    {['timer','board'].map(t => (
+                      <button
+                        key={t}
+                        onClick={() => setCenterTab(t as any)}
+                        className={`flex-1 py-1 text-xs font-bold uppercase tracking-wider transition-colors ${centerTab === t ? `text-${accent}-400 border-b-2 border-${accent}-500 bg-white/5` : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+                      >
+                        {t === 'timer' ? '⏱ Timer' : '🎨 Board'}
+                      </button>
+                    ))}
+                 </div>
+
+                 {/* Timer View */}
+                 <div className={`flex-1 flex-col items-center justify-center p-6 relative ${mobileTab === 'timer' ? 'flex' : 'hidden md:flex'} ${centerTab !== 'timer' ? 'md:!hidden' : ''}`}>
                 
                 <div className="absolute top-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-10 w-full px-4">
                    <div className="flex gap-1 bg-slate-800/80 rounded-full p-1 border border-white/10 max-w-full overflow-x-auto custom-scrollbar">
@@ -513,10 +1467,58 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({ onClose, currentUser }) =>
                       </button>
                    </div>
                    {!isHost && <span className="text-[10px] font-medium tracking-widest text-slate-500 uppercase text-center">Host controls the timer</span>}
+
+                   {roomGoal && (
+                     <div className="flex items-center gap-2 mt-2">
+                       <div className="flex gap-1">
+                         {Array.from({length: roomGoal.target}).map((_,i) => (
+                           <div key={i} className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[10px] ${i < roomGoal.completed ? 'bg-cyan-500 border-cyan-500 text-white' : 'border-white/20 text-transparent'}`}>
+                             🍅
+                           </div>
+                         ))}
+                       </div>
+                       <span className="text-xs text-slate-500 font-mono">
+                         {roomGoal.completed}/{roomGoal.target} Pomodoros
+                       </span>
+                     </div>
+                   )}
                 </div>
 
-                <div className="flex-1 flex flex-col items-center justify-center w-full max-w-2xl px-4">
+                <div className="flex-1 flex flex-col items-center justify-center w-full max-w-2xl px-4 relative">
                    
+                   <AnimatePresence>
+                     {showCompletion && (
+                       <motion.div
+                         initial={{ opacity: 0, scale: 0.8 }}
+                         animate={{ opacity: 1, scale: 1 }}
+                         exit={{ opacity: 0, scale: 0.8 }}
+                         className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-2xl"
+                       >
+                         <div className="text-center">
+                           <div className="text-6xl mb-4">
+                             {completedMode === 'pomodoro' ? '🍅' : '☕'}
+                           </div>
+                           <div className="text-2xl font-bold text-white mb-2">
+                             {completedMode === 'pomodoro' ? 'Pomodoro Complete!' : 'Break Over!'}
+                           </div>
+                           <div className="text-slate-400 text-sm mb-4">
+                             {completedMode === 'pomodoro' ? `${members.length} focused together 💪` : 'Back to work! 🎯'}
+                           </div>
+                           {completedMode === 'pomodoro' && (
+                             <div className="flex items-center justify-center gap-2">
+                               {Array.from({length: pomodoroCount}).map((_,i) => (
+                                 <div key={i} className="text-2xl">🍅</div>
+                               ))}
+                             </div>
+                           )}
+                           <div className="text-xs text-slate-600 mt-4">
+                             Auto-continuing in 3s...
+                           </div>
+                         </div>
+                       </motion.div>
+                     )}
+                   </AnimatePresence>
+
                    <motion.div 
                       key={remainingTime} // small tick animation optional, but here we just rely on transition
                       className={`text-[6rem] sm:text-[8rem] md:text-[10rem] lg:text-[12rem] font-mono font-bold leading-none tracking-tighter mb-8 font-variant-numeric-tabular transition-colors duration-500 
@@ -549,25 +1551,60 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({ onClose, currentUser }) =>
                       <span className="text-xs font-mono text-slate-500 font-medium">
                          {(timerState?.mode === 'pomodoro' || timerState?.mode === 'idle') ? `Focus Session · ${formatTime(timerState?.duration || 1500)}` : `Break Time · ${formatTime(timerState?.duration || 300)}`}
                       </span>
+
+                      {/* Set Goal Button */}
+                      {isHost && (
+                        <div className="mt-4 flex flex-col items-center z-10">
+                          <button
+                            onClick={() => setShowGoalInput(true)}
+                            className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1"
+                          >
+                            <Target size={10} /> {roomGoal ? 'Change Goal' : 'Set Session Goal'}
+                          </button>
+                          {showGoalInput && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <input
+                                type="number" min="1" max="12"
+                                value={goalInput}
+                                onChange={e => setGoalInput(e.target.value)}
+                                className="w-16 text-center bg-slate-800 border border-white/10 rounded-lg px-2 py-1 text-white text-sm font-mono focus:outline-none focus:border-cyan-500"
+                              />
+                              <span className="text-xs text-slate-500">Pomodoros</span>
+                              <button
+                                onClick={async () => {
+                                  const target = Math.min(12, Math.max(1, parseInt(goalInput) || 4));
+                                  await set(ref(rtdb, `rooms/${roomId}/goal`), {
+                                    target,
+                                    completed: roomGoal?.completed || 0
+                                  });
+                                  setShowGoalInput(false);
+                                }}
+                                className="text-xs bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-3 py-1 rounded-lg hover:bg-cyan-500/30 transition-colors"
+                              >
+                                Set
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                    </div>
                 </div>
              </div>
+
+             {/* Whiteboard View */}
+             <div className={`flex-1 flex-col relative w-full h-full p-0 sm:p-2 overflow-hidden ${mobileTab === 'whiteboard' ? 'flex' : 'hidden md:flex'} ${centerTab !== 'board' ? 'md:!hidden' : ''}`}>
+               <WhiteboardPanel />
+             </div>
+           </div>
 
              {/* RIGHT PANEL - Chat */}
              <div className={`w-full md:w-64 md:border-l border-white/5 bg-slate-950/50 flex-col shrink-0 relative transition-transform ${mobileTab === 'chat' ? 'flex absolute inset-0 z-10 md:relative' : 'hidden md:flex'}`}>
                 <div className="flex-none p-4 border-b border-white/5 flex items-center justify-between">
                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Chat</h4>
-                   {timerState?.mode === 'pomodoro' ? (
-                     <div className="flex items-center gap-1.5 bg-slate-900/80 px-2 py-0.5 rounded-md border border-white/5">
-                        <Lock size={10} className="text-amber-500" />
-                        <span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest">Locked</span>
-                     </div>
-                   ) : (
-                     <div className="flex items-center gap-1.5 bg-slate-900/80 px-2 py-0.5 rounded-md border border-white/5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Live</span>
-                     </div>
-                   )}
+                   <div className="flex items-center gap-1.5 bg-slate-900/80 px-2 py-0.5 rounded-md border border-white/5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Live</span>
+                   </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 relative custom-scrollbar">
@@ -576,16 +1613,48 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({ onClose, currentUser }) =>
                         No messages yet. Chat opens during break! ☕
                      </div>
                    )}
-                   <div className="mt-auto"></div>
-                   {messages.filter(m => Date.now() - m.timestamp < 24*60*60*1000).map(msg => {
+                                    {messages.filter(m => Date.now() - m.timestamp < 24*60*60*1000).map(msg => {
                       const isOwn = msg.uid === currentUser.uid;
                       return (
                           <div key={msg.id} className={`flex flex-col max-w-[85%] break-words ${isOwn ? 'self-end' : 'self-start'}`}>
-                             <span className={`text-[10px] font-medium mb-1 px-1 ${isOwn ? 'hidden' : 'text-slate-400'}`}>
+                             <span className={`text-[10px] font-medium mb-1 px-1 flex items-center gap-2 ${isOwn ? 'hidden' : 'text-slate-400'}`}>
                                 {msg.displayName}
                              </span>
-                             <div className={`px-4 py-2.5 text-sm ${isOwn ? `bg-${accent}-500/20 text-${accent}-100 rounded-2xl rounded-tr-sm` : 'bg-slate-800 text-white rounded-2xl rounded-tl-sm'}`}>
-                                {msg.text}
+                             <div className="relative group/msg flex items-center gap-2">
+                               {isOwn && (
+                                 <div className="relative group/react order-1">
+                                   <button className="opacity-0 group-hover/msg:opacity-100 text-[10px] text-slate-500 hover:text-slate-300 transition-all px-1">+</button>
+                                   <div className="absolute bottom-full right-0 mb-1 hidden group-hover/react:flex gap-1 bg-slate-800 border border-white/10 rounded-xl p-1.5 z-10 shadow-xl">
+                                     {['👍','🔥','💪','😂','❤️'].map(emoji => (
+                                       <button key={emoji} onClick={() => handleReact(msg.id, emoji)} className="text-sm hover:scale-125 transition-transform">{emoji}</button>
+                                     ))}
+                                   </div>
+                                 </div>
+                               )}
+                               <div className={`px-4 py-2.5 text-sm ${isOwn ? `bg-${accent}-500/20 text-${accent}-100 rounded-2xl rounded-tr-sm order-2` : 'bg-slate-800 text-white rounded-2xl rounded-tl-sm order-2'}`}>
+                                  {msg.text}
+                               </div>
+                               {!isOwn && (
+                                 <div className="relative group/react order-3">
+                                   <button className="opacity-0 group-hover/msg:opacity-100 text-[10px] text-slate-500 hover:text-slate-300 transition-all px-1">+</button>
+                                   <div className="absolute bottom-full left-0 mb-1 hidden group-hover/react:flex gap-1 bg-slate-800 border border-white/10 rounded-xl p-1.5 z-10 shadow-xl">
+                                     {['👍','🔥','💪','😂','❤️'].map(emoji => (
+                                       <button key={emoji} onClick={() => handleReact(msg.id, emoji)} className="text-sm hover:scale-125 transition-transform">{emoji}</button>
+                                     ))}
+                                   </div>
+                                 </div>
+                               )}
+                             </div>
+                             <div className={`mt-1 flex flex-wrap gap-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                               {msg.reactions && Object.entries(msg.reactions).filter(([_, uids]) => uids.length > 0).map(([emoji, uids]) => (
+                                 <button
+                                   key={emoji}
+                                   onClick={() => handleReact(msg.id, emoji)}
+                                   className={`text-[10px] px-1.5 py-0.5 rounded-md border transition-colors flex items-center gap-1 ${uids.includes(currentUser.uid) ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-300' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`}
+                                 >
+                                   {emoji} {uids.length}
+                                 </button>
+                               ))}
                              </div>
                              <span className={`text-[9px] font-medium text-slate-600 mt-1 px-1 ${isOwn ? 'text-right' : 'text-left'}`}>
                                 {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -594,14 +1663,6 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({ onClose, currentUser }) =>
                       );
                    })}
                 </div>
-
-                {timerState?.mode === 'pomodoro' && (
-                   <div className="absolute inset-0 top-[3.25rem] bottom-[4.25rem] z-10 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
-                      <Lock size={32} className="text-slate-500 mb-4" />
-                      <p className="text-sm border border-white/10 bg-slate-900/50 px-4 py-2 rounded-xl text-slate-300 font-medium whitespace-nowrap">Chat unlocks during break 🎯</p>
-                      <p className="text-xs text-slate-500 mt-2">Stay focused!</p>
-                   </div>
-                )}
 
                 <div className="flex-none p-3 border-t border-white/5 bg-slate-900/50 relative z-20">
                    <div className="relative flex items-center gap-2">
@@ -616,12 +1677,11 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({ onClose, currentUser }) =>
                         }}
                         onChange={(e) => setMessageInput(e.target.value)}
                         placeholder="Message..."
-                        disabled={timerState?.mode === 'pomodoro'}
                         className={`flex-1 bg-slate-950 placeholder:text-slate-600 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-${accent}-500/50 transition-colors disabled:opacity-40`}
                       />
                       <button 
                         onClick={(e) => handleSendMessage(e as any)}
-                        disabled={!messageInput.trim() || timerState?.mode === 'pomodoro'}
+                        disabled={!messageInput.trim()}
                         className={`p-2.5 rounded-xl transition-colors shrink-0 disabled:opacity-40 flex items-center justify-center disabled:bg-slate-800 disabled:text-slate-500 bg-${accent}-600 text-white hover:bg-${accent}-500`}
                       >
                          <MessageCircle size={18} />
@@ -633,11 +1693,13 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({ onClose, currentUser }) =>
           </div>
 
           {/* MOBILE TAB BAR */}
-          <div className="md:hidden flex-none h-16 border-t border-white/5 bg-slate-950 flex items-center px-2">
+          <div className="md:hidden flex-none h-16 border-t border-white/5 bg-slate-950 flex items-center px-2 z-20">
              {[
                { id: 'members', icon: Users, label: 'Members' },
                { id: 'timer', icon: Timer, label: 'Timer' },
-               { id: 'chat', icon: MessageCircle, label: 'Chat' }
+               { id: 'chat', icon: MessageCircle, label: 'Chat' },
+               { id: 'leaderboard', icon: Trophy, label: 'Leaders' },
+               { id: 'whiteboard', icon: PenLine, label: 'Board' }
              ].map(tab => {
                 const active = mobileTab === tab.id;
                 const Icon = tab.icon;

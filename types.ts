@@ -230,6 +230,8 @@ export interface RoomMember {
   isOnline: boolean;
   isFocusing: boolean;
   joinedAt: number;
+  currentSubject?: string;
+  lastActive?: number;
 }
 
 export interface RoomMessage {
@@ -239,6 +241,7 @@ export interface RoomMessage {
   photoURL?: string;
   text: string;
   timestamp: number;
+  reactions?: Record<string, string[]>;
 }
 
 export interface RoomTimerState {
@@ -295,3 +298,33 @@ export const getLocalDateString = (date: Date = new Date()) => {
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+
+export interface StudyPlanTopic {
+  topicId: string;
+  topicName: string;
+  chapterId: string;
+  chapterName: string;
+  subjectId: string;
+  done: boolean;
+}
+
+export interface StudyPlanDay {
+  date: string; // YYYY-MM-DD
+  subjectId: string;
+  topics: StudyPlanTopic[];
+  hoursAllocated: number;
+  isSkipped: boolean;
+  note?: string;
+}
+
+export interface StudyPlan {
+  id: string;
+  examId: string;
+  examTitle: string;
+  examDate: string;
+  days: StudyPlanDay[];
+  createdAt: number;
+  updatedAt: number;
+  hoursPerDay: number;
+  skipWeekends: boolean;
+}

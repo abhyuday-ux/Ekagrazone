@@ -361,7 +361,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar relative"
+                className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar relative pb-32 md:pb-0"
             >
                 {filteredSessions.length === 0 ? (
                     <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 mt-12">
@@ -779,7 +779,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                    <button onClick={() => changeDate(1)} className="p-2 hover:bg-white/10 rounded-lg"><ArrowRight size={16}/></button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar relative">
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar relative pb-32 md:pb-0">
                     <div className="">
                         <div className="h-[400px] mb-8 bg-slate-950/30 rounded-2xl border border-white/5 p-4">
                             <DailyTimeline 

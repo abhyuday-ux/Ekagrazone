@@ -16,7 +16,7 @@ export const ExamTracker: React.FC<ExamTrackerProps> = ({ subjects, exams, onUpd
     const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming');
 
     return (
-        <div className="w-full max-w-5xl mx-auto p-4 md:p-8 pb-24">
+        <div className="w-full max-w-5xl mx-auto p-4 md:p-8 pb-32 md:pb-8">
             {/* Header */}
             <div className="mb-8">
                 <h1 className="text-3xl font-black text-white tracking-tight mb-2">Exam Tracker</h1>

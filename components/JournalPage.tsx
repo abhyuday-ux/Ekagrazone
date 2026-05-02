@@ -219,7 +219,7 @@ export const JournalPage: React.FC = () => {
          <div className={`absolute top-[10%] left-[20%] w-[400px] h-[400px] bg-${accent}-500/5 blur-[120px] rounded-full mix-blend-screen animate-pulse`} />
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar px-4 lg:px-0 pb-20 relative z-10">
+      <div className="flex-1 overflow-y-auto custom-scrollbar px-4 lg:px-0 pb-32 lg:pb-0 relative z-10">
           
           {/* Header Area */}
           <motion.div 

@@ -25,6 +25,7 @@ interface DashboardProps {
   userName?: string;
   onNavigate: (tab: any) => void;
   tasks: any[];
+  exams?: any[];
 }
 
 export const Dashboard: React.FC<DashboardProps> = React.memo(({ 
@@ -33,7 +34,8 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
   targetHours, 
   userName = "Aspirant",
   onNavigate,
-  tasks
+  tasks,
+  exams
 }) => {
   const { accent } = useTheme();
   const [timeOfDay, setTimeOfDay] = useState('');
@@ -110,6 +112,51 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
   const effectiveTargetHours = userProfile?.dailyGoal || targetHours || 6;
   const progressPercent = Math.min((todayHours / effectiveTargetHours) * 100, 100);
 
+  const todaySessions_count = todaySessions.length;
+  const todayAvgSession = todaySessions_count > 0 
+    ? todayDurationMs / todaySessions_count : 0;
+  const todayTopSubject = subjects.find(s => 
+    s.id === Object.entries(
+      todaySessions.reduce((acc, session) => {
+        acc[session.subjectId] = (acc[session.subjectId]||0) + session.durationMs;
+        return acc;
+      }, {} as Record<string,number>)
+    ).sort((a,b) => b[1]-a[1])[0]?.[0]
+  );
+  const hoursRemaining = Math.max(0, 
+    effectiveTargetHours - todayHours);
+
+  const nextExam = useMemo(() => {
+    if (!exams || exams.length === 0) return null;
+    const upcoming = exams
+      .filter(e => new Date(e.date + 'T00:00:00') >= new Date())
+      .sort((a,b) => new Date(a.date).getTime() 
+        - new Date(b.date).getTime());
+    return upcoming[0] || null;
+  }, [exams]);
+
+  const daysToExam = nextExam ? Math.ceil(
+    (new Date(nextExam.date + 'T00:00:00').getTime() 
+      - new Date().setHours(0,0,0,0)) 
+    / (1000*60*60*24)
+  ) : null;
+
+  const quote = useMemo(() => {
+    if (todayHours >= effectiveTargetHours) 
+      return "Goal crushed! You're built different. 💪";
+    if (timeOfDay === 'Morning') 
+      return "The early bird gets the rank. Start strong!";
+    if (timeOfDay === 'Afternoon') 
+      return "Afternoon slump? That's when legends grind.";
+    if (timeOfDay === 'Evening') 
+      return "Evening focus hits different. Lock in! 🔒";
+    return "Night owl mode activated. Stay sharp!";
+  }, [timeOfDay, todayHours, effectiveTargetHours]);
+
+  const circumference = 2 * Math.PI * 45; // r=45
+  const strokeDashoffset = circumference - 
+    (progressPercent / 100) * circumference;
+
   const yesterdayStr = useMemo(() => {
       const d = new Date();
       d.setDate(d.getDate() - 1);
@@ -168,7 +215,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
             .reduce((acc, s) => acc + s.durationMs, 0);
           
           days.push({
-              day: d.toLocaleDateString('en-US', { weekday: 'narrow' }),
+              day: d.toLocaleDateString('en-US', { weekday: 'short' }),
               date: dStr,
               hours: dayTotal / 3600000,
               isToday: dStr === todayStr
@@ -270,7 +317,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
   const showWeeklySummary = isSunday || weekDaysStudied >= 5;
 
   return (
-    <div className="h-full overflow-y-auto custom-scrollbar flex flex-col pb-20 lg:pb-0">
+    <div className="h-full overflow-y-auto custom-scrollbar flex flex-col pb-32 md:pb-0">
         <motion.div 
             variants={containerVariants}
             initial="hidden"
@@ -295,12 +342,12 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                         </h1>
                     </div>
                     
-                    <div className="flex items-center gap-2 self-start md:self-auto">
+                    <div className="flex flex-col sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-2 sm:gap-3 self-start md:self-auto mt-4 md:mt-0">
                         <motion.button 
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setShowReportAlbum(true)}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-xs font-bold text-slate-300 transition-all shadow-lg backdrop-blur-sm"
+                            className="flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl sm:rounded-full text-xs font-bold text-slate-300 transition-all shadow-lg backdrop-blur-sm"
                         >
                             <BookIcon size={14} /> 
                             <span>Report Album</span>
@@ -309,7 +356,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => onNavigate('calendar')}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-xs font-bold text-slate-300 transition-all shadow-lg backdrop-blur-sm"
+                            className="flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl sm:rounded-full text-xs font-bold text-slate-300 transition-all shadow-lg backdrop-blur-sm"
                         >
                             <Calendar size={14} /> 
                             <span>Schedule</span>
@@ -323,7 +370,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`bg-gradient-to-r from-${accent}-500/10 to-purple-500/10 border border-${accent}-500/20 rounded-2xl p-4 mb-6`}
+                  className={`bg-gradient-to-r from-${accent}-500/10 to-purple-500/10 border border-${accent}-500/20 rounded-2xl p-3 sm:p-5 mb-3 sm:mb-6 mt-4`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -350,7 +397,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
             )}
 
             {/* 2. Main Dashboard Grid - Responsive Columns */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6">
                 
                 {/* Hero Card / XP Rank Card */}
                 <motion.div 
@@ -361,11 +408,45 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                     <div className={`absolute top-0 right-0 p-40 bg-${accent}-500/10 rounded-full blur-[100px] -mr-20 -mt-20 transition-opacity opacity-50 group-hover:opacity-80 duration-1000`} />
                     <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10"></div>
                     
-                    <div className="relative z-10 flex justify-between items-start">
-                        <div className="flex-1">
-                            <div className="flex flex-col gap-1 mb-4">
-                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">Welcome back</div>
-                                <div className={`text-white font-bold text-3xl`}>{userProfile?.displayName || userName || 'Student'}</div>
+                    <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="text-2xl">{timeOfDay === 'Morning' ? '🌅' : timeOfDay === 'Afternoon' ? '☀️' : timeOfDay === 'Evening' ? '🌇' : '🌙'}</span>
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{timeOfDay}</span>
+                            </div>
+                            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight truncate">{userProfile?.displayName || userName || 'Student'}</h1>
+                            <p className="text-sm text-slate-500 mt-0.5 italic font-medium">{quote}</p>
+
+                            <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar pb-1">
+                              {[
+                                { label: 'Start Timer', icon: Zap, 
+                                  action: () => onNavigate('timer'), 
+                                  color: accent },
+                                { label: 'Add Task', icon: CheckSquare, 
+                                  action: () => onNavigate('calendar'), 
+                                  color: 'slate' },
+                                { label: 'Syllabus', icon: BookOpen, 
+                                  action: () => onNavigate('syllabus'), 
+                                  color: 'slate' },
+                                { label: 'Stats', icon: BarChart2, 
+                                  action: () => onNavigate('timeline'), 
+                                  color: 'slate' },
+                              ].map((btn, i) => (
+                                <button
+                                  key={i}
+                                  onClick={btn.action}
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 
+                                    rounded-lg text-xs font-bold transition-all
+                                    ${btn.color === accent 
+                                      ? `bg-${accent}-500/15 text-${accent}-300 
+                                         border border-${accent}-500/25 
+                                         hover:bg-${accent}-500/25` 
+                                      : 'bg-white/5 text-slate-400 border border-white/8 hover:bg-white/10 hover:text-white'}`}
+                                >
+                                  <btn.icon size={12} />
+                                  {btn.label}
+                                </button>
+                              ))}
                             </div>
 
                             <div className="mb-2 mt-4">
@@ -375,15 +456,37 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                                 </div>
                             </div>
                         </div>
+
+                        <div className="relative w-20 h-20 sm:w-28 sm:h-28 flex-shrink-0 self-center sm:self-auto ml-0 sm:ml-4 flex items-center justify-center">
+                          <svg className="w-20 h-20 sm:w-28 sm:h-28 -rotate-90" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" 
+                              fill="none" stroke="rgba(255,255,255,0.05)" 
+                              strokeWidth="8"/>
+                            <circle cx="50" cy="50" r="45" fill="none"
+                              stroke={`var(--color-${accent}-500, #06b6d4)`}
+                              strokeWidth="8"
+                              strokeLinecap="round"
+                              strokeDasharray={circumference}
+                              strokeDashoffset={strokeDashoffset}
+                              style={{transition: 'stroke-dashoffset 1s ease'}}
+                            />
+                          </svg>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className="text-xl font-mono font-bold text-white">
+                              {Math.round(progressPercent)}%
+                            </span>
+                            <span className="text-[8px] text-slate-500 uppercase tracking-wider">of goal</span>
+                          </div>
+                        </div>
                     </div>
 
-                    <div id="timer-display" className="relative z-10 mt-4 flex items-center gap-3">
+                    <div id="timer-display" className="relative z-10 mt-4 flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
                         {!isDayStarted ? (
                             <motion.button 
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
                                 onClick={handleStartDay}
-                                className={`flex-1 py-3.5 px-6 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/25 border border-emerald-400/20`}
+                                className={`w-full sm:flex-1 py-4 sm:py-3.5 px-6 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/25 border border-emerald-400/20`}
                             >
                                 <Play size={18} fill="currentColor" /> Start Day
                             </motion.button>
@@ -395,7 +498,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                                     onClick={() => !isDayCompleted && onNavigate('timer')}
                                     disabled={isDayCompleted}
                                     className={`
-                                        flex-1 py-3.5 px-6 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all
+                                        w-full sm:flex-1 py-4 sm:py-3.5 px-6 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all
                                         ${isDayCompleted 
                                             ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/5' 
                                             : `bg-gradient-to-r from-${accent}-600 to-${accent}-500 hover:from-${accent}-500 hover:to-${accent}-400 text-white shadow-lg shadow-${accent}-500/25 border border-${accent}-400/20`}
@@ -408,10 +511,11 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={isDayCompleted ? () => setShowReportCard(true) : () => setIsConfirmingCompleteDay(true)}
-                                    className={`p-3.5 rounded-xl text-slate-300 hover:text-white transition-colors border border-white/10 ${isDayCompleted ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-white/5 hover:bg-white/10'}`}
+                                    className={`w-full sm:w-auto p-4 sm:p-3.5 flex items-center justify-center rounded-xl text-slate-300 hover:text-white transition-colors border border-white/10 ${isDayCompleted ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-white/5 hover:bg-white/10'}`}
                                     title={isDayCompleted ? "View Report" : "Complete Day"}
                                 >
                                     {isDayCompleted ? <Zap size={22} className="text-purple-400" fill="currentColor" /> : <CheckSquare size={22} />}
+                                    <span className="sm:hidden font-bold text-sm ml-2">{isDayCompleted ? "View Report" : "Complete Day"}</span>
                                 </motion.button>
                             </>
                         )}
@@ -422,10 +526,11 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => { setReportConfetti(false); setShowReportCard(true); }}
-                                className="p-3.5 bg-slate-800/50 hover:bg-slate-800 rounded-xl text-yellow-400 transition-colors border border-yellow-500/20"
+                                className="w-full sm:w-auto p-4 sm:p-3.5 flex items-center justify-center bg-slate-800/50 hover:bg-slate-800 rounded-xl text-yellow-400 transition-colors border border-yellow-500/20"
                                 title="Neon Grind (Live Report)"
                             >
                                 <Zap size={22} />
+                                <span className="sm:hidden font-bold text-sm ml-2">Live Report</span>
                             </motion.button>
                         )}
                     </div>
@@ -434,7 +539,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                 {/* Today's Breakdown */}
                 <motion.div 
                     variants={itemVariants}
-                    className="col-span-1 bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-[2rem] p-5 flex flex-col justify-between relative overflow-hidden hover:border-white/20 transition-colors"
+                    className="col-span-1 sm:col-span-2 lg:col-span-1 bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-[2rem] p-5 flex flex-col justify-between relative overflow-hidden hover:border-white/20 transition-colors"
                 >
                     <div className="flex items-center justify-between mb-2 relative z-10">
                         <div className="flex items-center gap-2">
@@ -473,6 +578,51 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                 </motion.div>
             </div>
 
+            {/* Today's Stats Row */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4">
+              {[
+                { 
+                  label: 'Today', 
+                  value: formatHoursMins(todayDurationMs), 
+                  sub: `${todaySessions_count} sessions`,
+                  icon: Clock, color: 'blue' 
+                },
+                { 
+                  label: 'Remaining', 
+                  value: hoursRemaining > 0 
+                    ? formatHoursMins(hoursRemaining * 3600000) 
+                    : 'Goal hit! 🎉',
+                  sub: `of ${effectiveTargetHours}h goal`,
+                  icon: Target, color: 'emerald'
+                },
+                { 
+                  label: 'Avg Session', 
+                  value: formatHoursMins(todayAvgSession),
+                  sub: 'per session today',
+                  icon: Activity, color: 'purple'
+                },
+                { 
+                  label: 'Top Subject',
+                  value: todayTopSubject?.name || '–',
+                  sub: 'most studied today',
+                  icon: BookOpen, color: 'amber'
+                },
+              ].map((stat, i) => (
+                <motion.div 
+                  key={i}
+                  variants={itemVariants}
+                  className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-3 sm:p-4 flex flex-col gap-1 hover:border-white/20 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{stat.label}</span>
+                    <stat.icon size={12} className={`text-${stat.color}-400 opacity-60`} />
+                  </div>
+                  <span className="text-base sm:text-lg font-mono font-bold text-white leading-tight truncate">{stat.value}</span>
+                  <span className="text-[9px] text-slate-600 truncate">{stat.sub}</span>
+                </motion.div>
+              ))}
+            </div>
+
             {/* 3. Detailed Insights Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-4">
                 
@@ -486,20 +636,29 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                             <Activity size={16} className={`text-${accent}-400`} />
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Weekly Trend</span>
                         </div>
+                        <span className="text-xs font-mono font-bold text-slate-400">
+                            {weeklyTrend.reduce((a,d) => a+d.hours,0).toFixed(1)}h this week
+                        </span>
                     </div>
-                    <div className="flex-1 flex items-end gap-2 sm:gap-3 w-full h-[120px] overflow-x-auto no-scrollbar pb-2">
+                    <div className="flex-1 flex items-end gap-2 sm:gap-3 w-full h-28 sm:h-36 overflow-x-auto no-scrollbar pb-2">
                         {weeklyTrend.map((d, i) => (
                             <div key={i} className="flex-1 flex flex-col items-center gap-3 group relative h-full justify-end min-w-[30px]">
                                 <div className="w-full relative flex-1 flex items-end bg-slate-800/30 rounded-t-lg overflow-hidden">
+                                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] font-mono px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
+                                        {d.hours > 0 ? d.hours.toFixed(1)+'h' : '–'}
+                                    </div>
                                     <motion.div 
                                         initial={{ height: 0 }}
                                         animate={{ height: `${(d.hours / (maxWeeklyHours || 1)) * 100}%` }}
                                         transition={{ duration: 1, ease: "easeOut", delay: i * 0.05 }}
-                                        className={`w-full rounded-t-lg transition-all duration-300 relative group-hover:opacity-90 ${d.isToday ? `bg-${accent}-500 shadow-[0_0_15px_rgba(var(--color-${accent}-500),0.3)]` : 'bg-slate-700'}`}
+                                        className={`w-full rounded-t-lg transition-all duration-300 relative group-hover:opacity-90 ${d.isToday ? `bg-${accent}-500 shadow-[0_0_15px_rgba(var(--color-${accent}-500),0.3)]` : d.hours >= effectiveTargetHours ? 'bg-emerald-500/70' : d.hours > 0 ? 'bg-slate-600' : 'bg-slate-800/30'}`}
                                         style={{ minHeight: '4px' }}
                                     />
                                 </div>
-                                <span className={`text-[9px] font-bold uppercase ${d.isToday ? 'text-white' : 'text-slate-600'}`}>{d.day[0]}</span>
+                                <span className={`text-[8px] sm:text-[9px] font-bold uppercase ${d.isToday ? 'text-white' : 'text-slate-600'}`}>
+                                    <span className="sm:hidden">{d.day[0]}</span>
+                                    <span className="hidden sm:block">{d.day.substring(0,3)}</span>
+                                </span>
                             </div>
                         ))}
                     </div>
@@ -514,7 +673,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                         <Clock size={16} className="text-emerald-400" />
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Focus Rhythm</span>
                     </div>
-                    <div className="flex-1 flex flex-col justify-between gap-3">
+                    <div className="hidden sm:flex flex-1 flex-col justify-between gap-3">
                         {focusRhythm.map((period, i) => (
                             <div key={i} className="flex items-center gap-3">
                                 <period.icon size={14} className={`flex-none ${period.color}`} />
@@ -527,6 +686,14 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                                     />
                                 </div>
                             </div>
+                        ))}
+                    </div>
+                    <div className="sm:hidden flex gap-2 flex-wrap min-h-0">
+                        <span className="text-[10px] text-slate-500 my-auto">Peak hours:</span>
+                        {focusRhythm.sort((a,b) => b.value - a.value).slice(0,3).map((h, i) => (
+                            <span key={i} className={`text-[10px] font-mono text-white ${h.color.replace('text-', 'bg-')}/20 px-2 py-0.5 rounded-lg border border-white/5 flex items-center gap-1`}>
+                                <h.icon size={10} className={`${h.color}`} /> {h.label}
+                            </span>
                         ))}
                     </div>
                 </motion.div>
@@ -575,6 +742,54 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                             })
                         )}
                     </div>
+                </motion.div>
+
+                {/* Upcoming Exam */}
+                <motion.div
+                  variants={itemVariants}
+                  className="col-span-1 bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-[2rem] p-6 flex flex-col hover:border-red-500/20 transition-colors group"
+                >
+                  <div className="flex items-center gap-2 mb-4">
+                    <CalendarDays size={16} className="text-red-400" />
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Next Exam</span>
+                  </div>
+                  
+                  {nextExam ? (
+                    <div className="flex-1 flex flex-col justify-between">
+                      <div>
+                        <div className="text-sm font-bold text-white mb-1 truncate">{nextExam.title}</div>
+                        <div className="text-[10px] text-slate-500">
+                          {new Date(nextExam.date + 'T00:00:00')
+                            .toLocaleDateString(undefined, 
+                              {month:'long', day:'numeric', year:'numeric'})}
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <span className={`text-3xl sm:text-4xl font-mono font-bold ${daysToExam! <= 7 ? 'text-red-400' : daysToExam! <= 30 ? 'text-amber-400' : 'text-white'}`}>
+                          {daysToExam}
+                        </span>
+                        <span className="text-slate-500 text-xs ml-2">
+                          days left
+                        </span>
+                        {daysToExam! <= 7 && (
+                          <div className="text-[9px] text-red-400 font-bold mt-1 animate-pulse">
+                            ⚠️ Exam week approaching!
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-2">
+                      <CalendarDays size={24} className="text-slate-700" />
+                      <span className="text-[10px] text-slate-600 text-center">No upcoming exams.<br/>Add one in the Planner!</span>
+                      <button 
+                        onClick={() => onNavigate('calendar')}
+                        className="text-[10px] text-slate-400 hover:text-white transition-colors mt-1"
+                      >
+                        + Add Exam →
+                      </button>
+                    </div>
+                  )}
                 </motion.div>
 
             </div>

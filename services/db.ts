@@ -1,5 +1,5 @@
 
-import { StudySession, Subject, DEFAULT_SUBJECTS, DailyGoal, Task, Exam, ChatMessage, JournalEntry, DailyNote, CustomSound, UserProfile, Friend, FriendStatus, MockTest, SyllabusSubject, getLocalDateString } from '../types';
+import { StudySession, Subject, DEFAULT_SUBJECTS, DailyGoal, Task, Exam, ChatMessage, JournalEntry, DailyNote, CustomSound, UserProfile, Friend, FriendStatus, MockTest, SyllabusSubject, StudyPlan, getLocalDateString } from '../types';
 import { db, rtdb } from './firebase';
 import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, writeBatch, onSnapshot, Unsubscribe, query, where, updateDoc, increment } from 'firebase/firestore';
 import { ref, update as rtdbUpdate, set as rtdbSet, serverTimestamp, remove as rtdbRemove } from 'firebase/database';
@@ -226,15 +226,20 @@ class LocalDB {
       const normalized = username.toLowerCase().trim();
       const batch = writeBatch(db);
 
-      // Create entries in 'usernames' collection
+      // Create username lookup entry
       const usernameRef = doc(db, 'usernames', normalized);
       batch.set(usernameRef, { uid: this.userId });
 
-      // Update user profile
+      // Use set with merge:true instead of update
+      // This works even if the profile document 
+      // doesn't exist yet (new users)
       const profileRef = doc(db, 'user_profiles', this.userId);
-      batch.update(profileRef, { username: normalized });
+      batch.set(profileRef, { username: normalized }, { merge: true });
 
       await batch.commit();
+      
+      // After claiming, ensure full profile exists
+      await this.ensureUserProfile();
   }
 
   // Update cumulative focus time
@@ -713,6 +718,53 @@ class LocalDB {
     await this._saveSyllabusArray(updated);
   }
 
+  async getStudyPlans(): Promise<StudyPlan[]> {
+    if (!this.userId) {
+      const data = localStorage.getItem('ekagrazone_study_plans');
+      return data ? JSON.parse(data) : [];
+    }
+    try {
+      const snap = await getDoc(doc(db, 'users', this.userId));
+      if (snap.exists() && snap.data().studyPlans) {
+        return snap.data().studyPlans as StudyPlan[];
+      }
+      return [];
+    } catch (e) {
+      console.error('Failed to get study plans:', e);
+      return [];
+    }
+  }
+
+  private async _saveStudyPlansArray(plans: StudyPlan[]): Promise<void> {
+    if (!this.userId) {
+      localStorage.setItem('ekagrazone_study_plans', JSON.stringify(plans));
+      return;
+    }
+    try {
+      await setDoc(
+        doc(db, 'users', this.userId),
+        { studyPlans: plans },
+        { merge: true }
+      );
+    } catch (e) {
+      console.error('Failed to save study plans:', e);
+      throw e;
+    }
+  }
+
+  async saveStudyPlan(plan: StudyPlan): Promise<void> {
+    const current = await this.getStudyPlans();
+    const idx = current.findIndex(p => p.id === plan.id);
+    if (idx > -1) current[idx] = plan;
+    else current.push(plan);
+    await this._saveStudyPlansArray(current);
+  }
+
+  async deleteStudyPlan(id: string): Promise<void> {
+    const current = await this.getStudyPlans();
+    await this._saveStudyPlansArray(current.filter(p => p.id !== id));
+  }
+
   async getGoalsByDate(dateString: string): Promise<DailyGoal[]> { return this.getByDateFromStore(STORE_GOALS, dateString); }
   async getAllGoals(): Promise<DailyGoal[]> { return this.getAllFromStore(STORE_GOALS); }
   async saveGoal(item: DailyGoal) { await this.saveToStore(STORE_GOALS, item); }
@@ -911,10 +963,10 @@ class LocalDB {
           
           // 2. Reset Profile Metrics (Firestore)
           const profileRef = doc(db, 'user_profiles', this.userId);
-          batch.update(profileRef, { 
+          batch.set(profileRef, { 
               totalFocusMs: 0, 
               lastActive: Date.now() 
-          });
+          }, { merge: true });
           
           // Delete settings
           batch.delete(doc(db, 'users', this.userId, 'settings', 'config'));
