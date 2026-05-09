@@ -290,6 +290,7 @@ export const SocialPanel: React.FC = () => {
                             <div className="max-w-3xl mx-auto space-y-8 pt-4">
                                 
                                 <button
+                                  id="social-study-room-btn"
                                   onClick={() => window.dispatchEvent(new Event('open_study_room'))}
                                   className="w-full flex items-center gap-3 p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/15 transition-all text-left mb-4"
                                 >
@@ -309,7 +310,7 @@ export const SocialPanel: React.FC = () => {
                                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                                         <UserPlus size={14} /> Add Friend
                                     </h3>
-                                    <form onSubmit={handleSearch} className="flex gap-2 mb-4">
+                                    <form id="social-add-friend-btn" onSubmit={handleSearch} className="flex gap-2 mb-4">
                                         <div className="relative flex-1">
                                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                                             <input 

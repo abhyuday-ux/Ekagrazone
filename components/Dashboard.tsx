@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
-import { StudySession, Subject, isHexColor, getLocalDateString, UserProfile } from '../types';
+import { StudySession, Subject, isHexColor, getLocalDateString, UserProfile, SyllabusSubject } from '../types';
+import { calculateReadiness, getReadinessColor, getReadinessMessage } from '../utils/readinessScore';
+import { calculateFocusDNA } from '../utils/focusDNA';
+import { ReadinessGauge } from './ReadinessGauge';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -26,6 +29,7 @@ interface DashboardProps {
   onNavigate: (tab: any) => void;
   tasks: any[];
   exams?: any[];
+  syllabusSubjects?: SyllabusSubject[];
 }
 
 export const Dashboard: React.FC<DashboardProps> = React.memo(({ 
@@ -35,7 +39,8 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
   userName = "Aspirant",
   onNavigate,
   tasks,
-  exams
+  exams,
+  syllabusSubjects
 }) => {
   const { accent } = useTheme();
   const [timeOfDay, setTimeOfDay] = useState('');
@@ -121,7 +126,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
         acc[session.subjectId] = (acc[session.subjectId]||0) + session.durationMs;
         return acc;
       }, {} as Record<string,number>)
-    ).sort((a,b) => b[1]-a[1])[0]?.[0]
+    ).sort((a,b) => (b[1] as number) - (a[1] as number))[0]?.[0]
   );
   const hoursRemaining = Math.max(0, 
     effectiveTargetHours - todayHours);
@@ -316,6 +321,12 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
 
   const showWeeklySummary = isSunday || weekDaysStudied >= 5;
 
+  const readiness = useMemo(() => {
+    if (!nextExam || !syllabusSubjects) return null;
+    return calculateReadiness(
+      nextExam, sessions, syllabusSubjects, targetHours);
+  }, [nextExam, sessions, syllabusSubjects, targetHours]);
+
   return (
     <div className="h-full overflow-y-auto custom-scrollbar flex flex-col pb-32 md:pb-0">
         <motion.div 
@@ -342,12 +353,12 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                         </h1>
                     </div>
                     
-                    <div className="flex flex-col sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-2 sm:gap-3 self-start md:self-auto mt-4 md:mt-0">
+                    <div className="hidden sm:flex flex-row w-auto items-center gap-3 md:self-auto mt-0">
                         <motion.button 
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setShowReportAlbum(true)}
-                            className="flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl sm:rounded-full text-xs font-bold text-slate-300 transition-all shadow-lg backdrop-blur-sm"
+                            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-xs font-bold text-slate-300 transition-all shadow-lg backdrop-blur-sm"
                         >
                             <BookIcon size={14} /> 
                             <span>Report Album</span>
@@ -356,7 +367,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => onNavigate('calendar')}
-                            className="flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl sm:rounded-full text-xs font-bold text-slate-300 transition-all shadow-lg backdrop-blur-sm"
+                            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-xs font-bold text-slate-300 transition-all shadow-lg backdrop-blur-sm"
                         >
                             <Calendar size={14} /> 
                             <span>Schedule</span>
@@ -397,7 +408,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
             )}
 
             {/* 2. Main Dashboard Grid - Responsive Columns */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
                 
                 {/* Hero Card / XP Rank Card */}
                 <motion.div 
@@ -417,7 +428,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight truncate">{userProfile?.displayName || userName || 'Student'}</h1>
                             <p className="text-sm text-slate-500 mt-0.5 italic font-medium">{quote}</p>
 
-                            <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar pb-1">
+                            <div id="dashboard-quick-actions" className="flex gap-2 mt-3 overflow-x-auto no-scrollbar pb-1">
                               {[
                                 { label: 'Start Timer', icon: Zap, 
                                   action: () => onNavigate('timer'), 
@@ -457,7 +468,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                             </div>
                         </div>
 
-                        <div className="relative w-20 h-20 sm:w-28 sm:h-28 flex-shrink-0 self-center sm:self-auto ml-0 sm:ml-4 flex items-center justify-center">
+                        <div id="dashboard-goal-ring" className="relative w-20 h-20 sm:w-28 sm:h-28 flex-shrink-0 self-center sm:self-auto ml-0 sm:ml-4 flex items-center justify-center">
                           <svg className="w-20 h-20 sm:w-28 sm:h-28 -rotate-90" viewBox="0 0 100 100">
                             <circle cx="50" cy="50" r="45" 
                               fill="none" stroke="rgba(255,255,255,0.05)" 
@@ -493,6 +504,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                         ) : (
                             <>
                                 <motion.button 
+                                    id="dashboard-start-btn"
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     onClick={() => !isDayCompleted && onNavigate('timer')}
@@ -539,7 +551,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                 {/* Today's Breakdown */}
                 <motion.div 
                     variants={itemVariants}
-                    className="col-span-1 sm:col-span-2 lg:col-span-1 bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-[2rem] p-5 flex flex-col justify-between relative overflow-hidden hover:border-white/20 transition-colors"
+                    className="col-span-1 bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-[2rem] p-5 flex flex-col justify-between relative overflow-hidden hover:border-white/20 transition-colors"
                 >
                     <div className="flex items-center justify-between mb-2 relative z-10">
                         <div className="flex items-center gap-2">
@@ -576,6 +588,93 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                         </span>
                     </div>
                 </motion.div>
+
+                {/* Exam Readiness (Moved from top) */}
+                {nextExam && readiness && (
+                  <motion.div
+                    variants={itemVariants}
+                    className="col-span-1 sm:col-span-2 lg:col-span-4 bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-[2rem] p-5 hover:border-white/20 transition-colors flex flex-col justify-center"
+                  >
+                    <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                      <div className="flex items-center gap-2">
+                        <Target size={14} className="text-slate-400" />
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Exam Readiness</span>
+                      </div>
+                      <button
+                        onClick={() => onNavigate('exams')}
+                        className="text-[10px] text-slate-500 hover:text-white flex items-center gap-1 transition-colors"
+                      >
+                        Details <ArrowRight size={10} />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="flex-shrink-0">
+                        <ReadinessGauge
+                          exam={nextExam}
+                          breakdown={readiness}
+                          size="sm"
+                          showBreakdown={false}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-white truncate mb-0.5">
+                          {nextExam.title}
+                        </div>
+                        <div className="text-[11px] text-slate-500 mb-2">
+                          {readiness.daysRemaining} days remaining
+                        </div>
+                        <div className="space-y-1.5">
+                          {[
+                            { label: '📚 Syllabus', value: readiness.syllabusPercent },
+                            { label: '🔥 Consistency', value: readiness.consistencyPercent },
+                          ].map(item => (
+                            <div key={item.label} className="flex items-center gap-2">
+                              <span className="text-[10px] text-slate-500 w-24 flex-shrink-0">{item.label}</span>
+                              <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+                                <motion.div
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${item.value}%` }}
+                                  transition={{ duration: 1, ease: 'easeOut' }}
+                                  className="h-full rounded-full"
+                                  style={{ background: getReadinessColor(item.value) }}
+                                />
+                              </div>
+                              <span className="text-[10px] font-mono text-slate-400 w-8 text-right">
+                                {item.value}%
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="text-[10px] mt-2 italic" style={{ color: getReadinessColor(readiness.total) }}>
+                          {getReadinessMessage(readiness.total)}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+            </div>
+
+            {/* Mobile Action Buttons below Day Streak (only visible on small screens) */}
+            <div className="flex flex-col sm:hidden w-full gap-2 mb-6">
+                <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setShowReportAlbum(true)}
+                    className="flex items-center justify-center gap-2 w-full py-4 bg-slate-900/40 hover:bg-slate-900/60 border border-white/10 rounded-[1.5rem] text-sm font-bold text-slate-300 transition-all shadow-lg backdrop-blur-md"
+                >
+                    <BookIcon size={16} /> 
+                    <span>Report Album</span>
+                </motion.button>
+                <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => onNavigate('calendar')}
+                    className="flex items-center justify-center gap-2 w-full py-4 bg-slate-900/40 hover:bg-slate-900/60 border border-white/10 rounded-[1.5rem] text-sm font-bold text-slate-300 transition-all shadow-lg backdrop-blur-md"
+                >
+                    <Calendar size={16} /> 
+                    <span>Schedule / Tasks</span>
+                </motion.button>
             </div>
 
             {/* Today's Stats Row */}
@@ -624,7 +723,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
             </div>
 
             {/* 3. Detailed Insights Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 lg:gap-6 mb-4">
                 
                 {/* Weekly Trend */}
                 <motion.div 
@@ -747,7 +846,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                 {/* Upcoming Exam */}
                 <motion.div
                   variants={itemVariants}
-                  className="col-span-1 bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-[2rem] p-6 flex flex-col hover:border-red-500/20 transition-colors group"
+                  className="col-span-1 sm:col-span-2 lg:col-span-1 bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-[2rem] p-6 flex flex-col hover:border-red-500/20 transition-colors group"
                 >
                   <div className="flex items-center gap-2 mb-4">
                     <CalendarDays size={16} className="text-red-400" />
@@ -792,6 +891,74 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({
                   )}
                 </motion.div>
 
+                {/* Focus DNA */}
+                {sessions.length >= 5 && (
+                  <motion.div
+                    variants={itemVariants}
+                    onClick={() => onNavigate('timeline')}
+                    className="col-span-1 sm:col-span-2 lg:col-span-1 bg-slate-900/40 backdrop-blur-md 
+                      border border-white/10 rounded-[2rem] p-5 
+                      cursor-pointer hover:border-white/20 
+                      transition-colors group"
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-sm">🧬</span>
+                      <span className="text-[10px] font-bold text-slate-400 
+                        uppercase tracking-wider">Focus DNA</span>
+                      <ArrowRight size={10} className="text-slate-600 
+                        ml-auto group-hover:text-slate-400 transition-colors" />
+                    </div>
+
+                    {sessions.length < 10 ? (
+                      <div>
+                        <div className="text-sm font-bold text-white mb-1">
+                          Building your DNA...
+                        </div>
+                        <div className="text-xs text-slate-500 mb-2">
+                          {10 - sessions.length} more sessions needed
+                        </div>
+                        <div className="h-1.5 bg-white/5 rounded-full 
+                          overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r 
+                              from-cyan-500 to-purple-500 rounded-full"
+                            style={{width: `${(sessions.length/10)*100}%`}}
+                          />
+                        </div>
+                      </div>
+                    ) : (() => {
+                      const dna = calculateFocusDNA(sessions, subjects);
+                      return (
+                        <div>
+                          <div className="text-2xl mb-1">
+                            {dna.personalityEmoji}
+                          </div>
+                          <div className="text-sm font-bold text-white mb-0.5">
+                            {dna.personalityLabel}
+                          </div>
+                          <div className="text-xs text-slate-500 mb-3 
+                            leading-relaxed line-clamp-2">
+                            {dna.personalityDesc}
+                          </div>
+                          <div className="flex gap-2 text-center">
+                            <div className="flex-1 bg-white/5 rounded-xl p-1.5">
+                              <div className="text-xs font-mono font-bold text-white">
+                                {dna.peakHourLabel}
+                              </div>
+                              <div className="text-[9px] text-slate-600">peak</div>
+                            </div>
+                            <div className="flex-1 bg-white/5 rounded-xl p-1.5">
+                              <div className="text-xs font-mono font-bold text-white">
+                                {Math.round(dna.deepWorkPercent)}%
+                              </div>
+                              <div className="text-[9px] text-slate-600">deep</div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </motion.div>
+                )}
             </div>
 
             <AnimatePresence>

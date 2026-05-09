@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Timer, BarChart3, CalendarDays, Settings, BookOpen, Repeat, Home, Users, GraduationCap, Library, MoreHorizontal } from 'lucide-react';
+import { Timer, BarChart3, CalendarDays, Settings, BookOpen, Repeat, Home, Users, GraduationCap, Library, MoreHorizontal, Lock } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -9,9 +9,11 @@ export type MobileTab = 'dashboard' | 'timer' | 'timeline' | 'calendar' | 'exams
 interface MobileNavProps {
   activeTab: MobileTab;
   setTab: (tab: MobileTab) => void;
+  isPro?: boolean;
+  lockedTabs?: MobileTab[];
 }
 
-export const MobileNav: React.FC<MobileNavProps> = ({ activeTab, setTab }) => {
+export const MobileNav: React.FC<MobileNavProps> = ({ activeTab, setTab, isPro = true, lockedTabs = [] }) => {
   const { accent } = useTheme();
   const [showMore, setShowMore] = useState(false);
 
@@ -52,15 +54,22 @@ export const MobileNav: React.FC<MobileNavProps> = ({ activeTab, setTab }) => {
             transition={{ type: 'spring', bounce: 0.3 }}
             className="bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-3xl p-3 shadow-2xl shadow-black/50 grid grid-cols-4 gap-2"
           >
-            {moreTabs.map(tab => (
+            {moreTabs.map(tab => {
+              const isLocked = lockedTabs.includes(tab.id as MobileTab) && !isPro;
+              return (
               <button key={tab.id}
                 onClick={() => { setTab(tab.id as MobileTab); setShowMore(false); }}
-                className={`flex flex-col items-center gap-1 p-3 rounded-2xl transition-all ${activeTab === tab.id ? `bg-${accent}-500/20 text-${accent}-300` : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                className={`relative flex flex-col items-center gap-1 p-3 rounded-2xl transition-all ${activeTab === tab.id ? `bg-${accent}-500/20 text-${accent}-300` : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
               >
                 <tab.icon size={20} />
                 <span className="text-[9px] font-semibold whitespace-nowrap">{tab.label}</span>
+                {isLocked && (
+                  <div className="absolute top-1 right-1 w-3 h-3 rounded-full bg-slate-700 mx-auto border border-slate-600 flex items-center justify-center">
+                    <Lock size={6} className="text-slate-400" />
+                  </div>
+                )}
               </button>
-            ))}
+            )})}
           </motion.div>
         )}
       </AnimatePresence>
@@ -71,6 +80,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ activeTab, setTab }) => {
           const isActive = activeTab === tab.id;
           const isCenter = tab.id === 'timer';
           const Icon = tab.icon;
+          const isLocked = lockedTabs.includes(tab.id as MobileTab) && !isPro;
           
           if (isCenter) return (
             <button key={tab.id}
@@ -82,6 +92,11 @@ export const MobileNav: React.FC<MobileNavProps> = ({ activeTab, setTab }) => {
                 <span className="text-[8px] font-bold text-white/80">
                   {tab.label}
                 </span>
+              )}
+              {isLocked && (
+                <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center">
+                  <Lock size={6} className="text-slate-400" />
+                </div>
               )}
             </button>
           );
@@ -113,6 +128,11 @@ export const MobileNav: React.FC<MobileNavProps> = ({ activeTab, setTab }) => {
               )}
               <Icon size={18} className="relative z-10" />
               <span className="text-[8px] font-semibold relative z-10 whitespace-nowrap">{tab.label}</span>
+              {isLocked && (
+                <div className="absolute top-1 right-1 w-3 h-3 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center z-20">
+                  <Lock size={6} className="text-slate-400" />
+                </div>
+              )}
             </button>
           );
         })}

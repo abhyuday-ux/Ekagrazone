@@ -1236,12 +1236,12 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({ onClose, currentUser }) =>
           {/* ROOM TOP BAR */}
           <div className="h-16 flex-none px-4 md:px-6 bg-slate-950 border-b border-white/5 flex items-center justify-between">
              <div className="flex items-center gap-4">
-               <h3 className="text-lg font-bold text-white tracking-tight">{roomInfo.name}</h3>
-               <div className="hidden sm:flex items-center gap-2">
-                 <span className="font-mono bg-slate-800 px-3 py-1 text-sm rounded-lg border border-white/10 text-cyan-400 tracking-widest transition-colors duration-200">
+               <h3 className="text-lg font-bold text-white tracking-tight truncate max-w-[80px] sm:max-w-none">{roomInfo.name}</h3>
+               <div className="flex items-center gap-2">
+                 <span className="font-mono text-xs font-bold text-cyan-400 bg-slate-800 px-2 py-0.5 rounded-lg border border-white/10 tracking-widest flex-shrink-0 transition-colors duration-200">
                    {copied ? "COPIED! ✓" : roomInfo.code}
                  </span>
-                 <button onClick={handleCopy} className="p-1.5 text-slate-400 hover:text-white rounded-md hover:bg-white/5 transition-colors">
+                 <button onClick={handleCopy} className="p-1.5 text-slate-400 hover:text-white rounded-md hover:bg-white/5 transition-colors flex-shrink-0">
                     <Copy size={16} />
                  </button>
                </div>
@@ -1646,13 +1646,13 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({ onClose, currentUser }) =>
                                )}
                              </div>
                              <div className={`mt-1 flex flex-wrap gap-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                               {msg.reactions && Object.entries(msg.reactions).filter(([_, uids]) => uids.length > 0).map(([emoji, uids]) => (
+                               {msg.reactions && Object.entries(msg.reactions).filter(([_, uids]) => (uids as string[]).length > 0).map(([emoji, uids]) => (
                                  <button
                                    key={emoji}
                                    onClick={() => handleReact(msg.id, emoji)}
-                                   className={`text-[10px] px-1.5 py-0.5 rounded-md border transition-colors flex items-center gap-1 ${uids.includes(currentUser.uid) ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-300' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`}
+                                   className={`text-[10px] px-1.5 py-0.5 rounded-md border transition-colors flex items-center gap-1 ${(uids as string[]).includes(currentUser.uid) ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-300' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`}
                                  >
-                                   {emoji} {uids.length}
+                                   {emoji} {(uids as string[]).length}
                                  </button>
                                ))}
                              </div>

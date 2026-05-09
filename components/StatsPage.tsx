@@ -9,6 +9,7 @@ import { DailyTimeline } from './DailyTimeline';
 import { HistoryList } from './HistoryList';
 import { YearlyHeatmap } from './YearlyHeatmap';
 import { dbService } from '../services/db';
+import { FocusDNA } from './FocusDNA';
 
 interface StatsPageProps {
   sessions: StudySession[];
@@ -17,7 +18,7 @@ interface StatsPageProps {
 }
 
 type TimeRange = 'today' | 'week' | 'month' | 'all';
-type ViewMode = 'overview' | 'daily';
+type ViewMode = 'overview' | 'daily' | 'dna';
 
 export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onDataUpdate }) => {
   const { accent } = useTheme();
@@ -324,7 +325,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
         
         {/* Header Controls */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 flex-none">
-            <div className="bg-slate-900/50 p-1 rounded-xl border border-white/10 flex gap-1">
+            <div className="bg-slate-900/50 p-1 rounded-xl border border-white/10 flex flex-wrap gap-1">
                 <button 
                     onClick={() => setViewMode('overview')}
                     className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${viewMode === 'overview' ? `bg-${accent}-600 text-white shadow-lg` : 'text-slate-400 hover:text-white'}`}
@@ -336,6 +337,12 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                     className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${viewMode === 'daily' ? `bg-${accent}-600 text-white shadow-lg` : 'text-slate-400 hover:text-white'}`}
                 >
                     <List size={14} /> Daily Log
+                </button>
+                <button
+                  onClick={() => setViewMode('dna')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'dna' ? `bg-${accent}-500/20 text-${accent}-300 border border-${accent}-500/30` : 'text-slate-400 hover:text-white bg-white/5'}`}
+                >
+                  🧬 Focus DNA
                 </button>
             </div>
 
@@ -355,7 +362,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
         </div>
 
         <AnimatePresence mode="wait">
-        {viewMode === 'overview' ? (
+        {viewMode === 'overview' && (
             <motion.div 
                 key="overview"
                 initial={{ opacity: 0, y: 20 }}
@@ -761,7 +768,19 @@ export const StatsPage: React.FC<StatsPageProps> = ({ sessions, subjects, onData
                 </div>
                 )}
             </motion.div>
-        ) : (
+        )}
+        {viewMode === 'dna' && (
+            <motion.div
+                key="dna"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="max-w-md mx-auto py-4 w-full"
+            >
+                <FocusDNA sessions={sessions} subjects={subjects} />
+            </motion.div>
+        )}
+        {viewMode === 'daily' && (
             <motion.div 
                 key="daily"
                 initial={{ opacity: 0, x: 20 }}

@@ -6,7 +6,6 @@ import { Zap, BarChart2, Timer, Workflow, CheckCircle2, Shield, ArrowRight, Layo
 import { motion, useScroll, useTransform, Variants, AnimatePresence } from 'framer-motion';
 import { ContainerScroll } from './ContainerScroll';
 import { Footer } from './Footer';
-import { ScienceSection } from './ScienceSection';
 
 const SHOWCASE_ITEMS = [
   {
@@ -43,21 +42,29 @@ const SHOWCASE_ITEMS = [
 
 const FAQS = [
   {
-    question: "Is EkagraZone really free?",
-    answer: "Yes! All features including the focus timer, advanced analytics, and task planner are completely free."
+    question: "Is EkagraZone free to use?",
+    answer: "EkagraZone has a free plan with core features. Pro features including cloud sync, study rooms, and full syllabus tracking are available with a one-time Pro upgrade."
   },
   {
     question: "Does it work offline?",
-    answer: "Absolutely. EkagraZone is built with a local-first architecture. Your data is saved to your device and syncs to the cloud when you're back online."
+    answer: "Yes! EkagraZone is built with a local-first architecture. Your data is saved to your device first and syncs to the cloud when you're back online."
   },
   {
     question: "Can I use it on my phone?",
-    answer: "Yes, EkagraZone is fully responsive and works beautifully as a Progressive Web App (PWA) on iOS and Android devices."
+    answer: "Absolutely. EkagraZone works as a Progressive Web App (PWA) on iOS and Android. Install it from your browser — no app store needed."
   },
   {
-    question: "How is my data protected?",
-    answer: "We use enterprise-grade encryption via Firebase. Your personal journal entries and study habits are private by design."
-  }
+    question: "Is my data private?",
+    answer: "100%. We use Firebase's enterprise-grade security. Your journal entries and study data are encrypted and only accessible by you."
+  },
+  {
+    question: "Does it have JEE and NEET syllabus?",
+    answer: "Yes! The complete chapter-by-topic syllabus for both JEE Advanced and NEET is built right into the app. Import it in one click."
+  },
+  {
+    question: "What are Study Rooms?",
+    answer: "Study Rooms let you study with friends in real-time — synced Pomodoro timer, live chat, and a collaborative whiteboard. Like Google Meet but for studying."
+  },
 ];
 
 export const LoginPage: React.FC = () => {
@@ -67,12 +74,16 @@ export const LoginPage: React.FC = () => {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [scrolled, setScrolled] = useState(false);
   const { scrollY } = useScroll();
   
   const backgroundY = useTransform(scrollY, [0, 1000], [0, 200]);
 
   useEffect(() => {
     setMounted(true);
+    const handleScroll = () => setScrolled(window.scrollY > 50);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const triggerSpin = () => {
@@ -108,7 +119,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#050511] text-slate-200 font-sans selection:bg-cyan-500/30 flex flex-col relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#050511] text-slate-200 font-sans selection:bg-cyan-500/30 flex flex-col relative overflow-x-hidden pb-24 md:pb-0">
       
       {/* Dynamic Background */}
       <motion.div style={{ y: backgroundY }} className="fixed inset-0 pointer-events-none z-0">
@@ -123,7 +134,7 @@ export const LoginPage: React.FC = () => {
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
-        className="w-full max-w-7xl mx-auto px-6 py-6 flex justify-between items-center relative z-20"
+        className={`sticky top-0 w-full max-w-full px-6 py-4 flex justify-between items-center z-50 transition-all duration-300 ${scrolled ? 'bg-slate-950/80 backdrop-blur-xl border-b border-white/5 shadow-xl' : 'bg-transparent'}`}
       >
           <div className="flex items-center gap-2 cursor-pointer select-none" onClick={triggerSpin}>
             <EkagraLogo 
@@ -132,9 +143,18 @@ export const LoginPage: React.FC = () => {
             />
             <span className="text-lg font-bold tracking-wide text-white">EKAGRAZONE</span>
           </div>
+          <div className="md:hidden flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+            <Shield size={12} /> Free & Private
+          </div>
           <div className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-400">
               <span className="font-hand text-xl text-cyan-200/80 -rotate-2 mr-2">Totally free & local</span>
               <span className="flex items-center gap-1.5"><Shield size={14} className="text-emerald-400"/> Private by Design</span>
+              <button
+                onClick={signInWithGoogle}
+                className="hidden md:flex items-center gap-2 px-4 py-2 bg-cyan-500/15 border border-cyan-500/25 text-cyan-300 rounded-xl text-sm font-bold hover:bg-cyan-500/25 transition-colors"
+              >
+                Get Started <ArrowRight size={14} />
+              </button>
           </div>
       </motion.nav>
 
@@ -142,7 +162,7 @@ export const LoginPage: React.FC = () => {
       <ContainerScroll />
 
       {/* Main Hero Content */}
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center relative z-10 py-12 lg:py-20">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-20 items-center relative z-10 py-8 lg:py-20">
           
           {/* Left Column: Copy & Actions */}
           <motion.div 
@@ -158,14 +178,14 @@ export const LoginPage: React.FC = () => {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
                 </span>
-                The Ultimate Zen Focus OS
+                India's #1 Study Productivity App
              </motion.div>
 
              {/* Headline */}
              <div className="relative">
                  <motion.h1 variants={itemVariants} className="text-4xl sm:text-6xl lg:text-7xl font-bold text-white tracking-tight leading-[1.1]">
-                    Master your <br/>
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400">flow state.</span>
+                    Crack your exam.<br/>
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400">Master your focus.</span>
                  </motion.h1>
                  <motion.span 
                     variants={itemVariants} 
@@ -177,7 +197,7 @@ export const LoginPage: React.FC = () => {
              </div>
 
              <motion.p variants={itemVariants} className="text-base sm:text-lg text-slate-400 leading-relaxed max-w-lg">
-                Stop juggling apps. Ekagrazone combines a pro-grade timer, habit tracker, and analytics engine into one beautiful, local-first workspace.
+                Built for JEE, NEET & BITSAT aspirants. EkagraZone combines a precision timer, full syllabus tracker, and study rooms into one beautiful workspace.
                 <span className="block mt-2 font-hand text-xl text-cyan-200/70">Designed for deep work enthusiasts.</span>
              </motion.p>
 
@@ -194,16 +214,35 @@ export const LoginPage: React.FC = () => {
                         <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
                         <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                     </svg>
-                    Start Syncing
+                    Get Started Free
                  </button>
                  
                  <button 
                     onClick={continueAsGuest}
-                    className="font-hand text-2xl sm:text-3xl text-slate-400 hover:text-cyan-300 transition-colors relative group px-4 py-2 w-full sm:w-auto text-center"
+                    className="font-hand text-xl sm:text-2xl lg:text-3xl text-slate-400 hover:text-cyan-300 transition-colors relative group px-4 py-2 w-full sm:w-auto text-center"
                  >
                     Continue as Guest
                     <span className="absolute bottom-2 left-4 right-4 h-0.5 bg-cyan-300/50 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center"></span>
                  </button>
+             </motion.div>
+
+             <motion.div variants={itemVariants} className="flex items-center gap-6 py-2 flex-wrap">
+                {[
+                  { value: '500+', label: 'Students' },
+                  { value: 'JEE', label: '& NEET Ready' },
+                  { value: '100%', label: 'Free to Start' },
+                ].map((stat, i) => (
+                  <div key={i} className="flex flex-col">
+                    <span className="text-lg font-bold font-mono text-white">{stat.value}</span>
+                    <span className="text-[10px] text-slate-500 uppercase tracking-widest">{stat.label}</span>
+                  </div>
+                ))}
+                <div className="flex items-center gap-1 ml-auto">
+                  {[...Array(5)].map((_,i) => (
+                    <Star key={i} size={12} className="text-amber-400 fill-amber-400" />
+                  ))}
+                  <span className="text-xs text-slate-400 ml-1">5.0</span>
+                </div>
              </motion.div>
 
              {/* Features Grid (Bento Style with "Screenshots") */}
@@ -319,7 +358,7 @@ export const LoginPage: React.FC = () => {
           </motion.div>
 
           {/* Right Column: 3D UI Showcase */}
-          <div className="relative h-[400px] lg:h-[600px] w-full perspective-1000 mt-12 lg:mt-0">
+          <div className="relative h-[280px] sm:h-[400px] lg:h-[600px] w-full perspective-1000 mt-8 lg:mt-0">
               <MockInterface />
           </div>
 
@@ -393,7 +432,7 @@ export const LoginPage: React.FC = () => {
                             <img 
                                 src={item.image} 
                                 alt={item.title} 
-                                className="w-full h-auto transform group-hover:scale-105 transition-transform duration-700"
+                                className="w-full h-auto max-h-[250px] sm:max-h-none object-cover sm:object-contain transform group-hover:scale-105 transition-transform duration-700"
                                 loading="lazy"
                             />
                         </div>
@@ -403,39 +442,6 @@ export const LoginPage: React.FC = () => {
         ))}
       </div>
       
-      {/* SEO Content Section */}
-      <div className="w-full max-w-7xl mx-auto px-6 py-16 relative z-10">
-        <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-3xl p-8 md:p-12">
-          <h2 className="text-3xl font-bold text-white mb-8 text-center">Master Your Deep Work with EkagraZone</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-slate-400">
-            <div className="space-y-3">
-              <h3 className="text-cyan-400 font-bold text-lg flex items-center gap-2">
-                <span className="text-2xl">🏆</span> Gamified Pomodoro Timer
-              </h3>
-              <p className="leading-relaxed text-sm">
-                Transform productivity into a game. Earn XP for every minute of focus, climb the global leaderboard, and unlock achievements. Our <strong>Gamified Pomodoro Timer</strong> makes deep work addictive and rewarding.
-              </p>
-            </div>
-            <div className="space-y-3">
-              <h3 className="text-cyan-400 font-bold text-lg flex items-center gap-2">
-                <span className="text-2xl">🧠</span> Scientific Focus
-              </h3>
-              <p className="leading-relaxed text-sm">
-                Leverage the power of the <strong>25/5 minute interval system</strong>. Based on circadian rhythm research, EkagraZone optimizes your brain performance by balancing intense focus sprints with restorative breaks.
-              </p>
-            </div>
-            <div className="space-y-3">
-              <h3 className="text-cyan-400 font-bold text-lg flex items-center gap-2">
-                <span className="text-2xl">⚔️</span> Productivity Arena
-              </h3>
-              <p className="leading-relaxed text-sm">
-                Step into the <strong>Productivity Arena</strong>. Compete with friends in real-time, track your daily focus stats, and visualize your consistency with advanced heatmaps and analytics.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Premium Bento Grid Features */}
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 pb-32 relative z-10">
         <div className="text-center mb-16">
@@ -474,7 +480,7 @@ export const LoginPage: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="md:col-span-2 p-8 md:p-10 bg-slate-900/40 backdrop-blur-md rounded-[2rem] border border-white/10 hover:border-cyan-500/30 transition-all group overflow-hidden relative"
+                className="md:col-span-2 p-6 md:p-8 lg:p-10 bg-slate-900/40 backdrop-blur-md rounded-[2rem] border border-white/10 hover:border-cyan-500/30 transition-all group overflow-hidden relative"
             >
                 <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 blur-[80px] rounded-full group-hover:bg-cyan-500/20 transition-colors duration-700" />
                 <div className="relative z-10 h-full flex flex-col justify-between">
@@ -492,7 +498,7 @@ export const LoginPage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.1 }}
-                className="p-8 md:p-10 bg-slate-900/40 backdrop-blur-md rounded-[2rem] border border-white/10 hover:border-emerald-500/30 transition-all group overflow-hidden relative"
+                className="p-6 md:p-8 lg:p-10 bg-slate-900/40 backdrop-blur-md rounded-[2rem] border border-white/10 hover:border-emerald-500/30 transition-all group overflow-hidden relative"
             >
                 <div className="absolute bottom-0 right-0 w-48 h-48 bg-emerald-500/10 blur-[60px] rounded-full group-hover:bg-emerald-500/20 transition-colors duration-700" />
                 <div className="relative z-10">
@@ -508,7 +514,7 @@ export const LoginPage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.2 }}
-                className="p-8 md:p-10 bg-slate-900/40 backdrop-blur-md rounded-[2rem] border border-white/10 hover:border-amber-500/30 transition-all group overflow-hidden relative"
+                className="p-6 md:p-8 lg:p-10 bg-slate-900/40 backdrop-blur-md rounded-[2rem] border border-white/10 hover:border-amber-500/30 transition-all group overflow-hidden relative"
             >
                 <div className="absolute top-0 left-0 w-48 h-48 bg-amber-500/10 blur-[60px] rounded-full group-hover:bg-amber-500/20 transition-colors duration-700" />
                 <div className="relative z-10">
@@ -524,18 +530,81 @@ export const LoginPage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.3 }}
-                className="md:col-span-2 p-8 md:p-10 bg-slate-900/40 backdrop-blur-md rounded-[2rem] border border-white/10 hover:border-pink-500/30 transition-all group overflow-hidden relative"
+                className="md:col-span-2 p-6 md:p-8 lg:p-10 bg-slate-900/40 backdrop-blur-md rounded-[2rem] border border-white/10 hover:border-pink-500/30 transition-all group overflow-hidden relative"
             >
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-pink-500/10 blur-[80px] rounded-full group-hover:bg-pink-500/20 transition-colors duration-700" />
                 <div className="relative z-10 h-full flex flex-col justify-between">
                     <div>
                         <div className="w-14 h-14 rounded-2xl bg-pink-500/20 flex items-center justify-center text-pink-400 mb-6 group-hover:scale-110 transition-transform duration-500"><Users size={28} /></div>
-                        <h4 className="text-2xl md:text-3xl text-white font-bold mb-4">Global Arena</h4>
-                        <p className="text-slate-400 leading-relaxed max-w-md text-lg">Productivity is better together. Compete on global leaderboards, challenge your friends, and stay accountable in a community of high achievers.</p>
+                        <h4 className="text-2xl md:text-3xl text-white font-bold mb-4">Study Together</h4>
+                        <p className="text-slate-400 leading-relaxed max-w-md text-lg">Study with friends in real-time rooms. Collaborate on a shared whiteboard, sync your Pomodoro timers, and stay accountable together.</p>
                     </div>
                 </div>
             </motion.div>
         </div>
+      </div>
+
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 pb-16 relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="bg-gradient-to-r from-cyan-500/5 via-blue-500/5 to-purple-500/5 border border-white/10 rounded-3xl p-8 md:p-12"
+        >
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-bold uppercase tracking-widest mb-4">
+              <Sparkles size={12} /> Built for Indian Students
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 tracking-tight">
+              India's most complete study companion
+            </h2>
+            <p className="text-slate-400 max-w-2xl mx-auto">
+              Designed specifically for JEE, NEET, BITSAT and other competitive exam aspirants.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {
+                emoji: '📚',
+                title: 'Full JEE & NEET Syllabus',
+                desc: 'Every chapter and topic pre-loaded. Track your progress topic by topic.',
+                color: 'cyan'
+              },
+              {
+                emoji: '👥',
+                title: 'Study Rooms',
+                desc: 'Study with friends in real-time. Synced Pomodoro timer and live chat.',
+                color: 'purple'
+              },
+              {
+                emoji: '🗺️',
+                title: 'Smart Study Planner',
+                desc: 'Auto-generate a day-by-day plan based on your syllabus completion.',
+                color: 'emerald'
+              },
+              {
+                emoji: '🎨',
+                title: 'Collaborative Whiteboard',
+                desc: 'Draw, annotate and explain concepts with friends in study rooms.',
+                color: 'amber'
+              },
+            ].map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className={`p-5 rounded-2xl bg-${item.color}-500/5 border border-${item.color}-500/15 hover:border-${item.color}-500/30 transition-colors`}
+              >
+                <div className="text-3xl mb-3">{item.emoji}</div>
+                <div className="font-bold text-white text-sm mb-1">{item.title}</div>
+                <div className="text-slate-400 text-xs leading-relaxed">{item.desc}</div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
       </div>
 
       {/* How It Works Section */}
@@ -556,6 +625,7 @@ export const LoginPage: React.FC = () => {
           <div className="relative">
               {/* Connecting Line */}
               <div className="hidden md:block absolute top-1/2 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent -translate-y-1/2 z-0" />
+              <div className="md:hidden absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-transparent via-cyan-500/30 to-transparent z-0" />
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative z-10">
                   {[
@@ -596,7 +666,7 @@ export const LoginPage: React.FC = () => {
                           whileInView={{ opacity: 1, y: 0 }}
                           viewport={{ once: true }}
                           transition={{ delay: i * 0.2 }}
-                          className="flex flex-col items-center text-center relative group"
+                          className="flex flex-col items-center text-center relative group pl-8 md:pl-0"
                       >
                           <div className={`w-20 h-20 rounded-2xl bg-slate-900 border ${item.borderClass} flex items-center justify-center ${item.colorClass} mb-6 relative z-10 group-hover:scale-110 ${item.hoverBgClass} transition-all duration-500 shadow-[0_0_30px_rgba(0,0,0,0.5)]`}>
                               {item.icon}
@@ -611,9 +681,6 @@ export const LoginPage: React.FC = () => {
               </div>
           </div>
       </div>
-
-      {/* Science & Methodology Section */}
-      <ScienceSection />
 
       {/* Mobile Experience Section */}
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 pb-32 relative z-10">
@@ -719,6 +786,38 @@ export const LoginPage: React.FC = () => {
                   {/* Decorative blur behind phone */}
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[500px] bg-cyan-500/20 blur-[60px] rounded-full -z-10" />
               </motion.div>
+          </div>
+      </div>
+
+      {/* FAQ Section */}
+      <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 pb-24 relative z-10">
+          <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold text-white mb-4">Frequently Asked Questions</h2>
+          </div>
+          <div className="space-y-4">
+              {FAQS.map((faq, index) => (
+                  <div key={index} className="bg-slate-900/40 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm">
+                      <button 
+                          onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                          className="w-full flex items-center justify-between p-6 text-left hover:bg-white/5 transition-colors"
+                      >
+                          <span className="font-bold text-white text-lg">{faq.question}</span>
+                          {openFaq === index ? <ChevronUp className="text-cyan-400 flex-shrink-0" /> : <ChevronDown className="text-slate-400 flex-shrink-0" />}
+                      </button>
+                      <AnimatePresence>
+                          {openFaq === index && (
+                              <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: "auto", opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  className="px-6 pb-6 text-slate-400 leading-relaxed overflow-hidden"
+                              >
+                                  {faq.answer}
+                              </motion.div>
+                          )}
+                      </AnimatePresence>
+                  </div>
+              ))}
           </div>
       </div>
 

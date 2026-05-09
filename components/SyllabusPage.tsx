@@ -141,6 +141,7 @@ export const SyllabusPage: React.FC<SyllabusPageProps> = ({ subjects }) => {
               <Upload size={18} />
             </button>
             <button
+              id="syllabus-import-btn"
               onClick={() => setShowImportModal(true)}
               className={`p-2 rounded-lg bg-${accentColor}-500/20 text-${accentColor}-300 hover:bg-${accentColor}-500/30 transition-colors`}
             >
@@ -171,6 +172,7 @@ export const SyllabusPage: React.FC<SyllabusPageProps> = ({ subjects }) => {
               <span>{exportLoading ? 'Exporting...' : 'Export'}</span>
             </button>
             <button
+              id="syllabus-import-btn-desktop"
               onClick={() => setShowImportModal(true)}
               className={`px-3 py-1.5 flex items-center gap-1.5 text-sm font-medium rounded-lg bg-${accentColor}-500/20 text-${accentColor}-300 hover:bg-${accentColor}-500/30 transition-colors whitespace-nowrap`}
             >
@@ -787,6 +789,7 @@ const ChapterView = ({
                 <div key={topic.id} className="flex items-center justify-between group p-2.5 md:p-2 rounded-lg hover:bg-white/5 active:bg-white/10 transition-colors">
                   <div className="flex items-center gap-3 w-full">
                     <button 
+                      id="syllabus-topic-status"
                       onClick={() => handleToggleStatus(topic)}
                       className={`w-6 h-6 md:w-5 md:h-5 rounded-md border-2 flex shrink-0 items-center justify-center transition-colors ${getStatusColor(topic.status)}`}
                     >

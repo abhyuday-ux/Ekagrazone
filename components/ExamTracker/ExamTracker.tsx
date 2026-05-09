@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Subject, Exam } from '../../types';
+import { Subject, Exam, StudySession, SyllabusSubject } from '../../types';
 import { ExamCountdown } from './ExamCountdown';
 import { MockTestAnalytics } from './MockTestAnalytics';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -9,9 +9,11 @@ interface ExamTrackerProps {
     subjects: Subject[];
     exams: Exam[];
     onUpdate: () => void;
+    sessions?: StudySession[];
+    syllabusSubjects?: SyllabusSubject[];
 }
 
-export const ExamTracker: React.FC<ExamTrackerProps> = ({ subjects, exams, onUpdate }) => {
+export const ExamTracker: React.FC<ExamTrackerProps> = ({ subjects, exams, onUpdate, sessions, syllabusSubjects }) => {
     const { accent } = useTheme();
     const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming');
 
@@ -52,7 +54,13 @@ export const ExamTracker: React.FC<ExamTrackerProps> = ({ subjects, exams, onUpd
             {/* Content Area */}
             <div id="exam-countdown" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {activeTab === 'upcoming' ? (
-                    <ExamCountdown subjects={subjects} exams={exams} onUpdate={onUpdate} />
+                    <ExamCountdown 
+                        subjects={subjects} 
+                        exams={exams} 
+                        onUpdate={onUpdate}
+                        sessions={sessions}
+                        syllabusSubjects={syllabusSubjects}
+                    />
                 ) : (
                     <MockTestAnalytics subjects={subjects} />
                 )}

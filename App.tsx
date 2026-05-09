@@ -21,13 +21,18 @@ import { ExamList } from './components/ExamList';
 import { SocialPanel } from './components/SocialPanel';
 import { UsernameSetup } from './components/UsernameSetup';
 import { SessionSummaryModal } from './components/SessionSummaryModal';
-import { AppGuide, resetTours } from './components/AppGuide';
 import { FriendObserver } from './components/FriendObserver';
 import { NotificationCenter } from './components/NotificationCenter';
 import { ChallengeSettings } from './components/ChallengeSettings';
 import { ExamTracker } from './components/ExamTracker/ExamTracker';
 import { SyllabusPage } from './components/SyllabusPage';
+import { TutorialIntro } from './components/TutorialIntro';
+import TutorialTooltip from './components/TutorialTooltip';
+import { useTutorial } from './hooks/useTutorial';
 import { StudyRoom } from './components/StudyRoom';
+import { ProPreviewModal } from './components/ProPreviewModal';
+import { UpgradePopup } from './components/UpgradePopup';
+import { PricingPage } from './components/PricingPage';
 
 import { EkagraLogo } from './components/EkagraLogo';
 import { ZenSubjectPanel } from './components/ZenSubjectPanel';
@@ -35,13 +40,16 @@ import { useAuth } from './contexts/AuthContext';
 import { dbService } from './services/db';
 import { useSound } from './contexts/SoundContext';
 import { usePerformance } from './contexts/PerformanceContext';
-import { StudySession, Subject, DEFAULT_SUBJECTS, Task, Exam, isHexColor, TimerDurations, DEFAULT_DURATIONS, UserProfile, getLocalDateString } from './types';
+import { StudySession, Subject, DEFAULT_SUBJECTS, Task, Exam, isHexColor, TimerDurations, DEFAULT_DURATIONS, UserProfile, getLocalDateString, SyllabusSubject } from './types';
 import { Zap, Wifi, WifiOff, RefreshCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Settings, Timer, BarChart3, CalendarDays, Target, Trash2, AlertCircle, PanelLeftClose, PanelLeftOpen, CheckSquare, Palette, Image as ImageIcon, ToggleLeft, ToggleRight, Maximize2, X, BookOpen, Repeat, Home, Activity, AlertTriangle, Download, Upload, Database, Layout, Rocket, Globe, RotateCcw, LogOut, HardDrive, LogIn, GraduationCap, Volume2, VolumeX, Play, Pause, Hourglass, Users, Bell, Loader2, ShieldCheck, Lock, Clock, Library, HelpCircle } from 'lucide-react';
 import { useTheme, ACCENT_COLORS } from './contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { rtdb, db } from './services/firebase';
 import { ref, set, onDisconnect, serverTimestamp, onValue, update } from 'firebase/database';
 import { doc, getDoc } from 'firebase/firestore';
+
+const LOCKED_TABS: MobileTab[] = ['syllabus', 'journal', 'habits', 'social', 'calendar', 'exams'];
+const FREE_TABS: MobileTab[] = ['dashboard', 'timer', 'timeline', 'settings'];
 
 // Helper function to extract YouTube video ID
 const getYoutubeId = (url: string) => {
@@ -187,6 +195,23 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [usernameNeeded, setUsernameNeeded] = useState(false);
   
+  const [isVIP, setIsVIP] = useState(false);
+  const [showProPreview, setShowProPreview] = useState<MobileTab | null>(null);
+  const [showUpgradePopup, setShowUpgradePopup] = useState(false);
+  const [showPricing, setShowPricing] = useState(false);
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set(['dashboard']));
+  const [sessionStartTime] = useState(Date.now());
+  
+  const isPro = hasPremium || isVIP;
+
+  useEffect(() => {
+    if (currentUser && !isGuest) {
+      getDoc(doc(db, 'authorized_users', currentUser.uid))
+        .then(d => setIsVIP(d.exists()))
+        .catch(() => setIsVIP(false));
+    }
+  }, [currentUser, isGuest]);
+
   // UI State
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -229,9 +254,63 @@ const App: React.FC = () => {
 
   const activeTab = tabMap[location.pathname] || 'dashboard';
 
+  const {
+    showIntro, isTooltipActive, currentTooltipConfig,
+    currentTooltipStep, totalTooltipSteps,
+    initTutorial, completeIntro, skipIntro,
+    nextTooltip, skipTooltips, replayTutorial,
+  } = useTutorial(activeTab);
+
   const setActiveTab = useCallback((tab: MobileTab) => {
     navigate(reverseTabMap[tab]);
   }, [navigate]);
+
+  const handleTabChange = useCallback((tab: MobileTab) => {
+    if (isPro) {
+      setActiveTab(tab);
+      return;
+    }
+    
+    if (LOCKED_TABS.includes(tab)) {
+      setShowProPreview(tab);
+      return;
+    }
+    
+    setActiveTab(tab);
+    setVisitedTabs(prev => {
+      const next = new Set(prev);
+      next.add(tab);
+      return next;
+    });
+  }, [isPro, setActiveTab]);
+
+  useEffect(() => {
+    if (isPro || isGuest || !currentUser) return;
+    
+    const alreadyShown = localStorage.getItem('ekagra_upgrade_shown');
+    if (alreadyShown) return;
+
+    const tabsVisited = visitedTabs.size >= 4;
+    const timeElapsed = Date.now() - sessionStartTime > 120000;
+    
+    if (tabsVisited || timeElapsed) {
+      setShowUpgradePopup(true);
+      localStorage.setItem('ekagra_upgrade_shown', 'true');
+    }
+  }, [visitedTabs, isPro, isGuest, currentUser, sessionStartTime]);
+
+  useEffect(() => {
+    if (isPro || isGuest || !currentUser) return;
+    const alreadyShown = localStorage.getItem('ekagra_upgrade_shown');
+    if (alreadyShown) return;
+    
+    const timer = setTimeout(() => {
+      setShowUpgradePopup(true);
+      localStorage.setItem('ekagra_upgrade_shown', 'true');
+    }, 120000); // 2 minutes
+    
+    return () => clearTimeout(timer);
+  }, [isPro, isGuest, currentUser]);
 
   useEffect(() => {
     if ((location.pathname === '/' || !tabMap[location.pathname]) && (currentUser || isGuest)) {
@@ -718,6 +797,15 @@ const App: React.FC = () => {
       if (shouldEnter) setIsZenActive(true);
   };
 
+  useEffect(() => {
+    if (currentUser && !isGuest && currentUser.displayName && !usernameNeeded) {
+      const tutorialDone = localStorage.getItem('ekagra_tutorial_complete');
+      if (!tutorialDone) {
+        setTimeout(() => initTutorial(true), 1000);
+      }
+    }
+  }, [currentUser, isGuest, usernameNeeded, initTutorial]);
+
   // --- STRICT RENDERING LOGIC ---
 
   // 1. Loading State - Absolute Top Priority
@@ -887,6 +975,23 @@ const App: React.FC = () => {
 
   const SettingsContent = () => (
     <div id="settings-container" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto w-full">
+        {!isPro && (
+          <div className={`p-4 rounded-2xl bg-${accent}-500/10 border border-${accent}-500/20 mb-6`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-bold text-white">Free Plan</div>
+                <div className="text-xs text-slate-400">Upgrade to unlock all features</div>
+              </div>
+              <button
+                onClick={() => setShowPricing(true)}
+                className={`px-4 py-2 rounded-xl bg-${accent}-500 text-white text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer`}
+              >
+                Upgrade ₹149
+              </button>
+            </div>
+          </div>
+        )}
+        
         {/* Profile Card */}
         <div className="p-8 bg-gradient-to-br from-slate-800 to-slate-900/80 backdrop-blur-xl rounded-3xl border border-white/10 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl relative overflow-hidden group">
              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
@@ -924,6 +1029,30 @@ const App: React.FC = () => {
         </div>
 
         {/* ... Rest of Settings (unchanged) ... */}
+
+        <div className="p-6 bg-slate-900/40 backdrop-blur-md rounded-3xl border border-white/10">
+          <div className="flex items-center gap-3 border-b border-white/5 pb-4 mb-4">
+            <div className={`p-2.5 bg-${accent}-500/20 rounded-xl text-${accent}-400`}>
+              <HelpCircle size={20} />
+            </div>
+            <span className="font-bold text-lg text-slate-200">App Tutorial</span>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-slate-300 mb-1">🎬 Replay Tutorial</div>
+              <div className="text-xs text-slate-500">Watch the intro and re-enable all feature tooltips</div>
+            </div>
+            <button
+              onClick={replayTutorial}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-sm font-bold hover:bg-white/10 hover:text-white transition-all"
+            >
+              <RotateCcw size={14} />
+              Replay
+            </button>
+          </div>
+        </div>
+
         <ChallengeSettings />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Column 1: Appearance */}
@@ -1085,17 +1214,6 @@ const App: React.FC = () => {
                             </div>
                             <ChevronRight size={20} className="text-slate-500 group-hover:text-white transition-colors" />
                         </button>
-
-                        <button id="reset-tutorials-btn" onClick={resetTours} className="w-full flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors group">
-                            <div className="flex items-center gap-4">
-                                <div className={`p-2 bg-${accent}-500/10 rounded-xl text-${accent}-400 group-hover:bg-${accent}-500/20 transition-colors`}><HelpCircle size={20} /></div>
-                                <div>
-                                    <span className="font-semibold text-slate-200 block text-left">Reset Tutorials</span>
-                                    <span className="text-xs text-slate-500 block text-left">Show all app guides again</span>
-                                </div>
-                            </div>
-                            <ChevronRight size={20} className="text-slate-500 group-hover:text-white transition-colors" />
-                        </button>
                     </div>
                 </div>
 
@@ -1151,98 +1269,235 @@ const App: React.FC = () => {
     </div>
   );
 
-  const DesktopSidebar = () => {
+  const DockNav = () => {
+    const [hoveredTab, setHoveredTab] = useState<string|null>(null);
+    const [mouseX, setMouseX] = useState<number|null>(null);
+    const dockRef = useRef<HTMLDivElement>(null);
+    const itemRefs = useRef<Record<string, HTMLDivElement|null>>({});
+
     const tabs = [
       { id: 'dashboard', label: 'Home', icon: Home },
       { id: 'timer', label: 'Focus', icon: Timer },
       { id: 'timeline', label: 'Stats', icon: BarChart3 },
       { id: 'syllabus', label: 'Syllabus', icon: Library },
+      { id: 'calendar', label: 'Plan', icon: CalendarDays },
       { id: 'exams', label: 'Exams', icon: GraduationCap },
       { id: 'habits', label: 'Habits', icon: Repeat },
       { id: 'journal', label: 'Journal', icon: BookOpen },
-      { id: 'calendar', label: 'Plan', icon: CalendarDays },
-      { id: 'social', label: 'Arena', icon: Users }, 
+      { id: 'social', label: 'Social', icon: Users },
       { id: 'settings', label: 'Settings', icon: Settings },
     ];
 
+    const getItemScale = (tabId: string) => {
+      if (mouseX === null) return 1;
+      const el = itemRefs.current[tabId];
+      if (!el) return 1;
+      const rect = el.getBoundingClientRect();
+      const itemCenter = rect.left + rect.width / 2;
+      const distance = Math.abs(mouseX - itemCenter);
+      const maxDistance = rect.width * 3.5;
+      if (distance > maxDistance) return 1;
+      const scale = 1 + (1 - distance / maxDistance) * 0.75;
+      return Math.min(1.75, scale);
+    };
+
+    const getItemYOffset = (tabId: string) => {
+      if (mouseX === null) return 0;
+      const el = itemRefs.current[tabId];
+      if (!el) return 1;
+      const rect = el.getBoundingClientRect();
+      const itemCenter = rect.left + rect.width / 2;
+      const distance = Math.abs(mouseX - itemCenter);
+      const maxDistance = rect.width * 3.5;
+      if (distance > maxDistance) return 0;
+      return -(1 - distance / maxDistance) * 14;
+    };
+
     return (
-      <nav className="flex flex-col w-20 xl:w-64 flex-none py-6 h-full max-h-screen relative z-50">
-         <div className="flex xl:justify-start justify-center px-4 mb-8 flex-none">
-             <div className="flex items-center gap-3 cursor-pointer select-none" onClick={triggerLogoSpin}>
-                <EkagraLogo 
-                    className={`w-10 h-10 text-${accent}-500 shadow-lg shadow-${accent}-500/20 flex-none transition-transform`}
-                    style={{ animation: isLogoSpinning ? 'spin 0.7s ease-in-out' : 'none' }}
-                />
-                <h1 className="hidden xl:block font-bold text-lg tracking-tight text-white">EKAGRAZONE</h1>
-             </div>
-         </div>
-         
-         <div className="flex-1 flex flex-col gap-2 overflow-y-auto no-scrollbar px-3">
-            {tabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
-                
-                return (
-                <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as MobileTab)}
-                    className={`
-                        w-full flex items-center gap-4 p-3 rounded-xl transition-all duration-300 group relative
-                        ${isActive ? 'bg-white/10 text-white shadow-lg border border-white/5' : 'text-slate-400 hover:text-white hover:bg-white/10'}
-                        ${!isActive && 'hover:translate-x-1'}
-                    `}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 
+        z-50 hidden md:block">
+        
+        {/* Dock container */}
+        <motion.div
+          ref={dockRef}
+          className="flex items-end gap-2 px-4 py-3
+            bg-slate-900/80 backdrop-blur-2xl 
+            border border-white/10 rounded-3xl
+            shadow-2xl shadow-black/50"
+          onMouseMove={(e) => setMouseX(e.clientX)}
+          onMouseLeave={() => {
+            setMouseX(null);
+            setHoveredTab(null);
+          }}
+        >
+          {/* Logo */}
+          <div 
+            className="flex items-center justify-center 
+              w-10 h-10 mr-2 cursor-pointer flex-shrink-0 rounded-2xl"
+            onClick={triggerLogoSpin}
+          >
+            <EkagraLogo 
+              className="w-8 h-8 rounded-2xl"
+              style={{ 
+                animation: isLogoSpinning 
+                  ? 'spin 0.7s ease-in-out' : 'none',
+                filter: `drop-shadow(0 0 8px var(--tw-shadow-color))`
+              }}
+            />
+          </div>
+
+          {/* Divider */}
+          <div className="w-px h-8 bg-white/10 mr-2 flex-shrink-0" />
+
+          {/* Tab icons */}
+          {tabs.map((tab, index) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+
+            return (
+              <div
+                key={tab.id}
+                ref={el => itemRefs.current[tab.id] = el}
+                className="relative flex flex-col items-center"
+                onMouseEnter={() => setHoveredTab(tab.id)}
+              >
+                {/* Tooltip */}
+                <AnimatePresence>
+                  {hoveredTab === tab.id && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 5, scale: 0.8 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 5, scale: 0.8 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute -top-10 left-1/2 
+                        -translate-x-1/2 whitespace-nowrap
+                        bg-slate-800 border border-white/10 
+                        text-white text-[11px] font-semibold 
+                        px-2.5 py-1 rounded-lg shadow-xl
+                        pointer-events-none z-50"
+                    >
+                      {tab.label}
+                      <div className="absolute top-full left-1/2 
+                        -translate-x-1/2 w-0 h-0 
+                        border-l-4 border-r-4 border-t-4 
+                        border-transparent border-t-slate-800" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Icon button */}
+                <motion.button
+                  onClick={() => handleTabChange(tab.id as MobileTab)}
+                  animate={{
+                    scale: getItemScale(tab.id),
+                    y: getItemYOffset(tab.id),
+                  }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 300,
+                    damping: 20,
+                    mass: 0.5
+                  }}
+                  className={`relative w-11 h-11 rounded-2xl 
+                    flex items-center justify-center 
+                    transition-colors duration-200 cursor-pointer
+                    ${isActive 
+                      ? `bg-${accent}-500/20 
+                         border border-${accent}-500/30` 
+                      : 'hover:bg-white/8 border border-transparent'}`}
+                  style={{
+                    transformOrigin: 'bottom center',
+                  }}
                 >
-                    {isActive && (
-                        <motion.div 
-                            layoutId="sidebar-active"
-                            className={`absolute left-0 w-1 h-6 bg-${accent}-500 rounded-r-full shadow-[0_0_12px_rgba(var(--color-${accent}-500),0.6)]`}
-                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                        />
-                    )}
-                    <div className="flex justify-center xl:w-6 flex-none">
-                        <Icon size={20} className={`transition-transform duration-300 ${isActive ? `scale-110 text-${accent}-400` : 'group-hover:scale-110'}`} />
+                  <Icon 
+                    size={20} 
+                    className={`transition-colors duration-200
+                      ${isActive 
+                        ? `text-${accent}-400` 
+                        : 'text-slate-400 hover:text-slate-200'}`}
+                    strokeWidth={isActive ? 2.5 : 2}
+                  />
+
+                  {LOCKED_TABS.includes(tab.id as MobileTab) && !isPro && (
+                    <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center">
+                      <Lock size={6} className="text-slate-400" />
                     </div>
-                    <span className="hidden xl:block text-sm font-medium tracking-wide opacity-90">{tab.label}</span>
-                </button>
-                )
-            })}
-         </div>
+                  )}
 
-         <div className="flex-none mt-auto pt-4 border-t border-white/5 px-4 xl:px-6">
-             {/* Music Player Mini */}
-             {isPlaying && (
-                 <div className="mb-4 bg-slate-900/50 p-2.5 rounded-xl border border-white/5 flex items-center justify-between shadow-lg">
-                     <div className="flex items-center gap-2">
-                         <div className={`p-1.5 rounded-lg bg-${accent}-500/20 text-${accent}-400 animate-pulse`}>
-                             <Volume2 size={14} />
-                         </div>
-                         <div className="flex flex-col">
-                             <span className="text-[10px] font-bold text-white uppercase">{currentSound}</span>
-                             <span className="text-[9px] text-slate-500">Now Playing</span>
-                         </div>
-                     </div>
-                     <button onClick={togglePlay} className="p-1.5 text-slate-400 hover:text-white transition-colors">
-                         <VolumeX size={14} />
-                     </button>
-                 </div>
-             )}
+                  {/* Active glow dot */}
+                  {isActive && (
+                    <motion.div
+                      layoutId="dock-active-dot"
+                      className={`absolute -bottom-1.5 left-1/2 
+                        -translate-x-1/2 w-1 h-1 rounded-full 
+                        bg-${accent}-400`}
+                      style={{
+                        boxShadow: `0 0 6px 2px var(--tw-shadow-color)`
+                      }}
+                      transition={{ 
+                        type: 'spring', 
+                        stiffness: 300, 
+                        damping: 30 
+                      }}
+                    />
+                  )}
+                </motion.button>
+              </div>
+            );
+          })}
 
-             <div className="flex items-center gap-3 bg-slate-900/50 p-2 rounded-xl border border-white/5 hover:border-white/10 transition-colors cursor-pointer group">
-                 {currentUser?.photoURL ? (
-                     <img src={currentUser.photoURL} className="w-8 h-8 rounded-lg border border-white/10" alt="Profile" />
-                 ) : (
-                     <div className={`w-8 h-8 rounded-lg bg-${accent}-500/20 flex items-center justify-center text-${accent}-400 font-bold text-xs`}>{displayName[0]?.toUpperCase()}</div>
-                 )}
-                 <div className="hidden xl:block overflow-hidden">
-                     <p className="text-xs font-bold text-white truncate">{displayName}</p>
-                     <p className="text-[10px] text-slate-500 truncate group-hover:text-slate-400 transition-colors">Free Plan</p>
-                 </div>
-             </div>
-             <div className="mt-4 hidden xl:block px-2 text-center">
-                <p className="text-[10px] text-slate-600 font-mono font-medium tracking-wide">Made by Abhyuday</p>
-             </div>
-         </div>
-      </nav>
+          {/* Divider */}
+          <div className="w-px h-8 bg-white/10 ml-2 flex-shrink-0" />
+
+          {/* User avatar + online status */}
+          <div className="relative flex-shrink-0 ml-1">
+            <div
+              className="w-10 h-10 rounded-2xl overflow-hidden 
+                border border-white/10 cursor-pointer
+                hover:border-white/20 transition-colors"
+              onClick={() => setActiveTab('settings')}
+              title={displayName}
+            >
+              {currentUser?.photoURL ? (
+                <img 
+                  src={currentUser.photoURL} 
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className={`w-full h-full 
+                  bg-${accent}-500/20 flex items-center 
+                  justify-center text-${accent}-400 
+                  font-bold text-sm`}
+                >
+                  {displayName[0]?.toUpperCase()}
+                </div>
+              )}
+            </div>
+            {/* Online status dot */}
+            <div className={`absolute -bottom-0.5 -right-0.5 
+              w-3 h-3 rounded-full border-2 border-slate-900
+              ${isOnline ? 'bg-emerald-400' : 'bg-slate-600'}`} 
+            />
+          </div>
+
+          {/* Music playing indicator */}
+          {isPlaying && (
+            <motion.button
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              onClick={togglePlay}
+              className={`flex-shrink-0 w-10 h-10 rounded-2xl 
+                bg-${accent}-500/20 border border-${accent}-500/30
+                flex items-center justify-center
+                text-${accent}-400 animate-pulse`}
+              title="Music playing — click to stop"
+            >
+              <Volume2 size={16} />
+            </motion.button>
+          )}
+        </motion.div>
+      </div>
     );
   };
 
@@ -1251,7 +1506,6 @@ const App: React.FC = () => {
       
       {/* Friend Milestone Observer - Always render but handle user inside */}
       <FriendObserver />
-      <AppGuide activeTab={activeTab} />
       
       {/* Notification Center - Always render */}
       <NotificationCenter isOpen={isNotificationOpen} onClose={() => setIsNotificationOpen(false)} />
@@ -1509,13 +1763,14 @@ const App: React.FC = () => {
                         onNavigate={setActiveTab}
                         tasks={tasks}
                         exams={exams}
+                        syllabusSubjects={syllabusSubjects}
                     />
                    )}
 
                    {/* Other mobile tabs... */}
                    {activeTab === 'timer' && (
                      <div className="flex-1 flex flex-col px-4 relative overflow-y-auto no-scrollbar">
-                        <div className="flex-none mt-2 mb-2 relative z-10">
+                        <div id="timer-subject-picker" className="flex-none mt-2 mb-2 relative z-10">
                           <SubjectPicker subjects={subjects} selectedId={currentSubjectId} onSelect={setSubjectId} disabled={status !== 'idle'} variant="horizontal" />
                         </div>
                         <div className="flex-1 flex flex-col relative z-10 justify-center items-center pb-32 md:pb-24">
@@ -1564,7 +1819,7 @@ const App: React.FC = () => {
 
                    {activeTab === 'exams' && (
                      <div className="flex-1 flex flex-col px-4 overflow-y-auto pb-32 md:pb-4">
-                        <ExamTracker subjects={subjects} exams={exams} onUpdate={loadExams} />
+                        <ExamTracker subjects={subjects} exams={exams} onUpdate={loadExams} sessions={allSessions} syllabusSubjects={syllabusSubjects} />
                      </div>
                    )}
 
@@ -1614,19 +1869,17 @@ const App: React.FC = () => {
            </AnimatePresence>
         </main>
         
-        <MobileNav activeTab={activeTab} setTab={setActiveTab} />
+        <MobileNav activeTab={activeTab} setTab={handleTabChange} isPro={isPro} lockedTabs={LOCKED_TABS} />
       </div>
 
 
       {/* --- Desktop Layout (>= md) --- */}
-      <div className={`hidden md:flex h-screen w-full max-w-[1920px] mx-auto p-4 gap-4 relative z-10 ${isZenActive || isSpaceMode ? 'hidden' : ''}`}>
-         <DesktopSidebar />
-
+      <div className={`hidden md:flex flex-col h-screen w-full max-w-[1920px] mx-auto p-4 relative z-10 ${isZenActive || isSpaceMode ? 'hidden' : ''}`}>
          {/* Main Glass Panel */}
          <main 
             className={`
                 flex-1 bg-slate-900/60 backdrop-blur-2xl border border-white/10 shadow-2xl overflow-hidden relative flex flex-row transition-all duration-500
-                ring-1 ring-white/5
+                ring-1 ring-white/5 mb-20
                 ${activeTab === 'calendar' ? 'p-0 rounded-[2rem]' : 'p-8 rounded-[2.5rem]'}
             `}
          >
@@ -1705,6 +1958,7 @@ const App: React.FC = () => {
                                         onNavigate={setActiveTab}
                                         tasks={tasks}
                                         exams={exams}
+                                        syllabusSubjects={syllabusSubjects}
                                     />
                                 </div>
                             )}
@@ -1802,7 +2056,7 @@ const App: React.FC = () => {
 
                             {activeTab === 'exams' && (
                                 <div className="h-full w-full overflow-y-auto custom-scrollbar rounded-[2rem]">
-                                    <ExamTracker subjects={subjects} exams={exams} onUpdate={loadExams} />
+                                    <ExamTracker subjects={subjects} exams={exams} onUpdate={loadExams} sessions={allSessions} syllabusSubjects={syllabusSubjects} />
                                 </div>
                             )}
 
@@ -1848,6 +2102,7 @@ const App: React.FC = () => {
                 </div>
             </div>
          </main>
+         <DockNav />
       </div>
       <MiniTimer 
           status={status}
@@ -1865,8 +2120,73 @@ const App: React.FC = () => {
 
        {/* Pricing Modal Overlay */}
        <AnimatePresence>
-           {/* Add any other global modals here */}
+            {showProPreview && (
+              <ProPreviewModal
+                tab={showProPreview}
+                onClose={() => setShowProPreview(null)}
+                onUpgrade={() => {
+                  setShowProPreview(null);
+                  setShowPricing(true);
+                }}
+              />
+            )}
+            
+            {showUpgradePopup && (
+              <UpgradePopup
+                onClose={() => setShowUpgradePopup(false)}
+                onUpgrade={() => {
+                  setShowUpgradePopup(false);
+                  setShowPricing(true);
+                }}
+              />
+            )}
+            
+            {showPricing && (
+              <PricingPage
+                onClose={() => setShowPricing(false)}
+                onUpgrade={() => {
+                  alert('Payment coming soon! Contact us for beta access.');
+                  setShowPricing(false);
+                }}
+              />
+            )}
        </AnimatePresence>
+
+      {/* Tutorial Intro */}
+      <AnimatePresence>
+        {showIntro && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[300]"
+          >
+            <TutorialIntro
+              displayName={displayName}
+              onComplete={completeIntro}
+              onSkip={skipIntro}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tutorial Tooltips */}
+      <AnimatePresence>
+        {isTooltipActive && currentTooltipConfig && (
+          <TutorialTooltip
+            key={currentTooltipConfig.targetId}
+            targetId={currentTooltipConfig.targetId}
+            title={currentTooltipConfig.title}
+            description={currentTooltipConfig.description}
+            step={currentTooltipStep}
+            totalSteps={totalTooltipSteps}
+            position={currentTooltipConfig.position}
+            onNext={nextTooltip}
+            onSkip={skipTooltips}
+          />
+        )}
+      </AnimatePresence>
+
     </div>
   );
 };

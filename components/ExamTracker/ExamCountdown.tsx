@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Exam, Subject, isHexColor } from '../../types';
+import { Exam, Subject, isHexColor, StudySession, SyllabusSubject } from '../../types';
 import { dbService } from '../../services/db';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Calendar, Trash2, Plus, BookOpen, AlertCircle, X, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ReadinessGauge } from '../ReadinessGauge';
+import { calculateReadiness } from '../../utils/readinessScore';
 
 interface ExamCountdownProps {
     subjects: Subject[];
     exams: Exam[];
     onUpdate: () => void;
+    sessions?: StudySession[];
+    syllabusSubjects?: SyllabusSubject[];
 }
 
-export const ExamCountdown: React.FC<ExamCountdownProps> = ({ subjects, exams, onUpdate }) => {
+export const ExamCountdown: React.FC<ExamCountdownProps> = ({ subjects, exams, onUpdate, sessions, syllabusSubjects }) => {
     const { accent } = useTheme();
     const [isAdding, setIsAdding] = useState(false);
     
@@ -221,6 +225,18 @@ export const ExamCountdown: React.FC<ExamCountdownProps> = ({ subjects, exams, o
                                         </div>
                                     )}
                                 </div>
+
+                                {sessions && syllabusSubjects && (
+                                    <div className="mt-4 pt-4 border-t border-white/5">
+                                        <ReadinessGauge
+                                            exam={exam}
+                                            breakdown={calculateReadiness(
+                                                exam, sessions, syllabusSubjects, 6)}
+                                            size="lg"
+                                            showBreakdown={true}
+                                        />
+                                    </div>
+                                )}
 
                                 {/* Delete Button */}
                                 <button 

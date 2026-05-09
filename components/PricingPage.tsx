@@ -1,236 +1,299 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Check, X, Zap, Crown, LogOut, Shield, Globe, AlertTriangle, Star, Sparkles, Loader2 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { auth, db } from '../services/firebase';
-import { signOut } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Check, Minus, ChevronDown, ChevronUp, Zap } from 'lucide-react';
 
-export const PricingPage: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
-    const { continueAsGuest, currentUser, signInWithGoogle } = useAuth();
-    const [isIndia, setIsIndia] = useState(false);
-    const [isUpgrading, setIsUpgrading] = useState(false);
+interface PricingPageProps {
+  onClose: () => void;
+  onUpgrade: () => void;
+}
 
-    useEffect(() => {
-        try {
-            const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            // Check for both modern and legacy timezone names
-            if (userTimeZone.includes('Calcutta') || userTimeZone.includes('Kolkata')) {
-                setIsIndia(true);
-            }
-        } catch (e) {
-            console.error("Region detection failed", e);
-        }
-    }, []);
+const FAQS = [
+  {
+    question: "Is this really a one-time payment?",
+    answer: "Yes! There are no subscriptions, no hidden fees, and no recurring charges. You pay ₹149 once and get lifetime access to all current and future Pro features."
+  },
+  {
+    question: "What payment methods do you accept?",
+    answer: "We support all major payment methods including UPI (GPay, PhonePe, Paytm), Credit/Debit Cards, and Netbanking via Razorpay."
+  },
+  {
+    question: "Can I get a refund if I don't like it?",
+    answer: "Absolutely. We offer a 7-day no-questions-asked refund policy. Just email our support and we'll process your refund immediately."
+  }
+];
 
-    const handleGuestSwitch = async () => {
-        if (onClose) {
-            onClose();
-            return;
-        }
-        // Set guest flag FIRST so when auth state changes, we fall into guest mode
-        await continueAsGuest(); 
-        await signOut(auth);
-    };
-
-    const handleUpgrade = async () => {
-        if (!currentUser) {
-            try {
-                await signInWithGoogle();
-            } catch (error) {
-                console.error("Sign in failed", error);
-            }
-            return;
-        }
-        
-        setIsUpgrading(true);
-        
-        // Simulate payment processing
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        try {
-            await setDoc(doc(db, 'users', currentUser.uid), {
-                hasPremium: true,
-                subscriptionType: 'lifetime',
-                subscriptionDate: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            }, { merge: true });
-            
-            // Reload to trigger auth check and remove lock
-            window.location.reload();
-        } catch (error) {
-            console.error("Upgrade failed", error);
-            setIsUpgrading(false);
-            alert("Upgrade failed. Please try again.");
-        }
-    };
-
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: {
-            opacity: 1,
-            transition: { staggerChildren: 0.1 }
-        }
-    };
-
-    const cardVariants = {
-        hidden: { y: 20, opacity: 0 },
-        visible: { y: 0, opacity: 1 }
-    };
-
-    return (
-        <div className="min-h-screen bg-[#020617] text-slate-200 font-sans p-6 md:p-12 overflow-x-hidden">
-            <div className="max-w-7xl mx-auto">
-                
-                {/* Header */}
-                <div className="text-center mb-16 space-y-4">
-                    <motion.div 
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-widest"
-                    >
-                        <Globe size={12} /> {isIndia ? 'India Pricing' : 'Global Pricing'}
-                    </motion.div>
-                    <motion.h1 
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="text-4xl md:text-6xl font-bold text-white tracking-tight"
-                    >
-                        Choose Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Focus Level</span>
-                    </motion.h1>
-                    <motion.p 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.2 }}
-                        className="text-slate-400 text-lg max-w-2xl mx-auto"
-                    >
-                        Unlock the full potential of your mind with EkagraZone Premium.
-                    </motion.p>
-                </div>
-
-                {/* Pricing Cards */}
-                <motion.div 
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="visible"
-                    className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start max-w-4xl mx-auto"
-                >
-                    
-                    {/* Card 1: The Student (Free) */}
-                    <motion.div variants={cardVariants} className="bg-slate-900/50 border border-white/5 rounded-3xl p-8 flex flex-col gap-6 relative overflow-hidden group hover:bg-slate-900/80 transition-colors">
-                        <div className="space-y-2">
-                            <h3 className="text-2xl font-bold text-white">The Student</h3>
-                            <p className="text-slate-400 text-sm">Essential tools for local focus.</p>
-                        </div>
-                        <div className="text-3xl font-bold text-white">Free</div>
-                        
-                        <div className="space-y-4 flex-1">
-                            <FeatureItem icon={<Check size={16} />} text="Basic Pomodoro Timer" />
-                            <FeatureItem icon={<Check size={16} />} text="Today's Analytics" />
-                            <FeatureItem icon={<Check size={16} />} text="Exam Tracker (Mock tests)" />
-                            <FeatureItem icon={<Check size={16} />} text="Habit Forger" />
-                            <FeatureItem icon={<Check size={16} />} text="Daily Journal" />
-                            <FeatureItem icon={<Check size={16} />} text="Peaceful Sounds" />
-                            
-                            <div className="my-4 border-t border-white/5" />
-                            
-                            <FeatureItem icon={<AlertTriangle size={16} className="text-amber-500" />} text="No Cloud Sync" subtext="Data lost if cache cleared" warning />
-                            <FeatureItem icon={<X size={16} className="text-slate-500" />} text="No Zen Mode" muted />
-                            <FeatureItem icon={<X size={16} className="text-slate-500" />} text="No Historical Stats" muted />
-                        </div>
-
-                        <button 
-                            onClick={handleGuestSwitch}
-                            className="w-full py-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium transition-all flex items-center justify-center gap-2 mt-4"
-                        >
-                            {onClose ? <X size={18} /> : <LogOut size={18} />} 
-                            {onClose ? 'Continue as Free' : 'Sign Out & Continue as Guest'}
-                        </button>
-                    </motion.div>
-
-                    {/* Card 2: The Focus Legend (Lifetime) */}
-                    <motion.div variants={cardVariants} className="bg-slate-900/90 border-2 border-amber-500/50 rounded-3xl p-8 flex flex-col gap-6 relative overflow-hidden shadow-[0_0_40px_rgba(245,158,11,0.15)] scale-100 lg:scale-105 z-10">
-                        {/* Badge */}
-                        <div className="absolute top-0 right-0 bg-amber-500 text-slate-900 text-xs font-bold px-4 py-1.5 rounded-bl-2xl">
-                            LIFETIME ACCESS
-                        </div>
-
-                        <div className="space-y-2">
-                            <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-                                Premium <Crown size={20} className="text-amber-400 fill-amber-400" />
-                            </h3>
-                            <p className="text-amber-200/60 text-sm">Unlock the full potential.</p>
-                        </div>
-                        
-                        <div className="flex flex-col gap-1">
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-4xl font-bold text-white">
-                                    {isIndia ? '₹1,999' : '$29.99'}
-                                </span>
-                                <span className="text-lg text-slate-500 line-through decoration-slate-500/50">
-                                    {isIndia ? '₹3,999' : '$59.99'}
-                                </span>
-                            </div>
-                            <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">
-                                One-Time Payment
-                            </div>
-                        </div>
-                        <div className="text-xs text-amber-400 font-bold">
-                            {isIndia ? '50% Off Launch Special' : '50% Off Launch Special'}
-                        </div>
-
-                        <div className="space-y-4 flex-1">
-                            <FeatureItem icon={<Star size={16} className="text-amber-400 fill-amber-400" />} text="Zen Mode Access" highlight />
-                            <FeatureItem icon={<Check size={16} className="text-emerald-400" />} text="Full Historical Statistics" highlight />
-                            <FeatureItem icon={<Check size={16} className="text-emerald-400" />} text="Secure Cloud Sync" highlight />
-                            <FeatureItem icon={<Check size={16} className="text-emerald-400" />} text="Global Leaderboards" highlight />
-                            <FeatureItem icon={<Check size={16} className="text-emerald-400" />} text="Friend Challenges" highlight />
-                            <FeatureItem icon={<Crown size={16} className="text-amber-400 fill-amber-400" />} text="Exclusive 'Founding Member' Badge" highlight />
-                        </div>
-
-                        <button 
-                            onClick={() => handleUpgrade()}
-                            disabled={isUpgrading}
-                            className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold transition-all flex items-center justify-center gap-2 mt-4 shadow-lg shadow-amber-500/25 group"
-                        >
-                            {isUpgrading ? <Loader2 className="animate-spin" /> : (
-                                <>
-                                    <Crown size={18} className="fill-white group-hover:scale-110 transition-transform" />
-                                    {!currentUser ? 'Sign In to Upgrade' : 'Unlock Lifetime Access'}
-                                </>
-                            )}
-                        </button>
-                        <p className="text-center text-[10px] text-slate-500 font-mono">PAY ONCE, USE FOREVER</p>
-                    </motion.div>
-
-                </motion.div>
-
-                <div className="mt-16 text-center space-y-2">
-                    <button 
-                        onClick={() => setIsIndia(!isIndia)}
-                        className="text-[10px] text-slate-600 hover:text-slate-400 underline cursor-pointer transition-colors"
-                    >
-                        {isIndia ? "Not in India? Switch to Global Prices" : "In India? Switch to Local Prices"}
-                    </button>
-                    <p className="text-slate-500 text-sm">
-                        Secure payment powered by Stripe. Cancel anytime.
-                    </p>
-                </div>
-            </div>
-        </div>
-    );
+const getInitialTime = () => {
+  const stored = localStorage.getItem('ekagra_countdown');
+  if (stored) return JSON.parse(stored);
+  const initial = {
+    hours: Math.floor(Math.random() * 20) + 2,
+    minutes: Math.floor(Math.random() * 60),
+    seconds: Math.floor(Math.random() * 60)
+  };
+  localStorage.setItem('ekagra_countdown', JSON.stringify(initial));
+  return initial;
 };
 
-const FeatureItem: React.FC<{ icon: React.ReactNode; text: string; subtext?: string; highlight?: boolean; warning?: boolean; muted?: boolean }> = ({ icon, text, subtext, highlight, warning, muted }) => (
-    <div className={`flex items-start gap-3 ${muted ? 'opacity-50' : ''}`}>
-        <div className={`mt-0.5 ${highlight ? 'text-white' : warning ? 'text-amber-500' : 'text-slate-400'}`}>
-            {icon}
+export const PricingPage: React.FC<PricingPageProps> = ({ onClose, onUpgrade }) => {
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState(getInitialTime);
+
+  useEffect(() => {
+    const iv = setInterval(() => {
+      setTimeLeft((prev: { hours: number; minutes: number; seconds: number; }) => {
+        let { hours, minutes, seconds } = prev;
+        seconds--;
+        if (seconds < 0) { seconds = 59; minutes--; }
+        if (minutes < 0) { minutes = 59; hours--; }
+        if (hours < 0) { hours = 23; minutes = 59; seconds = 59; }
+        return { hours, minutes, seconds };
+      });
+    }, 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const features = [
+    { name: 'Focus Timer', free: true, pro: true },
+    { name: 'Basic Stats', free: true, pro: true },
+    { name: 'All Subjects', free: true, pro: true },
+    { name: 'Local Storage', free: true, pro: true },
+    { name: 'Cloud Sync', free: false, pro: true },
+    { name: 'Syllabus Tracker', free: false, pro: true },
+    { name: 'Study Rooms', free: false, pro: true },
+    { name: 'Collaborative Whiteboard', free: false, pro: true },
+    { name: 'Smart Study Planner', free: false, pro: true },
+    { name: 'Journal', free: false, pro: true },
+    { name: 'Habits Tracker', free: false, pro: true },
+    { name: 'Social & Friends', free: false, pro: true },
+    { name: 'Exam Tracker', free: false, pro: true },
+    { name: 'Mock Tests', free: false, pro: true },
+    { name: 'Priority Support', free: false, pro: true },
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[150] bg-slate-950 overflow-y-auto"
+    >
+      <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-cyan-500/10 to-transparent pointer-events-none" />
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-500/20 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/20 blur-[120px] rounded-full pointer-events-none" />
+
+      <div className="min-h-full flex flex-col pt-20 pb-12 px-4 sm:px-6 relative z-10 max-w-4xl mx-auto">
+        
+        <button
+          onClick={onClose}
+          className="fixed top-6 right-6 w-10 h-10 rounded-full bg-slate-900 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-colors z-20 cursor-pointer"
+        >
+          <X size={20} />
+        </button>
+
+        <div className="text-center mb-12">
+          <div className="inline-block px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-bold uppercase tracking-widest mb-6">
+            EkagraZone Pro
+          </div>
+          <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">
+            One time. Lifetime access.
+          </h1>
+          <p className="text-lg text-slate-400 max-w-xl mx-auto">
+            Unlock the ultimate study companion and join top percentile students.
+          </p>
         </div>
-        <div>
-            <div className={`text-sm font-medium ${highlight ? 'text-white' : warning ? 'text-amber-400' : 'text-slate-300'}`}>
-                {text}
+
+        <style>{`
+          @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+          }
+        `}</style>
+        <div className="w-full max-w-lg mx-auto bg-slate-900/80 backdrop-blur-xl border border-cyan-500/30 rounded-3xl p-8 mb-16 shadow-[0_0_50px_rgba(6,182,212,0.15)] relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500" />
+          
+          <div className="flex items-center gap-2 justify-center mb-4">
+            <span className="text-xs text-slate-500">
+              Sale ends in:
+            </span>
+            <div className="flex items-center gap-1 font-mono text-sm">
+              {[
+                { val: timeLeft.hours, label: 'h' },
+                { val: timeLeft.minutes, label: 'm' },
+                { val: timeLeft.seconds, label: 's' },
+              ].map((t, i) => (
+                <React.Fragment key={i}>
+                  <span className="bg-slate-800 border border-white/10 px-2 py-0.5 rounded-lg text-white font-bold min-w-[2rem] text-center">
+                    {String(t.val).padStart(2, '0')}
+                  </span>
+                  <span className="text-slate-600 text-xs">{t.label}</span>
+                  {i < 2 && <span className="text-slate-600">:</span>}
+                </React.Fragment>
+              ))}
             </div>
-            {subtext && <div className="text-[10px] text-slate-500 mt-0.5">{subtext}</div>}
+          </div>
+
+          <div className="flex flex-col items-center gap-2 mb-6">
+            {/* Launch sale badge */}
+            <motion.div
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/15 border border-red-500/25 text-red-400 text-xs font-bold uppercase tracking-widest"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping" />
+              🔥 Launch Sale — Ends Soon
+            </motion.div>
+
+            {/* Crossed out original price */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <span className="text-2xl font-bold text-slate-500">
+                  ₹499
+                </span>
+                {/* Strikethrough line */}
+                <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500/60 -rotate-6 transform" />
+              </div>
+              <span className="text-slate-600 text-sm">→</span>
+              {/* Actual price */}
+              <div className="flex items-end gap-1">
+                <span className="text-5xl font-black text-white leading-none">₹149</span>
+                <span className="text-slate-400 text-sm mb-1">
+                  one-time
+                </span>
+              </div>
+            </div>
+
+            {/* Savings badge */}
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
+              ✓ You save ₹350 (70% off)
+            </div>
+
+            {/* Urgency text */}
+            <p className="text-slate-500 text-xs text-center max-w-xs mt-2">
+              Price will increase to ₹499 after the beta period. Lock in lifetime access now.
+            </p>
+          </div>
+
+          <motion.button
+            onClick={onUpgrade}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full py-4 rounded-2xl font-black text-lg relative overflow-hidden bg-gradient-to-r from-cyan-500 via-blue-500 to-cyan-500 bg-[length:200%_100%] text-white shadow-lg shadow-cyan-500/30 flex items-center justify-center gap-2 cursor-pointer"
+            style={{
+              animation: 'gradientShift 3s ease infinite'
+            }}
+          >
+            {/* Shine effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] hover:translate-x-[100%] transition-transform duration-700" />
+            <Zap size={20} className="relative z-10" />
+            <span className="relative z-10">
+              Get Lifetime Access — ₹149
+            </span>
+          </motion.button>
+          
+          <div className="flex items-center justify-center gap-4 py-3 border-t border-b border-white/5 my-4 w-full">
+            <div className="flex -space-x-2">
+              {['#06b6d4','#8b5cf6','#f97316','#10b981','#f43f5e']
+                .map((color, i) => (
+                <div key={i}
+                  className="w-7 h-7 rounded-full border-2 border-slate-950 flex items-center justify-center text-[10px] font-bold text-white"
+                  style={{background: color}}
+                >
+                  {['R','P','A','S','M'][i]}
+                </div>
+              ))}
+            </div>
+            <div className="text-xs text-slate-400">
+              <span className="text-white font-bold">500+</span> students already unlocked Pro
+            </div>
+          </div>
+
+          <div className="text-center mt-4">
+            <button onClick={onClose} className="text-sm text-slate-500 hover:text-slate-300 transition-colors cursor-pointer">
+              or continue with free plan
+            </button>
+          </div>
         </div>
-    </div>
-);
+
+        <div className="mb-16">
+          <h2 className="text-2xl font-bold text-white text-center mb-8">Compare Plans</h2>
+          
+          <div className="bg-slate-900/50 backdrop-blur-md rounded-2xl border border-white/10 overflow-hidden">
+            <div className="grid grid-cols-[1fr_80px_80px] sm:grid-cols-[1fr_120px_120px] border-b border-white/10 bg-slate-900/80">
+              <div className="p-4 text-sm font-medium text-slate-400">Feature</div>
+              <div className="p-4 text-center text-sm font-bold text-slate-300">Free</div>
+              <div className="p-4 text-center relative flex flex-col items-center justify-center gap-1">
+                <div className="text-xs font-bold text-cyan-400 uppercase tracking-widest relative z-10">Pro</div>
+                <div className="text-[9px] text-slate-500 relative z-10">₹149 once</div>
+                <div className="absolute inset-0 bg-cyan-500/10 border-x border-t border-cyan-500/30 pointer-events-none" />
+              </div>
+            </div>
+            
+            {features.map((feature, i) => (
+              <div key={i} className={`grid grid-cols-[1fr_80px_80px] sm:grid-cols-[1fr_120px_120px] sm:text-base text-sm ${i % 2 === 0 ? 'bg-white/[0.02]' : ''}`}>
+                <div className="p-4 text-slate-300 border-t border-white/5 flex items-center">
+                  {feature.name}
+                </div>
+                <div className="p-4 border-t border-white/5 flex items-center justify-center">
+                  {feature.free ? (
+                    <Check size={18} className="text-slate-500" />
+                  ) : (
+                    <Minus size={18} className="text-slate-700" />
+                  )}
+                </div>
+                <div className="p-4 border-t border-white/5 flex items-center justify-center relative">
+                  <div className="absolute inset-0 border-x border-cyan-500/10 bg-cyan-500/[0.02]" />
+                  {feature.pro ? (
+                    <Check size={18} className="text-cyan-400 relative z-10" />
+                  ) : (
+                    <Minus size={18} className="text-slate-700 relative z-10" />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="max-w-2xl mx-auto mb-16">
+          <h2 className="text-2xl font-bold text-white text-center mb-8">Frequently Asked Questions</h2>
+          <div className="space-y-4">
+            {FAQS.map((faq, index) => (
+              <div key={index} className="bg-slate-900/60 border border-white/10 rounded-xl overflow-hidden">
+                <button 
+                  onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                  className="w-full flex items-center justify-between p-5 text-left hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  <span className="font-bold text-white">{faq.question}</span>
+                  {openFaq === index ? <ChevronUp className="text-cyan-400" size={18}/> : <ChevronDown className="text-slate-400" size={18}/>}
+                </button>
+                <AnimatePresence>
+                  {openFaq === index && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="px-5 pb-5 text-slate-400 leading-relaxed overflow-hidden text-sm"
+                    >
+                      {faq.answer}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="text-center pt-8 border-t border-white/10">
+          <h2 className="text-2xl font-bold text-white mb-6">Ready to upgrade?</h2>
+          <button
+            onClick={onUpgrade}
+            className="inline-flex items-center justify-center px-8 py-4 rounded-xl bg-cyan-500 text-slate-950 font-black text-lg hover:bg-cyan-400 transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)] cursor-pointer hover:scale-[1.02] gap-2"
+          >
+            <Zap size={18} /> Get Pro for ₹149 →
+          </button>
+        </div>
+
+      </div>
+    </motion.div>
+  );
+};
