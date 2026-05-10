@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { TimerStatus, TimerMode, isHexColor, CustomSound, TimerDurations, DEFAULT_DURATIONS, Subject } from '../types';
 import { Play, Pause, Square, Timer, Hourglass, CheckCircle2, Coffee, Armchair, Settings2, Save, Music, Volume2, VolumeX, CloudRain, Waves, Trees, BookOpen, Plus, Trash2, Upload, Link as LinkIcon, X, Sun, Clock } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
@@ -80,10 +80,271 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
   const [newSoundFile, setNewSoundFile] = useState<File | null>(null);
   const [uploadLoading, setUploadLoading] = useState(false);
 
+  // Picture-in-Picture State
+  const [isPipOpen, setIsPipOpen] = useState(false);
+  const [pipWindow, setPipWindow] = useState<Window|null>(null);
+  const [pipSize, setPipSize] = useState<'sm'|'md'|'lg'>('md');
+  const [pipTheme, setPipTheme] = useState<'glass'|'app'>('glass');
+  const [showPipSettings, setShowPipSettings] = useState(false);
+  const pipContainerRef = useRef<HTMLDivElement>(null);
+
+  const isPipSupported = typeof window !== 'undefined' && 'documentPictureInPicture' in window;
+
+  const PIP_SIZES = {
+    sm: { width: 300, height: 160 },
+    md: { width: 320, height: 300 },
+    lg: { width: 400, height: 340 },
+  };
+
   const { accent } = useTheme();
   const { isHighQuality } = usePerformance();
   const { currentSound, isPlaying, volume, allSounds, playSound, setVolume, togglePlay, addCustomSound, removeCustomSound } = useSound();
   
+  // --- PIP LOGIC ---
+  const getPipHTML = () => {
+    const subject = subjects.find(s => s.id === currentSubjectId);
+    const subjectName = subject?.name || 'No Subject';
+    const color = subject?.color || '#06b6d4';
+    const displayMsLocal = isComplete ? 0 : (mode === 'stopwatch' ? elapsedMs : Math.max(0, (mode === 'pomodoro' ? durations.pomodoro : mode === 'short-break' ? durations.shortBreak : durations.longBreak) * 60000 - elapsedMs));
+    const timeStr = formatTime(displayMsLocal);
+    const todayStr = formatShort(dailyTotalMs + (status !== 'idle' ? elapsedMs : 0));
+    const modeLabel = mode === 'pomodoro' ? 'Pomodoro' : mode === 'short-break' ? 'Short Break' : mode === 'long-break' ? 'Long Break' : 'Stopwatch';
+    const now = new Date();
+    const timeNow = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const randomQuote = FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)];
+    
+    // Pomodoro ring SVG
+    const r = 36;
+    const circ = 2 * Math.PI * r;
+    
+    // Re-calculating progress for PiP since we don't have progressPercent directly in scope
+    let progress = 0;
+    if (status !== 'idle' && isTimerMode) {
+        const currentDurationMs = (mode === 'short-break' ? durations.shortBreak : mode === 'long-break' ? durations.longBreak : durations.pomodoro) * 60000;
+        progress = Math.min(1, elapsedMs / currentDurationMs);
+    }
+    const offset = circ * (1 - progress);
+    
+    const isGlass = pipTheme === 'glass';
+    const bg = isGlass ? 'rgba(15,23,42,0.7)' : '#0f172a';
+    const border = isGlass ? '1px solid rgba(255,255,255,0.12)' : `1px solid ${color}30`;
+    const backdropFilter = isGlass ? 'blur(20px)' : 'none';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: ${bg};
+            backdrop-filter: ${backdropFilter};
+            border: ${border};
+            border-radius: 16px;
+            overflow: hidden;
+            color: white;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+          }
+          @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;700&display=swap');
+          .mono { font-family: 'JetBrains Mono', monospace; }
+          
+          /* Glass shimmer */
+          body::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            pointer-events: none;
+          }
+
+          .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px 6px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+          }
+          .logo { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.4); }
+          .time-now { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: rgba(255,255,255,0.35); }
+          .status-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: ${status === 'running' ? '#10b981' : '#ef4444'};
+            ${status === 'running' ? 'animation: pulse 2s infinite;' : ''}
+          }
+          @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+          .body { flex: 1; display: flex; align-items: center; padding: 8px 14px; gap: 12px; }
+          .ring-section { flex-shrink: 0; display: ${pipSize === 'sm' ? 'none' : 'flex'}; align-items: center; justify-content: center; }
+          .info-section { flex: 1; min-width: 0; }
+          
+          .subject-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+          .subject-dot { width: 8px; height: 8px; border-radius: 50%; background: ${color}; flex-shrink: 0; box-shadow: 0 0 6px ${color}80; }
+          .subject-name { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .mode-badge { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; padding: 1px 5px; border-radius: 4px; background: ${color}20; color: ${color}; border: 1px solid ${color}30; flex-shrink: 0; }
+
+          .timer { font-size: ${pipSize === 'sm' ? '32px' : '42px'}; font-weight: 900; font-family: 'JetBrains Mono', monospace; color: white; line-height: 1; margin-bottom: 6px; letter-spacing: -1px; text-shadow: 0 0 20px ${color}60; }
+          
+          .stats-row { display: flex; gap: 10px; margin-bottom: 8px; }
+          .stat { display: flex; flex-direction: column; gap: 1px; }
+          .stat-value { font-size: 12px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: rgba(255,255,255,0.85); }
+          .stat-label { font-size: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.3); }
+
+          .controls { display: flex; gap: 6px; align-items: center; }
+          .btn { border: none; cursor: pointer; border-radius: 8px; font-weight: 700; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.15s; padding: 6px 10px; }
+          .btn:hover { opacity: 0.85; transform: scale(1.02); }
+          .btn:active { transform: scale(0.98); }
+          .btn-primary { background: ${color}; color: white; flex: 1; }
+          .btn-stop { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.2); flex: 1; }
+          
+          .footer { padding: 6px 14px 10px; border-top: 1px solid rgba(255,255,255,0.05); }
+          .quote { font-size: 9px; color: rgba(255,255,255,0.25); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: ${pipSize === 'sm' ? 'none' : 'block'}; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div class="status-dot"></div>
+            <span class="logo">EkagraZone</span>
+          </div>
+          <span class="time-now">\${timeNow}</span>
+        </div>
+
+        <div class="body">
+          \${mode === 'pomodoro' && pipSize !== 'sm' ? \`
+          <div class="ring-section">
+            <svg width="88" height="88" viewBox="0 0 88 88">
+              <circle cx="44" cy="44" r="\${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="7"/>
+              <circle cx="44" cy="44" r="\${r}" fill="none" stroke="\${color}" stroke-width="7" stroke-linecap="round" stroke-dasharray="\${circ}" stroke-dashoffset="\${offset}" transform="rotate(-90 44 44)" style="filter:drop-shadow(0 0 6px \${color}80)"/>
+              <text x="44" y="48" text-anchor="middle" fill="white" font-size="13" font-weight="700" font-family="JetBrains Mono,monospace">\${Math.round(progress * 100)}%</text>
+            </svg>
+          </div>
+          \` : ''}
+
+          <div class="info-section">
+            <div class="subject-row">
+              <div class="subject-dot"></div>
+              <span class="subject-name">\${subjectName}</span>
+              <span class="mode-badge">\${modeLabel}</span>
+            </div>
+            
+            <div class="timer">\${timeStr}</div>
+            
+            \${pipSize !== 'sm' ? \`
+            <div class="stats-row">
+              <div class="stat">
+                <span class="stat-value">\${todayStr}</span>
+                <span class="stat-label">Today</span>
+              </div>
+              <div class="stat" style="border-left:1px solid rgba(255,255,255,0.08);padding-left:10px;">
+                <span class="stat-value" style="color:\${color}">
+                  \${status === 'running' ? '🟢 Active' : status === 'paused' ? '⏸ Paused' : '⏹ Idle'}
+                </span>
+                <span class="stat-label">Status</span>
+              </div>
+            </div>
+            \` : ''}
+
+            <div class="controls">
+              <button class="btn btn-primary" id="playPauseBtn">
+                \${status === 'running' ? '⏸ Pause' : '▶ Resume'}
+              </button>
+              <button class="btn btn-stop" id="stopBtn">
+                ⏹ Stop
+              </button>
+            </div>
+          </div>
+        </div>
+
+        \${pipSize !== 'sm' ? \`
+        <div class="footer">
+          <div class="quote">"\${randomQuote}"</div>
+        </div>
+        \` : ''}
+
+        <script>
+          document.getElementById('playPauseBtn').addEventListener('click', () => { window.opener?.postMessage({ type: 'PIP_ACTION', action: 'togglePlayPause' }, '*'); });
+          document.getElementById('stopBtn').addEventListener('click', () => { window.opener?.postMessage({ type: 'PIP_ACTION', action: 'stop' }, '*'); });
+        </script>
+      </body>
+      </html>
+    `;
+  };
+
+  const openPip = async () => {
+    if (!isPipSupported) {
+      alert('Picture-in-Picture requires Chrome or Brave browser. Please switch to Chrome/Brave to use this feature.');
+      return;
+    }
+
+    try {
+      const { width, height } = PIP_SIZES[pipSize];
+      
+      const pip = await (window as any).documentPictureInPicture.requestWindow({ width, height });
+      setPipWindow(pip);
+      setIsPipOpen(true);
+
+      pip.document.open();
+      pip.document.write(getPipHTML());
+      pip.document.close();
+
+      const handleMessage = (e: MessageEvent) => {
+        if (e.data?.type !== 'PIP_ACTION') return;
+        if (e.data.action === 'togglePlayPause') {
+          status === 'running' ? onPause() : onStart();
+        }
+        if (e.data.action === 'stop') {
+          onStop();
+          pip.close();
+        }
+      };
+      window.addEventListener('message', handleMessage);
+
+      pip.addEventListener('pagehide', () => {
+        setIsPipOpen(false);
+        setPipWindow(null);
+        window.removeEventListener('message', handleMessage);
+      });
+
+    } catch (err: any) {
+      console.error('PiP failed:', err);
+      if (err.name === 'NotAllowedError') {
+        alert('Please interact with the page first before opening Picture-in-Picture.');
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!isPipOpen || !pipWindow || pipWindow.closed) return;
+    try {
+      pipWindow.document.open();
+      pipWindow.document.write(getPipHTML());
+      pipWindow.document.close();
+    } catch (e) {
+      setIsPipOpen(false);
+      setPipWindow(null);
+    }
+  }, [elapsedMs, status, currentSubjectId, mode, pipSize, pipTheme, isPipOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (pipWindow && !pipWindow.closed) {
+        pipWindow.close();
+      }
+    };
+  }, [pipWindow]);
+
+  useEffect(() => {
+    const handleClick = () => setShowPipSettings(false);
+    if (showPipSettings) {
+      setTimeout(() => document.addEventListener('click', handleClick), 100);
+      return () => document.removeEventListener('click', handleClick);
+    }
+  }, [showPipSettings]);
+
   // --- WAKE LOCK LOGIC ---
   const [wakeLock, setWakeLock] = useState<any>(null);
   const [isWakeLockActive, setIsWakeLockActive] = useState(false);
@@ -523,21 +784,95 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
             <div className="flex flex-col items-center md:items-end gap-6 md:gap-8 order-2 md:order-3 w-full max-w-xs md:justify-self-end flex-none pb-4 md:pb-0">
                 
                 {/* Top Level Mode Switcher */}
-                <div id="timer-modes" className="flex bg-slate-900/60 backdrop-blur-xl rounded-full p-1 border border-white/10 shadow-2xl transition-transform duration-300 hover:scale-105">
-                    <button 
-                        onClick={() => onSetMode('stopwatch')}
-                        disabled={status !== 'idle' || isEditing}
-                        className={`flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-[10px] md:text-xs font-bold transition-all duration-300 ${mode === 'stopwatch' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                    >
-                        <Timer size={14} className={mode === 'stopwatch' ? `text-${accent}-400` : ''} /> Stopwatch
-                    </button>
-                    <button 
-                        onClick={() => onSetMode('pomodoro')} 
-                        disabled={status !== 'idle' || isEditing}
-                        className={`flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-[10px] md:text-xs font-bold transition-all duration-300 ${isTimerMode ? 'bg-white/10 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                    >
-                        <Hourglass size={14} className={isTimerMode ? `text-${accent}-400` : ''} /> Timer
-                    </button>
+                <div className="flex flex-col items-center w-full">
+                  <div id="timer-modes" className="flex bg-slate-900/60 backdrop-blur-xl rounded-full p-1 border border-white/10 shadow-2xl transition-transform duration-300 hover:scale-105">
+                      <button 
+                          onClick={() => onSetMode('stopwatch')}
+                          disabled={status !== 'idle' || isEditing}
+                          className={`flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-[10px] md:text-xs font-bold transition-all duration-300 ${mode === 'stopwatch' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                      >
+                          <Timer size={14} className={mode === 'stopwatch' ? `text-${accent}-400` : ''} /> Stopwatch
+                      </button>
+                      <button 
+                          onClick={() => onSetMode('pomodoro')} 
+                          disabled={status !== 'idle' || isEditing}
+                          className={`flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-[10px] md:text-xs font-bold transition-all duration-300 ${isTimerMode ? 'bg-white/10 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                      >
+                          <Hourglass size={14} className={isTimerMode ? `text-${accent}-400` : ''} /> Timer
+                      </button>
+                  </div>
+                  
+                  {isPipSupported && (
+                    <div className="flex items-center gap-2 mt-3 mb-1" ref={pipContainerRef}>
+                      {/* PiP Settings dropdown */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowPipSettings(s => !s)}
+                          className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all text-xs"
+                          title="PiP Settings"
+                        >
+                          ⚙️
+                        </button>
+                        
+                        <AnimatePresence>
+                          {showPipSettings && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 5, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 5, scale: 0.95 }}
+                              className="absolute right-0 sm:left-0 sm:right-auto bottom-full mb-2 bg-slate-900 border border-white/10 rounded-xl p-3 shadow-xl z-50 w-48"
+                            >
+                              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
+                                Window Size
+                              </div>
+                              <div className="flex gap-1.5 mb-3">
+                                {(['sm','md','lg'] as const).map(s => (
+                                  <button key={s}
+                                    onClick={() => setPipSize(s)}
+                                    className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all
+                                      ${pipSize === s 
+                                        ? `bg-${accent}-500/20 text-${accent}-300 border border-${accent}-500/30` 
+                                        : 'bg-white/5 text-slate-400 border border-white/5 hover:bg-white/10'}`}
+                                  >
+                                    {s === 'sm' ? 'S' : s === 'md' ? 'M' : 'L'}
+                                  </button>
+                                ))}
+                              </div>
+
+                              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
+                                Theme
+                              </div>
+                              <div className="flex gap-1.5">
+                                {(['glass','app'] as const).map(t => (
+                                  <button key={t}
+                                    onClick={() => setPipTheme(t)}
+                                    className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all capitalize
+                                      ${pipTheme === t 
+                                        ? `bg-${accent}-500/20 text-${accent}-300 border border-${accent}-500/30` 
+                                        : 'bg-white/5 text-slate-400 border border-white/5 hover:bg-white/10'}`}
+                                  >
+                                    {t === 'glass' ? '🪟 Glass' : '🎨 App'}
+                                  </button>
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      <button
+                        onClick={isPipOpen ? () => { pipWindow?.close(); setIsPipOpen(false); } : openPip}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border
+                          ${isPipOpen 
+                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25 hover:bg-emerald-500/25' 
+                            : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10 hover:text-white'}`}
+                        title="Float timer in a window on top of everything"
+                      >
+                        <Clock size={12} />
+                        {isPipOpen ? '✓ Floating' : 'Float Timer'}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Timer Sub-options & Custom Settings Toggle */}

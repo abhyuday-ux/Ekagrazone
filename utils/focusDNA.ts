@@ -218,7 +218,9 @@ export function calculateFocusDNA(
 
   return {
     personality,
-    ...PERSONALITIES[personality],
+    personalityLabel: PERSONALITIES[personality].label,
+    personalityEmoji: PERSONALITIES[personality].emoji,
+    personalityDesc: PERSONALITIES[personality].desc,
     totalHours, totalSessions: sessions.length,
     avgSessionMins, longestSessionMins,
     bestStreakDays, currentStreakDays,

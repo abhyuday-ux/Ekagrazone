@@ -1,0 +1,52 @@
+192:  const [targetHours, setTargetHours] = useState(6);
+193:  const [dayStartHour, setDayStartHour] = useState(0);
+194:  const [isOnline, setIsOnline] = useState(navigator.onLine);
+195:  const [isSyncing, setIsSyncing] = useState(false);
+196:  const [usernameNeeded, setUsernameNeeded] = useState(false);
+198:  const [isVIP, setIsVIP] = useState(false);
+200:  const [showUpgradePopup, setShowUpgradePopup] = useState(false);
+201:  const [showPricing, setShowPricing] = useState(false);
+203:  const [sessionStartTime] = useState(Date.now());
+207:  useEffect(() => {
+216:  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+217:  const [unreadCount, setUnreadCount] = useState(0);
+227:  const [showWallpaperOnHome, setShowWallpaperOnHome] = useState(false);
+228:  const [enableZenMode, setEnableZenMode] = useState(false);
+229:  const [isZenActive, setIsZenActive] = useState(false);
+230:  const [showZenPrompt, setShowZenPrompt] = useState(false);
+233:  const [isSpaceMode, setIsSpaceMode] = useState(false);
+234:  const [spaceVideoUrl, setSpaceVideoUrl] = useState('https://www.youtube.com/watch?v=xRPjKQtRKT8');
+237:  const [isLogoSpinning, setIsLogoSpinning] = useState(false);
+240:  const [cappedNotification, setCappedNotification] = useState(false);
+242:  const [showStudyRoom, setShowStudyRoom] = useState(false);
+244:  useEffect(() => {
+264:  const setActiveTab = useCallback((tab: MobileTab) => {
+268:  const handleTabChange = useCallback((tab: MobileTab) => {
+287:  useEffect(() => {
+302:  useEffect(() => {
+315:  useEffect(() => {
+321:  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+322:  const [isSubjectManagerOpen, setIsSubjectManagerOpen] = useState(false);
+325:  const [isSidePanelCollapsed, setIsSidePanelCollapsed] = useState(false);
+331:  const dailyTotalMs = useMemo(() => {
+337:  useEffect(() => {
+460:  useEffect(() => {
+500:  useEffect(() => {
+520:  const handleSessionComplete = useCallback(() => {
+524:  const handleUpdateDurations = useCallback((newDurations: TimerDurations) => {
+530:  const handleTargetHoursChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+538:  const handleDayStartHourChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+545:  const handleZenToggle = useCallback(() => {
+552:  const handleWallpaperChange = useCallback((url: string) => {
+558:  const handleShowWallpaperToggle = useCallback(() => {
+565:  const handleAccentChange = useCallback((newAccent: string) => {
+570:  const handleSync = useCallback(async () => {
+698:  useEffect(() => {
+751:  useEffect(() => {
+774:  const todaySessions = useMemo(() => allSessions.filter(s => s.dateString === getLocalDateString()), [allSessions]);
+775:  const currentSubjectTodayTotal = useMemo(() => {
+779:  const todaysTasks = useMemo(() => {
+784:  const handleStartRequest = useCallback(() => {
+800:  useEffect(() => {
+902:    const [inputValue, setInputValue] = useState('');
+903:    const [isShaking, setIsShaking] = useState(false);
