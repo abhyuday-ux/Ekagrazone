@@ -101,7 +101,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
   const { currentSound, isPlaying, volume, allSounds, playSound, setVolume, togglePlay, addCustomSound, removeCustomSound } = useSound();
   
   // --- PIP LOGIC ---
-  const getPipHTML = () => {
+  const getPipHTML = (): string => {
     const subject = subjects.find(s => s.id === currentSubjectId);
     const subjectName = subject?.name || 'No Subject';
     const color = subject?.color || '#06b6d4';
@@ -112,166 +112,282 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(({
     const now = new Date();
     const timeNow = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     const randomQuote = FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)];
-    
-    // Pomodoro ring SVG
     const r = 36;
     const circ = 2 * Math.PI * r;
     
     // Re-calculating progress for PiP since we don't have progressPercent directly in scope
-    let progress = 0;
+    let progressPercent = 0;
     if (status !== 'idle' && isTimerMode) {
         const currentDurationMs = (mode === 'short-break' ? durations.shortBreak : mode === 'long-break' ? durations.longBreak : durations.pomodoro) * 60000;
-        progress = Math.min(1, elapsedMs / currentDurationMs);
+        progressPercent = Math.min(1, elapsedMs / currentDurationMs);
     }
-    const offset = circ * (1 - progress);
-    
+    const offset = circ * (1 - progressPercent);
     const isGlass = pipTheme === 'glass';
     const bg = isGlass ? 'rgba(15,23,42,0.7)' : '#0f172a';
     const border = isGlass ? '1px solid rgba(255,255,255,0.12)' : `1px solid ${color}30`;
     const backdropFilter = isGlass ? 'blur(20px)' : 'none';
+    const statusText = status === 'running' ? '🟢 Active' : status === 'paused' ? '⏸ Paused' : '⏹ Idle';
+    const showRing = mode === 'pomodoro' && pipSize !== 'sm';
+    const ringPercent = Math.round(progressPercent * 100);
+    const showStats = pipSize !== 'sm';
+    const showQuote = pipSize !== 'sm';
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          body {
-            font-family: 'Inter', system-ui, sans-serif;
-            background: ${bg};
-            backdrop-filter: ${backdropFilter};
-            border: ${border};
-            border-radius: 16px;
-            overflow: hidden;
-            color: white;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            user-select: none;
-          }
-          @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;700&display=swap');
-          .mono { font-family: 'JetBrains Mono', monospace; }
-          
-          /* Glass shimmer */
-          body::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            pointer-events: none;
-          }
+    // Return using backtick template literal
+    return `<!DOCTYPE html>
+<html>
+<head>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, sans-serif;
+  background: ${bg};
+  backdrop-filter: ${backdropFilter};
+  border: ${border};
+  border-radius: 16px;
+  overflow: hidden;
+  color: white;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+body::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent);
+  pointer-events: none;
+}
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.logo {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+}
+.time-now {
+  font-size: 11px;
+  font-family: monospace;
+  color: rgba(255,255,255,0.35);
+}
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: ${status === 'running' ? '#10b981' : '#ef4444'};
+  ${status === 'running' ? 'animation: pulse 2s infinite;' : ''}
+}
+@keyframes pulse {
+  0%,100%{opacity:1}50%{opacity:0.4}
+}
+.body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  gap: 12px;
+}
+.subject-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.subject-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: ${color};
+  flex-shrink: 0;
+  box-shadow: 0 0 6px ${color}80;
+}
+.subject-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mode-badge {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: ${color}20;
+  color: ${color};
+  border: 1px solid ${color}30;
+  flex-shrink: 0;
+}
+.timer {
+  font-size: ${pipSize === 'sm' ? '32px' : '42px'};
+  font-weight: 900;
+  font-family: monospace;
+  color: white;
+  line-height: 1;
+  margin-bottom: 6px;
+  letter-spacing: -1px;
+  text-shadow: 0 0 20px ${color}60;
+}
+.stats-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.stat { display: flex; flex-direction: column; gap: 1px; }
+.stat-value {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: monospace;
+  color: rgba(255,255,255,0.85);
+}
+.stat-label {
+  font-size: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.3);
+}
+.controls { display: flex; gap: 6px; align-items: center; }
+.btn {
+  border: none;
+  cursor: pointer;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.15s;
+  padding: 6px 10px;
+}
+.btn:hover { opacity: 0.85; }
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: ${color}; color: white; flex: 1; }
+.btn-stop {
+  background: rgba(239,68,68,0.15);
+  color: #f87171;
+  border: 1px solid rgba(239,68,68,0.2);
+  flex: 1;
+}
+.footer {
+  padding: 6px 14px 10px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.quote {
+  font-size: 9px;
+  color: rgba(255,255,255,0.25);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.info-section { flex: 1; min-width: 0; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div style="display:flex;align-items:center;gap:6px;">
+    <div class="status-dot"></div>
+    <span class="logo">EKAGRAZONE</span>
+  </div>
+  <span class="time-now">${timeNow}</span>
+</div>
 
-          .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 14px 6px;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-          }
-          .logo { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.4); }
-          .time-now { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: rgba(255,255,255,0.35); }
-          .status-dot {
-            width: 6px; height: 6px; border-radius: 50%;
-            background: ${status === 'running' ? '#10b981' : '#ef4444'};
-            ${status === 'running' ? 'animation: pulse 2s infinite;' : ''}
-          }
-          @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+<div class="body">
+  ${showRing ? `
+  <div style="flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+    <svg width="88" height="88" viewBox="0 0 88 88">
+      <circle cx="44" cy="44" r="${r}"
+        fill="none"
+        stroke="rgba(255,255,255,0.06)"
+        stroke-width="7"/>
+      <circle cx="44" cy="44" r="${r}"
+        fill="none"
+        stroke="${color}"
+        stroke-width="7"
+        stroke-linecap="round"
+        stroke-dasharray="${circ}"
+        stroke-dashoffset="${offset}"
+        transform="rotate(-90 44 44)"
+        style="filter:drop-shadow(0 0 6px ${color}80)"/>
+      <text x="44" y="48"
+        text-anchor="middle"
+        fill="white"
+        font-size="13"
+        font-weight="700"
+        font-family="monospace">
+        ${ringPercent}%
+      </text>
+    </svg>
+  </div>
+  ` : ''}
 
-          .body { flex: 1; display: flex; align-items: center; padding: 8px 14px; gap: 12px; }
-          .ring-section { flex-shrink: 0; display: ${pipSize === 'sm' ? 'none' : 'flex'}; align-items: center; justify-content: center; }
-          .info-section { flex: 1; min-width: 0; }
-          
-          .subject-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-          .subject-dot { width: 8px; height: 8px; border-radius: 50%; background: ${color}; flex-shrink: 0; box-shadow: 0 0 6px ${color}80; }
-          .subject-name { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-          .mode-badge { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; padding: 1px 5px; border-radius: 4px; background: ${color}20; color: ${color}; border: 1px solid ${color}30; flex-shrink: 0; }
+  <div class="info-section">
+    <div class="subject-row">
+      <div class="subject-dot"></div>
+      <span class="subject-name">${subjectName}</span>
+      <span class="mode-badge">${modeLabel}</span>
+    </div>
 
-          .timer { font-size: ${pipSize === 'sm' ? '32px' : '42px'}; font-weight: 900; font-family: 'JetBrains Mono', monospace; color: white; line-height: 1; margin-bottom: 6px; letter-spacing: -1px; text-shadow: 0 0 20px ${color}60; }
-          
-          .stats-row { display: flex; gap: 10px; margin-bottom: 8px; }
-          .stat { display: flex; flex-direction: column; gap: 1px; }
-          .stat-value { font-size: 12px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: rgba(255,255,255,0.85); }
-          .stat-label { font-size: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.3); }
+    <div class="timer">${timeStr}</div>
 
-          .controls { display: flex; gap: 6px; align-items: center; }
-          .btn { border: none; cursor: pointer; border-radius: 8px; font-weight: 700; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.15s; padding: 6px 10px; }
-          .btn:hover { opacity: 0.85; transform: scale(1.02); }
-          .btn:active { transform: scale(0.98); }
-          .btn-primary { background: ${color}; color: white; flex: 1; }
-          .btn-stop { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.2); flex: 1; }
-          
-          .footer { padding: 6px 14px 10px; border-top: 1px solid rgba(255,255,255,0.05); }
-          .quote { font-size: 9px; color: rgba(255,255,255,0.25); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: ${pipSize === 'sm' ? 'none' : 'block'}; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div style="display:flex;align-items:center;gap:6px;">
-            <div class="status-dot"></div>
-            <span class="logo">EkagraZone</span>
-          </div>
-          <span class="time-now">\${timeNow}</span>
-        </div>
+    ${showStats ? `
+    <div class="stats-row">
+      <div class="stat">
+        <span class="stat-value">${todayStr}</span>
+        <span class="stat-label">Today</span>
+      </div>
+      <div class="stat" 
+        style="border-left:1px solid rgba(255,255,255,0.08);
+        padding-left:10px;">
+        <span class="stat-value" style="color:${color}">
+          ${statusText}
+        </span>
+        <span class="stat-label">Status</span>
+      </div>
+    </div>
+    ` : ''}
 
-        <div class="body">
-          \${mode === 'pomodoro' && pipSize !== 'sm' ? \`
-          <div class="ring-section">
-            <svg width="88" height="88" viewBox="0 0 88 88">
-              <circle cx="44" cy="44" r="\${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="7"/>
-              <circle cx="44" cy="44" r="\${r}" fill="none" stroke="\${color}" stroke-width="7" stroke-linecap="round" stroke-dasharray="\${circ}" stroke-dashoffset="\${offset}" transform="rotate(-90 44 44)" style="filter:drop-shadow(0 0 6px \${color}80)"/>
-              <text x="44" y="48" text-anchor="middle" fill="white" font-size="13" font-weight="700" font-family="JetBrains Mono,monospace">\${Math.round(progress * 100)}%</text>
-            </svg>
-          </div>
-          \` : ''}
+    <div class="controls">
+      <button class="btn btn-primary" id="ppBtn">
+        ${status === 'running' ? '⏸ Pause' : '▶ Resume'}
+      </button>
+      <button class="btn btn-stop" id="stopBtn">
+        ⏹ Stop
+      </button>
+    </div>
+  </div>
+</div>
 
-          <div class="info-section">
-            <div class="subject-row">
-              <div class="subject-dot"></div>
-              <span class="subject-name">\${subjectName}</span>
-              <span class="mode-badge">\${modeLabel}</span>
-            </div>
-            
-            <div class="timer">\${timeStr}</div>
-            
-            \${pipSize !== 'sm' ? \`
-            <div class="stats-row">
-              <div class="stat">
-                <span class="stat-value">\${todayStr}</span>
-                <span class="stat-label">Today</span>
-              </div>
-              <div class="stat" style="border-left:1px solid rgba(255,255,255,0.08);padding-left:10px;">
-                <span class="stat-value" style="color:\${color}">
-                  \${status === 'running' ? '🟢 Active' : status === 'paused' ? '⏸ Paused' : '⏹ Idle'}
-                </span>
-                <span class="stat-label">Status</span>
-              </div>
-            </div>
-            \` : ''}
+${showQuote ? `
+<div class="footer">
+  <div class="quote">"${randomQuote}"</div>
+</div>
+` : ''}
 
-            <div class="controls">
-              <button class="btn btn-primary" id="playPauseBtn">
-                \${status === 'running' ? '⏸ Pause' : '▶ Resume'}
-              </button>
-              <button class="btn btn-stop" id="stopBtn">
-                ⏹ Stop
-              </button>
-            </div>
-          </div>
-        </div>
-
-        \${pipSize !== 'sm' ? \`
-        <div class="footer">
-          <div class="quote">"\${randomQuote}"</div>
-        </div>
-        \` : ''}
-
-        <script>
-          document.getElementById('playPauseBtn').addEventListener('click', () => { window.opener?.postMessage({ type: 'PIP_ACTION', action: 'togglePlayPause' }, '*'); });
-          document.getElementById('stopBtn').addEventListener('click', () => { window.opener?.postMessage({ type: 'PIP_ACTION', action: 'stop' }, '*'); });
-        </script>
-      </body>
-      </html>
-    `;
+<script>
+  document.getElementById('ppBtn')
+    .addEventListener('click',function(){
+      window.opener && window.opener.postMessage(
+        {type:'PIP_ACTION',action:'togglePlayPause'},'*');
+    });
+  document.getElementById('stopBtn')
+    .addEventListener('click',function(){
+      window.opener && window.opener.postMessage(
+        {type:'PIP_ACTION',action:'stop'},'*');
+    });
+</script>
+</body>
+</html>`;
   };
 
   const openPip = async () => {
